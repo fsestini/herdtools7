@@ -3402,6 +3402,81 @@ module Make
         else
           do_stg >>| do_stz >>= M.ignore >>= B.next1T
 
+      (* ST64B
+         See: https://developer.arm.com/documentation/ddi0602/2025-03/Base-Instructions/ST64B--Single-copy-atomic-64-byte-store-without-status-result-?lang=en
+
+         This is a partial implementation. The main thing that is missing is
+         atomicity. The specification of ST64B requires that all data is written
+         atomically. In this implementation, only the individual writes
+         of each doubleword are atomic. It doesn't seem possible to write
+         the whole data with a single `write_mem_atomic` invocation
+         (since the size parameter only goes up to 128 bits of the 512 needed).
+         There might be a way to manually set up atomic barriers around the
+         loop that I'm not aware about.
+
+         Moreover, this implementation also operationally diverges a bit from
+         the "operation" specified by the manual.
+         In the manual, a 512 bits-long chunk of memory is declared and
+         iteratively initialized with data from the registers. The whole chunk
+         is then written to memory with a single operation (which probably hides
+         several operations under the hood):
+
+           bits(512) data;
+           for i = 0 to 7
+               value = X[t+i, 64];
+               [...]
+               data<63+64*i : 64*i> = value;
+
+           [...]
+
+           MemStore64B(address, data, accdesc);
+
+         I tried to replicate the code above for `st64b`, but I could not find
+         a way to neither declare nor use a chunk of memory data that is
+         512 bits long (readable/writable values in general are tied to
+         `MachSize.sz` which, understandably, is limited to 128).
+
+         Instead, I opted for explicitly invoking 8 separate memory write
+         operations, one for each iteration. Something roughly equivalent to:
+
+           for i = 0 to 7
+               value = X[t+i, 64];
+               MemStore(address + i * 8, value);
+      *)
+      let st64b (rt : AArch64Base.reg) rn ii =
+        let (let*) = (>>=) in
+        (* Each iteration of the loop takes data from the g.p. register R(t+i)
+           for i in [0,...,7]. I could not find a way to compute the "+ i"
+           operation on register ids (i.e. terms of type AArch64Base.reg) that
+           was already implemented in the library/this module, so I implemented a
+           very hacky approximation using list indexing.
+
+           NOTE: is there a library fn already implemented to do this?
+           *)
+        let offset_reg (i : int) (r : AArch64Base.reg) : AArch64Base.reg =
+          let ix = List.find_index (fun x -> x = r) (AArch64Base.all_gprs) in
+          match ix with
+          | Some ix -> List.nth (AArch64Base.all_gprs) (ix + i)
+          | None -> failwith "offset_reg"
+        in
+        let sz = MachSize.Quad in
+        let* base_addr = read_reg_ord rn ii in
+        let rec loop i =
+          if i < 8 then
+            let offset = i * MachSize.nbytes sz in
+            let addr = M.op1 (Op.AddK offset) base_addr in
+            let reg = offset_reg i rt in
+            let v = read_reg_ord reg ii in
+            let* _ =
+              lift_memop rn Dir.W false false
+                (fun ac ma mv -> (ma >>| mv) >>= fun (a,v) ->
+                  write_mem_atomic sz Annot.N aexp ac a v V.zero ii)
+                (to_perms "w" sz) addr v Annot.N ii
+            in loop (i + 1)
+          else M.unitT ()
+        in
+        loop 0
+
       let stzg = do_stzg Once
       and stz2g = do_stzg Twice
 
@@ -4497,6 +4572,9 @@ module Make
             ldxp (tr_variant v) t r1 r2 r3 ii
         | I_STXP (v,t,r1,r2,r3,r4) ->
             stxp (tr_variant v) t r1 r2 r3 r4 ii
+(* Single-copy atomic 64-byte load/store *)
+        | I_ST64B (rt, rn) ->
+            st64b rt rn ii
 (*
  * Read/Write system registers.
  * Notice thar NZCV is special:

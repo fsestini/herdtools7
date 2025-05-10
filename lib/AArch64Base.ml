@@ -1392,6 +1392,8 @@ type 'k kinstruction =
   | I_STLR of variant * reg * reg
   | I_STXR of variant * st_type * reg * reg * reg
   | I_STXP of variant * st_type * reg * reg * reg * reg
+  (* ST64B <Xt>, <Xn> *)
+  | I_ST64B of reg * reg
 (* Scalable Vector Extension*)
   (* PTRUE <Pd>.<T>{, <pattern>} *)
   | I_PTRUE of reg * pattern
