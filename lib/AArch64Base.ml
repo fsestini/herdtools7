@@ -1581,6 +1581,8 @@ type 'k kinstruction =
   | I_ADD_SV of reg * reg * reg
   (* NEG <Zd>.<T>, <Pg>/M, <Zn>.<T> *)
   | I_NEG_SV of reg * reg * reg
+  (* AND <Zd>.<T>, <Pg>/M, <Zm>.<T>, vectors, predicated *)
+  | I_AND of reg * reg * reg
   (* MOVPRFX <Zd>.<T>, <Pg>/<ZM>, <Zn>.<T> *)
   | I_MOVPRFX of reg * reg * reg
   (* EOR <Zd>.D, <Zn>.D, <Zm>.D, vectors, unpredicated *)

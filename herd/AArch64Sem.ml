@@ -2545,6 +2545,57 @@ module Make
             (M.unitT orig) >>= fun v ->
               write_reg_scalable dst v ii
 
+      (* AND (vectors, predicated)
+         See https://developer.arm.com/documentation/ddi0602/2025-03/SVE-Instructions/AND--vectors--predicated---Bitwise-AND-vectors--predicated--?lang=en
+
+         The implementation of this instruction closely follows that of `neg`,
+         which is another vector and predicated instruction with a similar
+         structure.
+      *)
+      let and_sv dst pg src ii =
+        let (let*) = (>>=) in
+        (* NOTE: these sizes are copied from `neg`.
+           Not quite sure if they make sense here. *)
+        let nelem = predicate_nelem src in
+        let psize = predicate_psize src in
+        let esize = scalable_esize dst in
+        let* (orig,pred) =
+          read_reg_scalable false dst ii >>|
+          read_reg_predicate false pg ii
+        in
+        let* any = get_predicate_any pred psize nelem in
+        let* v = M.choiceT
+          any
+          (let* src = read_reg_scalable false src ii in
+           let do_and orig cur_val idx =
+              let* last = get_predicate_last pred psize idx in
+              (* Check whether the current element at index 'idx' is active.
+                 B1.4.5.3: When a Governing predicate element is FALSE,
+                 the corresponding element in other vector or predicate operands
+                 is an Inactive element. *)
+              let* v =
+                M.choiceT
+                  last
+                  (let* (el1, el2) =
+                     scalable_getlane orig idx esize >>|
+                     scalable_getlane cur_val idx esize
+                   in
+                   M.op Op.And el1 el2)
+                  (* Inactive elements in the destination vector register remain unmodified. *)
+                  (scalable_getlane orig idx esize)
+              in
+              scalable_setlane cur_val idx esize v
+           in
+           let rec reduce orig n op =
+           match n with
+           | 0 -> op >>= fun old_val -> do_and orig old_val n
+           | _ -> reduce orig (n-1) (op >>= fun old_val -> do_and orig old_val n)
+           in
+           reduce orig (nelem-1) (M.unitT src))
+          (M.unitT orig)
+        in
+        write_reg_scalable dst v ii
+
       let neg dst pg src ii =
         let nelem = predicate_nelem src in
         let psize = predicate_psize src in
@@ -3935,6 +3986,9 @@ module Make
         | I_NEG_SV(r1,pg,r2) ->
           check_sve inst;
           !(neg r1 pg r2 ii)
+        | I_AND(r1,pg,r2) ->
+          check_sve inst;
+          !(and_sv r1 pg r2 ii)
         | I_MOV_SV(r,k,shift) ->
           check_sve inst;
           !(mov_sv r k shift ii)
