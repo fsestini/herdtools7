@@ -2132,6 +2132,8 @@ let do_pp_instruction m =
       pp_mem ("STLR"^pp_bh bh) V32 r1 r2 m.k0
   | I_STXRBH (bh,t,r1,r2,r3) ->
       pp_stxr (strbh_memo bh t) V32 r1 r2 r3
+  | I_ST64B (rt, rn) ->
+      sprintf "ST64B %s,%s" (pp_reg rt) (pp_reg rn)
 (* Neon Extension Load and Store *)
   | I_LD1 (rs,i,r2,kr) ->
       pp_vmem_s "LD1" rs i r2 kr
@@ -2276,6 +2278,8 @@ let do_pp_instruction m =
       sprintf "ADDVL %s,%s,%s" (pp_xreg r1) (pp_xreg r2) (m.pp_k k1)
   | I_CNT_INC_SVE (op,r,pat,k) ->
       pp_cnt_inc op r pat k
+  | I_AND (rt, pg, rn) ->
+      sprintf "AND %s,%s,%s" (pp_reg rt) (pp_reg pg) (pp_reg rn)
 (* Scalable Matrix Extention *)
   | I_LD1SPT (v,r,ri,k,p,ra,idx) ->
       sprintf "LD1%s {%s[%s,%s]},%s,%s" (pp_simd_variant v) (pp_zareg r) (pp_wreg ri) (m.pp_k k) (pp_preg p) (pp_addr ra idx)
@@ -2481,6 +2485,8 @@ let do_pp_instruction m =
       pp_mem_idx  "STG" V64 rt rn idx
   | I_STZG (rt,rn,idx) ->
       pp_mem_idx "STZG" V64 rt rn idx
+  | I_STZGM (rt, rn) ->
+      sprintf "STZG %s,%s" (pp_reg rt) (pp_reg rn)
   | I_STZ2G (rt,rn,idx) ->
       pp_mem_idx "STZ2G" V64 rt rn idx
   | I_LDG (rt,rn,k) ->
@@ -2606,6 +2612,7 @@ let fold_regs (f_regs,f_sregs) =
   | I_STZ2G (r1,r2,_) | I_STG (r1,r2,_)
   | I_ALIGND (r1,r2,_) | I_ALIGNU (r1,r2,_)
   | I_ADDVL (r1,r2,_)
+  | I_STZGM (r1,r2) | I_ST64B (r1,r2)
     -> fold_reg r1 (fold_reg r2 c)
   | I_MRS (r,sr) | I_MSR (sr,r)
     -> fold_reg (SysReg sr) (fold_reg r c)
@@ -2646,6 +2653,7 @@ let fold_regs (f_regs,f_sregs) =
   | I_WHILELT (r1,_,r2,r3) | I_WHILELE (r1,_,r2,r3) | I_WHILELO (r1,_,r2,r3) | I_WHILELS (r1,_,r2,r3)
   | I_INDEX_SS(r1,_,r2,r3)
   | I_UADDV (_,r1,r2,r3) | I_ADD_SV (r1,r2,r3) | I_NEG_SV (r1,r2,r3) | I_MOVPRFX (r1,r2,r3) | I_OP3_SV (_,r1,r2,r3)
+  | I_AND (r1,r2,r3)
     -> fold_reg r1 (fold_reg r2 (fold_reg r3 c))
   | I_LDP (_,_,r1,r2,r3,_)
   | I_LDPSW (r1,r2,r3,_)
@@ -2772,6 +2780,8 @@ let map_regs f_reg f_symb =
       I_STXRBH (bh,t,map_reg r1,map_reg r2,map_reg r3)
   | I_STXP (v,t,r1,r2,r3,r4) ->
      I_STXP (v,t,map_reg r1,map_reg r2,map_reg r3,map_reg r4)
+  | I_ST64B (r1, r2) -> I_ST64B (map_reg r1, map_reg r2)
+  | I_STZGM (r1, r2) -> I_STZGM (map_reg r1, map_reg r2)
 (* Neon Extension Loads and Stores *)
   | I_LD1 (rs,i,r2,kr) ->
       I_LD1 (List.map map_reg rs, i, map_reg r2, map_kr kr)
@@ -2896,6 +2906,7 @@ let map_regs f_reg f_symb =
       I_ADD_SV (map_reg r1,map_reg r2,map_reg r3)
   | I_NEG_SV (r1,r2,r3) ->
       I_NEG_SV (map_reg r1,map_reg r2,map_reg r3)
+  | I_AND (r1,r2,r3) -> I_AND (map_reg r1, map_reg r2, map_reg r3)
   | I_MOVPRFX (r1,r2,r3) ->
       I_MOVPRFX (map_reg r1,map_reg r2,map_reg r3)
   | I_OP3_SV (op,r1,r2,r3) ->
@@ -3166,6 +3177,7 @@ let get_next =
   | I_PAC _ | I_AUT _
   | I_XPACI _ | I_XPACD _
     -> [Label.Next;]
+  | I_AND _ | I_ST64B _ | I_STZGM _ -> failwith "NIY"
 
 (* Check instruction validity, beyond parsing *)
 
@@ -3560,6 +3572,7 @@ module PseudoI = struct
         | I_STR (v,r1,r2,idx) -> I_STR (v,r1,r2,ext_tr idx)
         | I_STG (r1,r2,k) -> I_STG (r1,r2,idx_tr k)
         | I_STZG (r1,r2,k) -> I_STZG (r1,r2,idx_tr k)
+        | I_STZGM (r1, r2) -> I_STZGM (r1, r2)
         | I_STZ2G (r1,r2,k) -> I_STZ2G (r1,r2,idx_tr k)
         | I_LDG (r1,r2,k) -> I_LDG (r1,r2,k_tr k)
         | I_LDRBH (v,r1,r2,idx) -> I_LDRBH (v,r1,r2,ext_tr idx)
@@ -3616,6 +3629,8 @@ module PseudoI = struct
         | I_OP3_SIMD (op,r1,r2,r3) -> I_OP3_SIMD (op,r1,r2,r3)
         | I_ADD_SIMD (r1,r2,r3) -> I_ADD_SIMD (r1,r2,r3)
         | I_ADD_SIMD_S (r1,r2,r3) -> I_ADD_SIMD_S (r1,r2,r3)
+        | I_AND (r1,r2,r3) -> I_AND (r1,r2,r3)
+        | I_ST64B (r1,r2) -> I_ST64B (r1,r2)
         | I_SVC k -> I_SVC (k_tr k)
         | I_UDF k -> I_UDF (k_tr k)
         | I_MOV_SV (r,k,s) -> I_MOV_SV (r,k_tr k,ap_shift k_tr s)
@@ -3756,6 +3771,7 @@ module PseudoI = struct
           -> 16 * List.length rs (* upper bound *)
         | I_LD1SPT _ | I_ST1SPT _
           -> 16
+        | I_AND _ | I_ST64B _ | I_STZGM _ -> failwith "NIY"
 
 
       let size_of_ins _ = 4
