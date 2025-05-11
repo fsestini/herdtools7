@@ -2647,7 +2647,7 @@ module Make
           write_reg_predicate p new_val ii >>|
           ( let last idx = get_predicate_last new_val psize idx in
             (* Fisrt active *)
-            let>= n = last 0 
+            let>= n = last 0
             and* z =
               let rec reduce idx op = match idx with
               | 0 ->  op >>| last idx >>= fun (v1,v2) -> M.op Op.Or v1 v2
