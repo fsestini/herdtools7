@@ -3445,6 +3445,7 @@ module Make
       *)
       let st64b (rt : AArch64Base.reg) rn ii =
         let (let*) = (>>=) in
+
         (* Each iteration of the loop takes data from the g.p. register R(t+i)
            for i in [0,...,7]. I could not find a way to compute the "+ i"
            operation on register ids (i.e. terms of type AArch64Base.reg) that
@@ -3459,6 +3460,7 @@ module Make
           | Some ix -> List.nth (AArch64Base.all_gprs) (ix + i)
           | None -> failwith "offset_reg"
         in
+
         let sz = MachSize.Quad in
         let* base_addr = read_reg_ord rn ii in
         let rec loop i =
@@ -3470,12 +3472,115 @@ module Make
             let* _ =
               lift_memop rn Dir.W false false
                 (fun ac ma mv -> (ma >>| mv) >>= fun (a,v) ->
+                  (* Not quite sure if `aexp` makes sense here, or what is
+                     the meaning of this parameter in general. *)
                   write_mem_atomic sz Annot.N aexp ac a v V.zero ii)
                 (to_perms "w" sz) addr v Annot.N ii
             in loop (i + 1)
           else M.unitT ()
         in
         loop 0
+
+      (* STZGM
+         See: https://developer.arm.com/documentation/ddi0602/2025-03/Base-Instructions/STZGM--Store-Allocation-Tag-and-zero-multiple-?lang=en
+
+         The tag and memory write operations are partially inspired by
+         the semantics of `stz` and `stg` in this module.
+
+         As far as I understand, `stz` and `stg` stand for "store zeros"
+         and "store allocation tag". Since STZGM represents
+
+         Since STZGM is meant to perform a "store Allocation Tag and zero"
+         operation over multiple memory blocks, one could think of implementing
+         this instruction by combining `stz` and `stg` in some way.
+         Perhaps this is possible and indeed the right approach. I personally
+         opted for implementing the bulk of `stzgm` from scratch because I
+         felt the way `stz`/`stg` handled allocation tags was quite different
+         and incompatible with how STZGM is specified in the manual.
+
+         From the STZGM entry in the instruction set manual:
+
+         "[...] the Allocation Tag is taken from the source register bits<3:0>."
+
+         Whereas in the case of STZG:
+
+         "The Allocation Tag is calculated from the Logical Address Tag in the
+         source register."
+      *)
+      let stzgm rt rn ii =
+        let (let*) = (>>=) in
+
+        (* We calculate 2^v by shifting 1 to the left, v times.
+           NOTE: Is there a library fn to do this already? *)
+        let pow_2 v = M.op Op.ShiftLeft V.one v in
+
+        let log2_tag_granule = MachSize.granule_log2bytes in
+
+        (* The manual reads:
+             "[...] the size of N is identified in DCZID_EL0.BS [...]"
+
+           Moreover, from the Reference Manual, D24.2.39 "DCZID_EL0, Data Cache Zero ID Register":
+             BS, bits [3:0]
+               Log2 of the block size in words.
+
+           We thus calculate BS by DCIZ_EL0 AND ..0001111.
+        *)
+        let* el0_bs =
+          let* el0 = read_reg_ord AArch64.(SysReg DCIZ_EL0) ii in
+          M.op Op.And el0 (V.intToV 15)
+        in
+
+        (* From the manual:
+           integer Align(integer x, integer y)
+             return y * (x DIV y);
+           NOTE: is there a library fn to do this already?
+        *)
+        let align a sz = M.op Op.Div a sz >>= M.op Op.Mul sz in
+
+        (*
+           NOTE: The manual reads:
+           "[...] the Allocation Tag is taken from the source register bits<3:0>."
+           where data = X[t,64]
+           How can we extract the lower 4 bits? To we actually need to do
+           that? I.e., do instructions to store tags even take into account
+           any bit beyond the first 4?
+
+           My hacky attempt, just to be sure, is to do `v AND ..001111`
+           so that any non-relevant bits get masked away.
+        *)
+        let extract_tag v = M.op Op.And v (V.intToV 15) in
+        let* data = read_reg_ord rt ii in
+
+        let* tag = extract_tag data in
+        let* base_addr = read_reg_ord rn ii in
+        (* size = 4 * (2 ^ (UInt(DCZID_EL0.BS))) in *)
+        let* size = pow_2 el0_bs >>= M.op Op.Mul (V.intToV 4) in
+        (* address = Align(address, size); *)
+        let* base_addr = align base_addr size in
+        (* count = size >> LOG2_TAG_GRANULE; *)
+        let* count = M.op Op.ShiftRight size (V.intToV log2_tag_granule) in
+        let rec loop (i : v) addr =
+          let* b = M.op Op.Lt i count in
+          M.choiceT b
+            begin
+              (* AArch64.MemTag[address, accdesc] = tag; *)
+              let* _ = do_write_tag addr tag ii in
+              (* Mem[address, TAG_GRANULE, accdesc] = Zeros(8*TAG_GRANULE); *)
+              let* _ =
+                let mop = do_write_mem MachSize.granule Annot.N aexp in
+                lift_memop rn Dir.W true false
+                  (fun ac ma mv -> (ma >>| mv) >>= fun (a,v) -> mop ac a v ii)
+                  (to_perms "w" MachSize.granule)
+                  (* NOTE: I'm assuming `mzero` here is enough and specifying
+                     the size - like `Zeros(8*TAG_GRANULE)` - isn't needed. *)
+                  (M.unitT addr) mzero Annot.N ii
+              in
+              (* address = AddressIncrement(address, TAG_GRANULE, accdesc); *)
+              let* addr = add_size addr MachSize.granule in
+              M.add i V.one >>= fun i' -> loop i' addr
+            end
+            B.nextT
+        in loop V.zero base_addr
 
       let stzg = do_stzg Once
       and stz2g = do_stzg Twice
@@ -3752,6 +3857,9 @@ module Make
         | I_STZG(rt,rn,(k,Idx)) ->
             check_memtag "STZG" ;
             stzg rt rn k ii
+        | I_STZGM(rt,rn) ->
+            check_memtag "STZGM" ;
+            stzgm rt rn ii
         | I_STZ2G(rt,rn,(k,Idx)) ->
             check_memtag "STZ2G" ;
             check_mixed "STZ2G" ;

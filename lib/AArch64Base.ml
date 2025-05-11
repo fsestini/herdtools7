@@ -1722,6 +1722,7 @@ type 'k kinstruction =
 (* Memory Tagging *)
   | I_STG of reg * reg * 'k idx
   | I_STZG of reg * reg * 'k idx
+  | I_STZGM of reg * reg
   | I_STZ2G of reg * reg * 'k idx
   | I_LDG of reg * reg * 'k
   | I_UDF of 'k
