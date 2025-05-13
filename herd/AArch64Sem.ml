@@ -2554,20 +2554,26 @@ module Make
       *)
       let and_sv dst pg src ii =
         let (let*) = (>>=) in
-        (* NOTE: these sizes are copied from `neg`.
-           Not quite sure if they make sense here. *)
-        let nelem = predicate_nelem src in
+        (* VL == scalable_nbits *)
+        (* elements = VL DIV esize; *)
+        let nelem = scalable_nelem src in
+        (* Size of single predicate element, in bits *)
         let psize = predicate_psize src in
+        (* Size of single vector element in bits *)
         let esize = scalable_esize dst in
         let* (orig,pred) =
           read_reg_scalable false dst ii >>|
           read_reg_predicate false pg ii
         in
+        (* Check if any predicate element is set to TRUE *)
         let* any = get_predicate_any pred psize nelem in
         let* v = M.choiceT
           any
           (let* src = read_reg_scalable false src ii in
            let do_and orig cur_val idx =
+              (* B1.4.5.1: If the lowest-numbered bit of a predicate element is
+                 0 (resp. 1), the value of the predicate element is FALSE
+                 (resp. TRUE). *)
               let* last = get_predicate_last pred psize idx in
               (* Check whether the current element at index 'idx' is active.
                  B1.4.5.3: When a Governing predicate element is FALSE,
@@ -2581,7 +2587,8 @@ module Make
                      scalable_getlane cur_val idx esize
                    in
                    M.op Op.And el1 el2)
-                  (* Inactive elements in the destination vector register remain unmodified. *)
+                  (* Inactive elements in the destination vector register
+                     remain unmodified. *)
                   (scalable_getlane orig idx esize)
               in
               scalable_setlane cur_val idx esize v
