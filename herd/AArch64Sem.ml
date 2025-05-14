@@ -3484,7 +3484,7 @@ module Make
                   write_mem_atomic sz Annot.N aexp ac a v V.zero ii)
                 (to_perms "w" sz) addr v Annot.N ii
             in loop (i + 1)
-          else M.unitT ()
+          else B.nextT
         in
         loop 0
 
