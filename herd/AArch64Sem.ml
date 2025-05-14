@@ -3495,8 +3495,7 @@ module Make
          the semantics of `stz` and `stg` in this module.
 
          As far as I understand, `stz` and `stg` stand for "store zeros"
-         and "store allocation tag". Since STZGM represents
-
+         and "store allocation tag".
          Since STZGM is meant to perform a "store Allocation Tag and zero"
          operation over multiple memory blocks, one could think of implementing
          this instruction by combining `stz` and `stg` in some way.
