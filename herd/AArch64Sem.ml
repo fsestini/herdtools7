@@ -3549,7 +3549,7 @@ module Make
            where data = X[t,64]
            How can we extract the lower 4 bits? To we actually need to do
            that? I.e., do instructions to store tags even take into account
-           any bit beyond the first 4?
+           any bit beyond the lowest 4?
 
            My hacky attempt, just to be sure, is to do `v AND ..001111`
            so that any non-relevant bits get masked away.
