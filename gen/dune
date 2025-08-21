@@ -1,13 +1,88 @@
+; Keep lexer/rule for local build of gen modules only
+
 (ocamllex lexUtil lexLog_gen lexConf_gen autoLex)
 
 (rule
  (copy ../Version.ml Version.ml))
 
-(executables
- (names readRelax atoms diycross mexpand atomize diyone nexts classify diy
-   norm)
- (public_names readRelax7 atoms7 diycross7 mexpand7 atomize7 diyone7 nexts7
-   classify7 diy7 norm7)
- (libraries herdtools unix)
+(library
+ (name herdtools_gen)
+ (public_name herdtools7.gen)
+ ; (wrapped false)
+ (modules
+  top_gen
+  autoInterpret
+  final
+  topUtils
+  code
+  variant_gen
+  debug_gen
+  config
+  archExtra_gen
+  ; lineUtils
+  ; cDep
+  ; classicDep
+  dep
+  genUtils
+  noInfo
+  ; normaliser
+  ; noEdge
+  ; noMixed
+  ; noRmw
+  ; noSIMD
+  ; noSpecial
+  ; varAtomic
+  ; machAtom
+  ; alt
+  ; autoBase
+  ; autoCom
+  ; mexpand
+  ; readRelax
+  relax
+  ; atomize
+  pteVal_gen
+  scope
+  ; exch
+  edge
+  util
+  typBase
+  ; autoArch
+  atom
+  ; noWide
+  fence
+  lexUtil
+  ; logRelax
+  arch_gen
+  ; lexLog_gen
+  version
+  showGen
+  scopeGen
+  ; autoPhase
+  ; autoInterpret
+  ; PPCArch_gen
+  ; X86Arch_gen
+  ; MIPSArch_gen
+  ; ARMArch_gen
+  rmw
+  ; autoSingle
+  ; autoMulti
+  annot
+  ; namer
+  ; dumpAll
+  dep
+  AArch64Arch_gen
+  AArch64Compile_gen
+  archRun
+  ; bellArch_gen
+  ; RISCVArch_gen
+  ; CArch_gen
+  archLoc
+  cycle
+  run_gen
+  XXXCompile_gen
+  compileCommon
+  builder
+  machMixed)
  (modules_without_implementation archLoc archRun arch_gen atom autoInterpret
-   builder fence XXXCompile_gen rmw))
+   builder fence XXXCompile_gen rmw)
+ (libraries herdtools7.lib unix))

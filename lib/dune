@@ -65,6 +65,7 @@
 
 (library
  (name herdtools)
+ (public_name herdtools7.lib)
  (wrapped false)
  (libraries str asllib zarith)
  (modules_without_implementation sign outTests AST CAst Scalar archBase
