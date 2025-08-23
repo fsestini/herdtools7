@@ -83,6 +83,8 @@ module Make : functor (O:Config) -> functor (C:ArchRun.S) ->
 (* Complement init environemt *)
     val extract_ptes : fenv -> C.A.location list
 
+    val filter_loc : (C.A.location -> C.A.location option) -> final -> final
+
   end = functor (O:Config) -> functor (C:ArchRun.S) ->
   struct
 
@@ -265,6 +267,19 @@ module Make : functor (O:Config) -> functor (C:ArchRun.S) ->
     type final = cond_final * faults * faults
 
     module Run = Run_gen.Make(O)(C)
+
+  let filter_loc (p : C.A.location -> C.A.location option) (f: final ): final =
+    (* TODO: do faults *)
+    let (cond, flts1, flts2) = f in
+    let p' (l, x) = match p l with | Some l' -> Some (l', x) | None -> None in
+    let cond = match cond with
+      | Exists fenv -> Exists (List.filter_map p' fenv)
+      | Forall fall ->
+        Forall (List.filter_map (fun ls ->
+          let ls = List.filter_map p' ls in
+          if List.is_empty ls then None else Some ls) fall)
+      | Locations locs -> Locations (List.filter_map p locs)
+    in (cond, flts1, flts2)
 
     let check f (pos_flts,neg_flts) = Exists f,pos_flts,neg_flts
     let observe f (pos_flts,neg_flts) = Locations (List.map fst f),pos_flts,neg_flts
