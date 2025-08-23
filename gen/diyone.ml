@@ -97,7 +97,7 @@ module Make(O:Config) (M:Builder.S) =
       if O.norm then
         let module Namer = Namer.Make(M.A)(M.E) in
         fun _name es ->
-	  let es = M.E.resolve_edges es in
+          let es = M.E.resolve_edges es in
           let es,_ = M.C.resolve_edges es in
           let base,es,nprocs = Normer.normalise_family es in
           let scope = get_scope nprocs in
