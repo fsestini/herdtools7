@@ -1040,4 +1040,25 @@ let make_test name ?com ?info ?check ?scope es =
   | Misc.Fatal msg|Misc.UserError msg ->
       Warn.fatal "Test %s [%s] failed:\n%s" name (pp_edges es) msg
 
+  (* TODO: very ad-hoc. rethink this. *)
+  let purge_procs (procs : int list) (t : test ): test =
+    let shift_proc p =
+      if List.mem p procs
+      then None
+      else Some (p - List.length (List.filter (fun x -> x < p) procs))
+    in
+    let prog = t.prog |> List.filteri (fun i _ -> not (List.mem i procs)) in
+    let init =
+      t.init
+      |> List.filter_map (function
+        | A.Reg (p, r), v -> shift_proc p |> Option.map (fun p -> A.Reg (p, r), v)
+        | x -> Some x)
+    in
+    let final =
+      t.final
+      |> F.filter_loc (function
+          | A.Loc _ -> None
+          | A.Reg (p, v) -> shift_proc p |> Option.map (fun p -> A.Reg (p, v)))
+    in
+    { t with prog; init; final }
 end
