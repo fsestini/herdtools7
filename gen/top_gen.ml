@@ -1041,7 +1041,7 @@ let make_test name ?com ?info ?check ?scope es =
       Warn.fatal "Test %s [%s] failed:\n%s" name (pp_edges es) msg
 
   (* TODO: very ad-hoc. rethink this. *)
-  let purge_procs (procs : int list) (t : test ): test =
+  let fix_test (procs : int list) (conds : string list) (t : test ): test =
     let shift_proc p =
       if List.mem p procs
       then None
@@ -1057,7 +1057,7 @@ let make_test name ?com ?info ?check ?scope es =
     let final =
       t.final
       |> F.filter_loc (function
-          | A.Loc _ -> None
+          | A.Loc loc -> if List.mem loc conds then Some (A.Loc loc) else None
           | A.Reg (p, v) -> shift_proc p |> Option.map (fun p -> A.Reg (p, v)))
     in
     { t with prog; init; final }

@@ -57,5 +57,5 @@ module type S = sig
 (* Dump the given test *)
   val dump_test_channel : out_channel -> test -> unit
 
-  val purge_procs : int list -> test -> test
+  val fix_test : int list -> string list -> test -> test
 end
