@@ -22,10 +22,14 @@
 
 (ocamllex lexConf_herd)
 
-(executable
- (name herd)
- (public_name herd7)
+(library
+ (name herdlib)
  (libraries unix herdtools)
+ (wrapped true)
+ (modules
+  (:standard \ herd))
+ (flags
+  (:standard -w -40-42))
  (modules_without_implementation
   AArch64Sig
   action
@@ -34,3 +38,9 @@
   sem
   XXXMem
   port))
+
+(executable
+ (name herd)
+ (public_name herd7)
+ (modules herd)
+ (libraries unix herdtools herdlib))
