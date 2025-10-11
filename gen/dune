@@ -39,3 +39,5 @@
   fence
   XXXCompile_gen
   rmw))
+
+(cram (deps %{bin:mcat2config7}))
