@@ -30,6 +30,37 @@ let prog =
   if Array.length Sys.argv > 0 then Filename.basename Sys.argv.(0)
   else "cat2config7"
 
+module Make_parser (O : sig
+  val debug : bool
+end) =
+struct
+  module ML = MyLib.Make (struct
+    let includes = []
+    let env = Some "HERDLIB"
+    let libdir = Filename.concat Version.libdir "herd"
+    let debug = O.debug
+  end)
+
+  module ParserConfig = struct
+    let debug = O.debug
+    let libfind = ML.find
+  end
+
+  module Parser = ParseModel.Make (ParserConfig)
+
+  let get_includes : AST.ins list -> string list =
+    List.filter_map (function
+      | AST.Include (_, fname) -> Some fname
+      | _ -> None)
+
+  (* Parse a cat model by file path, recursively following included iles. *)
+  let rec find_parse_deep (file_path : string) : AST.ins list =
+    let _, (_, _, ast) = Parser.find_parse file_path in
+    let includes = get_includes ast in
+    let included_asts = List.concat_map find_parse_deep includes in
+    ast @ included_asts
+end
+
 module Make (O : sig
   val verbose : int
   val lets_to_print : string list
@@ -38,18 +69,6 @@ module Make (O : sig
   val print_tree : bool
 end) =
 struct
-  module ML = MyLib.Make (struct
-    let includes = []
-    let env = Some "HERDLIB"
-    let libdir = Filename.concat Version.libdir "herd"
-    let debug = O.verbose > 0
-  end)
-
-  module ParserConfig = struct
-    let debug = O.verbose > 2
-    let libfind = ML.find
-  end
-
   module A = AArch64Arch_gen.Make (struct
     include AArch64Arch_gen.Config
 
@@ -72,9 +91,6 @@ struct
   type atom = A.atom
   type edge = E.edge
   type edge_node = { node_val : edge; branch_list : edge_node list }
-
-  module Parser = ParseModel.Make (ParserConfig)
-
   type 'a union = Union of 'a list
   type 'a sequence = Sequence of 'a list
   type 'a intersection = Intersection of 'a list | Event of 'a list
@@ -1562,21 +1578,9 @@ entry point
 ----------------------------------------------
 
 *)
-  let rec get_includes ins =
-    let open AST in
-    match ins with
-    | Include (_, fname) ->
-        let _, (_, _, ast) = Parser.find_parse fname in
-        let ast = List.concat_map get_includes ast @ ast in
-        ast
-    | _ -> []
 
-  let get_imports ast = List.concat_map get_includes ast
-
-  let zyva name =
+  let zyva (tree : AST.ins list) =
     try
-      let _, (_, _, ast) = Parser.find_parse name in
-      let tree = ast @ get_imports ast in
       let tree = ast_to_ir tree in
       let tree = solve_id tree in
       if O.print_tree then (
@@ -1626,5 +1630,11 @@ module Z = Make (struct
 end)
 
 let () =
-  List.iter Z.zyva !arg;
+  let module Parser = Make_parser (struct
+    let debug = !verbose > 0
+  end) in
+  !arg
+  |> List.iter (fun file_path ->
+         let tree = Parser.find_parse_deep file_path in
+         Z.zyva tree);
   exit 0
