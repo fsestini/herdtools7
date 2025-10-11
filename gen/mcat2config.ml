@@ -32,12 +32,18 @@ let prog =
 
 module Make_parser (O : sig
   val debug : bool
+  val libdir : string option
 end) =
 struct
   module ML = MyLib.Make (struct
     let includes = []
     let env = Some "HERDLIB"
-    let libdir = Filename.concat Version.libdir "herd"
+
+    let libdir =
+      match O.libdir with
+      | Some libdir -> libdir
+      | None -> Filename.concat Version.libdir "herd"
+
     let debug = O.debug
   end)
 
@@ -1600,6 +1606,7 @@ let unroll = ref 1
 let arg = ref []
 let setarg name = arg := !arg @ [ name ]
 let print_tree = ref false
+let libdir = ref None
 
 let opts =
   [
@@ -1617,6 +1624,9 @@ let opts =
     ( "-tree",
       Arg.Bool (fun s -> print_tree := s),
       "<true|false> print out expanded cat file" );
+    ( "-set-libdir",
+      Arg.String (fun s -> libdir := Some s),
+      "<path> set location of libdir to <path>" );
   ]
 
 let () = Arg.parse opts setarg (sprintf "Usage: %s [options]* cats*" prog)
@@ -1632,6 +1642,7 @@ end)
 let () =
   let module Parser = Make_parser (struct
     let debug = !verbose > 0
+    let libdir = !libdir
   end) in
   !arg
   |> List.iter (fun file_path ->
