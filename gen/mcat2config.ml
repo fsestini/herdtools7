@@ -252,7 +252,7 @@ struct
       | "same-instance" | "rf-reg" | "BCC" | "Rreg" | "loc"
       | "same-low-order-bits" | "IC.IALLUIS" | "IC.IALLU" | "tc-ib"
       | "sca-class" | "EXC-ENTRY" | "EXC-RET-CSE" | "PTEV" | "EXC-ENTRY-CSE"
-      | "EXC-ENTRY-IFB" ->
+      | "EXC-ENTRY-IFB" | "EXC-RET-IFB" ->
           raise (Skip (Printf.sprintf "%s not implemented" v))
       | _ -> [ Empty v ]
     in
