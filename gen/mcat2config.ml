@@ -199,7 +199,7 @@ struct
   type edge_ir =
     (* TODO: Some of these do not have to be their own type but can probably be
        merged into each other to simplify *)
-    | Tedge of E.tedge * string
+    | Tedge of E.tedge * string (* diy edge *)
     | Empty of string
     | Imp of string
     | PTE of string
