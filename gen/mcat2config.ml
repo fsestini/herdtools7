@@ -911,13 +911,8 @@ struct
     in
     ff O.unroll
 
-  let rec apply_expand tree : let_statements =
-    (* Expand operations in AST and translate AST to internal representation
-       Input:
-       - tree : (var * AST.exp) list
-       Output:
-       - let_statements : (var * ir) list
-    *)
+  let rec apply_expand (tree : (var * AST.exp) list) : let_statements =
+    (* Expand operations in AST and translate AST to internal representation *)
     let rec f (name, instr) =
       try
         match instr with
