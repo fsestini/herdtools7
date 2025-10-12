@@ -1666,14 +1666,18 @@ entry point
 
 *)
 
-  let zyva (tree : AST.ins list) =
+  let zyva ~(show : Arg.show option) (tree : AST.ins list) =
     try
       let tree = ast_to_ir tree in
       let tree = solve_id tree in
-      if O.print_tree then (
-        pp_tree tree;
-        printf "\n\n\n");
-      pp_relaxations tree
+      match show with
+      | Some TreeOnly -> pp_tree tree
+      | Some Lets -> tree |> List.map fst |> List.iter print_endline
+      | _ ->
+          if O.print_tree || show = Some Tree then (
+            pp_tree tree;
+            printf "\n\n\n");
+          pp_relaxations tree
     with
     | NotImplemented msg -> Format.printf "Error: Not Implemented: %s@." msg
     | Misc.Fatal msg -> Format.printf "Fatal Error: %s@." msg
@@ -1696,5 +1700,5 @@ let () =
   file_paths
   |> List.iter (fun file_path ->
          let tree = Parser.find_parse_deep file_path in
-         Z.zyva tree);
+         Z.zyva ~show:opts.show tree);
   exit 0
