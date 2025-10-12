@@ -197,8 +197,8 @@ struct
   type pn = Prev | Next
 
   type edge_ir =
-    (*TODO: Some of these do not have to be their own type but can probably be
-  merged into each other to simplify*)
+    (* TODO: Some of these do not have to be their own type but can probably be
+       merged into each other to simplify *)
     | Tedge of E.tedge * string
     | Empty of string
     | Imp of string
@@ -418,15 +418,9 @@ struct
     String.concat ";"
       (List.filter (fun a -> not (a = "")) (List.map pp_intersection expl))
 
+  (* Takes a list of expanded (fully inlined) let statements,
+     filters it by `lets_to_print`, and pretty-prints it to stdout. *)
   let pp_tree (tree : let_statements) : unit =
-    (* This function takes a list of let statements, in the form
-        of string * expression, and prints the expanded tree of the cat file,
-        filtered by `lets_to_print`.
-        Inputs:
-          - tree: A list of let statements, as ast type.
-        Outputs:
-          - Unit
-    *)
     let open Format in
     let pp_union fmt (name, Union ins) =
       let sequences =
@@ -530,8 +524,10 @@ struct
           expanded_hd
 
   let match_inter expl =
-    (* TODO: This function currently works by comparing the intersections' variables string and edge type to a list of strings
-    this should be improved for better code legibility and to make it more general*)
+    (* TODO: This function currently works by comparing the intersections'
+       variables string and edge type to a list of strings.
+       This should be improved for better code legibility
+       and to make it more general*)
     let has_edge s a =
       match (s, a) with
       | "R", D_atom (Dir R, _, _)
