@@ -402,9 +402,7 @@ struct
 
   let pp_sequence (Sequence expl) =
     String.concat ";"
-      (List.filter
-         (fun a -> match a with "" -> false | _ -> true)
-         (List.map pp_intersection expl))
+      (List.filter (fun a -> not (a = "")) (List.map pp_intersection expl))
 
   let pp_tree (tree : let_statements) : unit =
     (* This function takes a list of let statements, in the form
@@ -415,19 +413,21 @@ struct
         Outputs:
           - Unit
     *)
-    let pp (name, Union ins) =
-      printf "\n\n(%s)\n" name;
-      printf "   %s"
-        (String.concat "\n  |"
-           (List.filter
-              (fun a -> match a with "" -> false | _ -> true)
-              (List.map pp_sequence ins)))
+    let open Format in
+    let pp_union fmt (name, Union ins) =
+      let sequences =
+        List.filter (fun a -> not (a = "")) (List.map pp_sequence ins)
+      in
+      fprintf fmt "(%s)@." name;
+      if not (List.is_empty sequences) then
+        let pp_sep fmt () = fprintf fmt "@.  |" in
+        fprintf fmt "   %a@." (pp_print_list ~pp_sep pp_print_string) sequences
     in
     let filtered_tree =
       if List.is_empty O.lets_to_print then tree
       else List.filter (fun (name, _) -> List.mem name O.lets_to_print) tree
     in
-    List.iter pp filtered_tree
+    filtered_tree |> List.iter (fun s -> printf "%a@." pp_union s)
 
   let empty_expr = Empty ""
   let first_expr = First ""
