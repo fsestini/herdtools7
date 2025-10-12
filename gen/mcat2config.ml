@@ -153,6 +153,19 @@ struct
 
   module E = Edge.Make (Edge.Config) ((A : Fence.S))
 
+  (* Conditionally print if global verbosity level is at least the required level. *)
+  let fprintv :
+      'a. Format.formatter -> int -> ('a, Format.formatter, unit) format -> 'a =
+   fun f required_level fmt ->
+    let open Format in
+    if required_level <= O.verbose then fprintf f fmt else ifprintf f fmt
+
+  let printv : 'a. int -> ('a, Format.formatter, unit) format -> 'a =
+   fun required_level fmt -> fprintv Format.std_formatter required_level fmt
+
+  let eprintv : 'a. int -> ('a, Format.formatter, unit) format -> 'a =
+   fun required_level fmt -> fprintv Format.err_formatter required_level fmt
+
   (*
       ---------------------------------------------------------------
       Custom types
@@ -871,11 +884,11 @@ struct
         try
           Union (List.map make_sequence (union_fold_cross seq apply_match_var))
         with Skip msg ->
-          if O.verbose > 1 then
-            Format.eprintf
-              "the following sequence %s didn't generate relaxations because: %s\n"
-              (pp_sequence (Sequence seq))
-              msg;
+          eprintv 2
+            "the following sequence %s didn't generate relaxations because: \
+             %s@."
+            (pp_sequence (Sequence seq))
+            msg;
           Union [])
         expl
     in
@@ -935,14 +948,10 @@ struct
                  (Format.sprintf "Expression not supported: %s" (pp_exp instr)))
       with
       | Skip s ->
-          if O.verbose > 1 then
-            Printf.eprintf "\nlet statement (%s) not generated because of: %s\n"
-              name s;
+          eprintv 2 "\nlet statement (%s) not generated because of: %s\n" name s;
           (name, Union [])
       | NotImplemented s ->
-          if O.verbose > 0 then
-            Printf.eprintf "\nlet statement (%s) not generated because of: %s\n"
-              name s;
+          eprintv 1 "\nlet statement (%s) not generated because of: %s\n" name s;
           (name, Union [])
     in
     List.map f tree
@@ -1071,7 +1080,7 @@ struct
                (Format.sprintf "Expression not supported: %s" (pp_exp exp)))
     with
     | Skip s ->
-        if O.verbose > 1 then Format.eprintf "%s@." s;
+        eprintv 2 "%s" s;
         Union []
     | NotImplemented s | Misc.Fatal s ->
         raise (Misc.Fatal ("Fail in expand:" ^ s))
@@ -1372,10 +1381,10 @@ struct
         (fun acc a ->
           try f a :: acc with
           | NotImplemented s ->
-              if O.verbose > 0 then Format.eprintf "%s@." s;
+              eprintv 1 "%s@." s;
               acc
           | Skip s ->
-              if O.verbose > 1 then Format.eprintf "%s@." s;
+              eprintv 2 "%s@." s;
               acc)
         [] l
     in
@@ -1633,7 +1642,7 @@ struct
             | [] -> raise (Misc.Fatal "Cannot have empty edge"))
           edge
       with Skip msg ->
-        if O.verbose > 1 then Format.eprintf "%s@." msg;
+        eprintv 2 "%s@." msg;
         []
     in
     try
