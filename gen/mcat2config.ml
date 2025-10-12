@@ -1,8 +1,6 @@
 [@@@warning "-40-42"]
 (* Create a set of relaxations for diy using a cat file *)
 
-open Printf
-
 (*
 Bugs
 - FreIP output as a single relaxation when generating for -let Instr-obs. probably due to something in pp_relaxations when calculating relaxations for after's
@@ -85,7 +83,8 @@ module Arg = struct
       else "cat2config7"
     in
     let () =
-      Arg.parse opts add_file_path (sprintf "Usage: %s [options]* cats*" prog)
+      Arg.parse opts add_file_path
+        (Format.sprintf "Usage: %s [options]* cats*" prog)
     in
     let opts =
       {
@@ -357,6 +356,7 @@ struct
     | ToId -> "ToId"
 
   let pp_exp a =
+    let open Format in
     let open AST in
     match a with
     | Konst _ -> "Konst"
@@ -375,6 +375,7 @@ struct
     | If _ -> "If"
 
   let pp_edge_ir a =
+    let open Format in
     match a with
     | Tedge (_, v) -> sprintf "tedge: %s" v
     | Empty _ -> "Empty"
@@ -397,7 +398,7 @@ struct
     let exp = get_inter exp in
     match exp with
     | h :: [] -> if h = "ignore" then "" else h
-    | h :: t -> sprintf "[%s]" (String.concat "&" (h :: t))
+    | h :: t -> Format.sprintf "[%s]" (String.concat "&" (h :: t))
     | [] -> raise (Misc.Fatal "Intersection cannot have an empty list")
 
   let pp_sequence (Sequence expl) =
@@ -549,9 +550,8 @@ struct
     | [ h; h2 ] ->
         raise
           (NotImplemented
-             (sprintf "inter not implemented in matcher: %s"
-                (sprintf "[%s] "
-                   (String.concat "," (List.map pp_edge_ir [ h; h2 ])))))
+             (Format.sprintf "inter not implemented in matcher: [%s] "
+                (String.concat "," (List.map pp_edge_ir [ h; h2 ]))))
     | [ _; _; _ ] when has_edges [ "R"; "T"; "Imp" ] ->
         D_atom (Dir R, Some (A.Tag, None), "ImpTag Read")
     | [ _; _; _ ] when has_edges [ "R"; "Instr"; "Imp" ] ->
@@ -559,14 +559,13 @@ struct
     | [ h; h2; h3 ] ->
         raise
           (NotImplemented
-             (sprintf "inter not implemented in matcher: %s"
-                (sprintf "[%s] "
-                   (String.concat "," (List.map pp_edge_ir [ h; h2; h3 ])))))
+             (Format.sprintf "inter not implemented in matcher: [%s] "
+                (String.concat "," (List.map pp_edge_ir [ h; h2; h3 ]))))
     | _ ->
         raise
           (NotImplemented
-             (sprintf "inter not implemented in matcher: %s"
-                (sprintf "[%s] " (String.concat "," (List.map pp_edge_ir expl)))))
+             (Format.sprintf "inter not implemented in matcher: [%s] "
+                (String.concat "," (List.map pp_edge_ir expl))))
 
   let unroll_inter expr : AST.exp list =
     let open AST in
@@ -621,7 +620,7 @@ struct
               "dsb.ld";
               "ca";
             ]
-        then raise (Skip (sprintf "Custom %s not supported" varname))
+        then raise (Skip (Format.sprintf "Custom %s not supported" varname))
         else (varname, expression)
     | _ -> raise (Skip "instruction not supported")
 
@@ -668,27 +667,27 @@ struct
         | Var (_, "fencerel") ->
             raise
               (Skip
-                 (sprintf
+                 (Format.sprintf
                     "%s cannot generate relaxations because fencerel is not \
                      supported"
                     (List.hd varname)))
         | Var (_, s) ->
             raise
               (Misc.Fatal
-                 (sprintf
+                 (Format.sprintf
                     "%s cannot generate relaxations because %s is not supported"
                     (List.hd varname) s))
         | _ ->
             raise
               (Misc.Fatal
-                 (sprintf
+                 (Format.sprintf
                     "%s cannot generate because an unknown function is not \
                      supported"
                     (List.hd varname))))
     | Try _ ->
         raise
           (Skip
-             (sprintf "%s cannot generate because try is not supported"
+             (Format.sprintf "%s cannot generate because try is not supported"
                 (List.hd varname)))
     | If (_, VariantCond a, exp, exp2) ->
         let find_var v =
@@ -709,7 +708,7 @@ struct
     | _ ->
         raise
           (Misc.Fatal
-             (sprintf
+             (Format.sprintf
                 "%s cannot generate because the following expression is not \
                  supported: %s"
                 (List.hd varname) (pp_exp expression)))
@@ -846,7 +845,7 @@ struct
         let v = match_var h in
         match v with
         | Union [ Empty _ ] ->
-            raise (Misc.Fatal (sprintf "Variable not in matcher: %s" h))
+            raise (Misc.Fatal (Format.sprintf "Variable not in matcher: %s" h))
         | _ -> v)
     | h :: t ->
         (* Intersections *)
@@ -873,7 +872,7 @@ struct
           Union (List.map make_sequence (union_fold_cross seq apply_match_var))
         with Skip msg ->
           if O.verbose > 1 then
-            eprintf
+            Format.eprintf
               "the following sequence %s didn't generate relaxations because: %s\n"
               (pp_sequence (Sequence seq))
               msg;
@@ -890,8 +889,7 @@ struct
     try List.map edges_of_union (O.lets_to_print @ [ "local-hw-reqs" ])
     with Not_found ->
       raise
-        (Misc.Fatal
-           (sprintf "let statements that were asked for are not in cat file"))
+        (Misc.Fatal "let statements that were asked for are not in cat file")
 
   (*
        ---------------------------------------------------------------
@@ -934,7 +932,7 @@ struct
         | _ ->
             raise
               (Misc.Fatal
-                 (sprintf "Expression not supported: %s" (pp_exp instr)))
+                 (Format.sprintf "Expression not supported: %s" (pp_exp instr)))
       with
       | Skip s ->
           if O.verbose > 1 then
@@ -993,12 +991,13 @@ struct
             | _ ->
                 raise
                   (Skip
-                     (sprintf "Complement not supported: ~(%s)"
+                     (Format.sprintf "Complement not supported: ~(%s)"
                         (String.concat ";" (List.map pp_exp unrolled)))))
         | _ ->
             raise
               (Skip
-                 (sprintf "Complement of non-intersection not supported: %s"
+                 (Format.sprintf
+                    "Complement of non-intersection not supported: %s"
                     (pp_exp exp))))
     | Op (_, AST.Cartesian, _) -> raise (Skip "Cartesian not implemented yet")
     | Op (_, AST.Inter, _) ->
@@ -1028,7 +1027,7 @@ struct
     | _ ->
         raise
           (Misc.Fatal
-             (sprintf "Expression not supported: %s" (pp_exp input_item)))
+             (Format.sprintf "Expression not supported: %s" (pp_exp input_item)))
 
   and expand_list is_id input_item : ir =
     (* apply a fold_cross to a list of AST expressions, preserving their order and calling expand_expression on each expression
@@ -1068,10 +1067,11 @@ struct
       | Var (_, var) -> (make_id is_id) (ir_single_var var)
       | _ ->
           raise
-            (Misc.Fatal (sprintf "Expression not supported: %s" (pp_exp exp)))
+            (Misc.Fatal
+               (Format.sprintf "Expression not supported: %s" (pp_exp exp)))
     with
     | Skip s ->
-        if O.verbose > 1 then eprintf "%s\n" s;
+        if O.verbose > 1 then Format.eprintf "%s@." s;
         Union []
     | NotImplemented s | Misc.Fatal s ->
         raise (Misc.Fatal ("Fail in expand:" ^ s))
@@ -1296,7 +1296,7 @@ struct
       | Empty v :: _ ->
           raise
             (NotImplemented
-               (sprintf "variable not implemented in matcher: %s" v))
+               (Format.sprintf "variable not implemented in matcher: %s" v))
       | Ignore :: t -> f t prev
       | h :: h2 :: t ->
           let branch_list a2 =
@@ -1372,10 +1372,10 @@ struct
         (fun acc a ->
           try f a :: acc with
           | NotImplemented s ->
-              if O.verbose > 0 then eprintf "%s\n" s;
+              if O.verbose > 0 then Format.eprintf "%s@." s;
               acc
           | Skip s ->
-              if O.verbose > 1 then eprintf "%s\n" s;
+              if O.verbose > 1 then Format.eprintf "%s@." s;
               acc)
         [] l
     in
@@ -1627,13 +1627,13 @@ struct
         List.map
           (fun e ->
             match e with
-            | _ :: [] -> sprintf "%s" (String.concat "," (List.map E.pp_edge e))
+            | _ :: [] -> String.concat "," (List.map E.pp_edge e)
             | _ :: _ ->
-                sprintf "[%s]" (String.concat "," (List.map E.pp_edge e))
+                Format.sprintf "[%s]" (String.concat "," (List.map E.pp_edge e))
             | [] -> raise (Misc.Fatal "Cannot have empty edge"))
           edge
       with Skip msg ->
-        if O.verbose > 1 then eprintf "%s\n" msg;
+        if O.verbose > 1 then Format.eprintf "%s@." msg;
         []
     in
     try
@@ -1649,11 +1649,12 @@ struct
           in
           let deduplicated = remove_duplicates s_relax in
           if not (List.is_empty deduplicated) then
-            Format.printf "%a@."
-              (Format.pp_print_list
-                 ~pp_sep:(fun fmt () -> Format.fprintf fmt " ")
-                 Format.pp_print_string)
-              (remove_duplicates s_relax))
+            Format.(
+              printf "%a@."
+                (pp_print_list
+                   ~pp_sep:(fun fmt () -> fprintf fmt " ")
+                   pp_print_string)
+                (remove_duplicates s_relax)))
         O.lets_to_print
     with Not_found ->
       raise
@@ -1676,7 +1677,7 @@ entry point
       | _ ->
           if O.print_tree || show = Some Tree then (
             pp_tree tree;
-            printf "\n\n\n");
+            Format.printf "\n\n\n");
           pp_relaxations tree
     with
     | NotImplemented msg -> Format.printf "Error: Not Implemented: %s@." msg
