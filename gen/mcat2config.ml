@@ -27,6 +27,8 @@ further work
 *)
 
 module Arg = struct
+  type show = Tree | TreeOnly | Lets
+
   type opts = {
     verbose : int;
     lets_to_print : string list;
@@ -34,7 +36,14 @@ module Arg = struct
     unroll : int;
     print_tree : bool;
     libdir : string option;
+    show : show option;
   }
+
+  let parse_show : string -> show = function
+    | "tree" -> Tree
+    | "tree-only" -> TreeOnly
+    | "lets" -> Lets
+    | _ -> raise (Arg.Bad "Wrong value for -show")
 
   let parse : unit -> opts * string list =
    fun () ->
@@ -46,6 +55,7 @@ module Arg = struct
     let add_file_path fp = file_paths := !file_paths @ [ fp ] in
     let print_tree = ref false in
     let libdir = ref None in
+    let show = ref None in
     let opts =
       [
         ("-v", Arg.Unit (fun () -> incr verbose), " be verbose");
@@ -65,6 +75,9 @@ module Arg = struct
         ( "-set-libdir",
           Arg.String (fun s -> libdir := Some s),
           "<path> set location of libdir to <path>" );
+        ( "-show",
+          Arg.String (fun s -> show := Some (parse_show s)),
+          "<tree|tree-only|lets> show info on parsed model" );
       ]
     in
     let prog =
@@ -82,6 +95,7 @@ module Arg = struct
         unroll = !unroll;
         print_tree = !print_tree;
         libdir = !libdir;
+        show = !show;
       }
     in
     (opts, !file_paths)
