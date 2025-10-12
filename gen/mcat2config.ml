@@ -599,9 +599,12 @@ struct
     *)
     let open AST in
     match ins with
+    (* TODO: [Filippo]: what if `Rec` or `Let` contain multiple bindings? *)
     | Rec (_, (_, Pvar (Some varname), expression) :: _, _)
     | Let (_, (_, Pvar (Some varname), expression) :: _) ->
         (match expression with
+        (* TODO: [Filippo]: why do we only check for recursive defs when *)
+        (* the Op is Diff? *)
         | Op (_, Diff, expl) -> (
             match List.hd expl with
             | Var (_, a) ->
@@ -651,7 +654,7 @@ struct
         Some (Op1 (a, op, get_option (inline_vars varname tree exp)))
     | Var (a, var) -> (
         (* checking a variable against the name of its let statement allows
-           for the removal of recursive definitions*)
+           us to avoid expanding recursive references *)
         match List.find_opt (fun a -> String.equal var a) varname with
         | Some _ -> None
         | None -> (
@@ -664,6 +667,7 @@ struct
             | _ -> Some expression))
     | App (_, exp1, exp2) -> (
         match exp1 with
+        (* TODO: [Filippo]: why are we ignoring `range` and `domain` here? *)
         | Var (_, ("range" | "domain")) -> inline_vars varname tree exp2
         | Var (_, "intervening-write")
         | Var (_, "same-oa")
