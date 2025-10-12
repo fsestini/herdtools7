@@ -1381,12 +1381,10 @@ struct
     let tree_base = map_ast get_ins ast in
     let map_vars =
       map_ast
-        (if O.print_tree then fun (varname, expression) ->
-           (varname, get_option (inline_vars [ varname ] tree_base expression))
-         else fun (varname, expression) ->
-           (varname, get_option (inline_vars [ varname ] tree_base expression))
-           (* NOTE: this code is in case we want to restrict the compiled let statements. Currently this is not desired as the whole tree is necessary to construct composite relaxations for DC/IC after *)
-           (* match
+        (fun (varname, expression) ->
+          (varname, get_option (inline_vars [ varname ] tree_base expression))
+          (* NOTE: this code is in case we want to restrict the compiled let statements. Currently this is not desired as the whole tree is necessary to construct composite relaxations for DC/IC after *)
+          (* match
              List.find_opt
                (fun name -> String.equal name varname)
                O.lets_to_print
