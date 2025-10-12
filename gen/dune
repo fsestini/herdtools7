@@ -40,4 +40,5 @@
   XXXCompile_gen
   rmw))
 
-(cram (deps %{bin:mcat2config7}))
+(cram
+ (deps %{bin:mcat2config7}))
