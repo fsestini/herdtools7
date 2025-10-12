@@ -1906,9 +1906,9 @@ Option -show expanded in conjunction with -let should only show the specified re
   $ mcat2config7 -set-libdir ./libdir -let DSB-ob aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let EXC-ENTRY-IFB aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let EXC-RET-IFB aarch64.cat
-
-
   Fatal Error: Variable not in matcher: EXC-RET
+
+
   $ mcat2config7 -set-libdir ./libdir -let IFB aarch64.cat
   ISBs** ISBd**
   $ mcat2config7 -set-libdir ./libdir -let IFB-ob aarch64.cat
@@ -1955,86 +1955,86 @@ Option -show expanded in conjunction with -let should only show the specified re
   IC.IVAUps** IC.IVAUpd**
   $ mcat2config7 -set-libdir ./libdir -let Imp aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let SPONTANEOUS aarch64.cat
-
-
   Fatal Error: Variable not in matcher: SPURIOUS
+
+
   $ mcat2config7 -set-libdir ./libdir -let inv-scope aarch64.cat
-
-
   Fatal Error: Variable not in matcher: inv-domain
+
+
   $ mcat2config7 -set-libdir ./libdir -let TTD aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let Tag aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let HU aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let intervening aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let sca-class aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let dmb.sy aarch64.cat
-
-
   Fatal Error: Variable not in matcher: dmb.ish
+
+
   $ mcat2config7 -set-libdir ./libdir -let dmb.st aarch64.cat
-
-
   Fatal Error: Variable not in matcher: dmb.fullst
+
+
   $ mcat2config7 -set-libdir ./libdir -let dmb.ld aarch64.cat
-
-
   Fatal Error: Variable not in matcher: dmb.fullld
+
+
   $ mcat2config7 -set-libdir ./libdir -let dmb.full aarch64.cat
   DMB.ISHs** DMB.ISHd** DMB.OSHs** DMB.OSHd** DMB.SYs** DMB.SYd** DSB.ISHs** DSB.ISHd**
   $ mcat2config7 -set-libdir ./libdir -let dmb.ld aarch64.cat
-
-
   Fatal Error: Variable not in matcher: dmb.fullld
+
+
   $ mcat2config7 -set-libdir ./libdir -let dmb.st aarch64.cat
-
-
   Fatal Error: Variable not in matcher: dmb.fullst
+
+
   $ mcat2config7 -set-libdir ./libdir -let PTE-MT-update aarch64.cat
-
-
   Fatal Error: Variable not in matcher: Normal
+
+
   $ mcat2config7 -set-libdir ./libdir -let PTE-SH-update aarch64.cat
-
-
   Fatal Error: Variable not in matcher: NSH
+
+
   $ mcat2config7 -set-libdir ./libdir -let PTE-ICH-update aarch64.cat
-
-
   Fatal Error: Variable not in matcher: iNC
+
+
   $ mcat2config7 -set-libdir ./libdir -let PTE-OCH-update aarch64.cat
-
-
   Fatal Error: Variable not in matcher: oNC
+
+
   $ mcat2config7 -set-libdir ./libdir -let PTE-DT-update aarch64.cat
-
-
   Fatal Error: Variable not in matcher: Device-GRE
+
+
   $ mcat2config7 -set-libdir ./libdir -let PTE-OA-update aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let PTE-OA-update-writable aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let PTE-update-needsBBM aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let TTDV aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let TTDINV aarch64.cat
-
-
   Fatal Error: Variable not in matcher: PTEINV
+
+
   $ mcat2config7 -set-libdir ./libdir -let TTD-update-needsBBM aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let TTD aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let Device aarch64.cat
-
-
   Fatal Error: Variable not in matcher: Device-GRE
+
+
   $ mcat2config7 -set-libdir ./libdir -let Shareability aarch64.cat
-
-
   Fatal Error: Variable not in matcher: NSH
+
+
   $ mcat2config7 -set-libdir ./libdir -let InnerCacheability aarch64.cat
-
-
   Fatal Error: Variable not in matcher: iWB
+
+
   $ mcat2config7 -set-libdir ./libdir -let OuterCacheability aarch64.cat
-
-
   Fatal Error: Variable not in matcher: oWB
+
+
   $ mcat2config7 -set-libdir ./libdir -let rf-mem aarch64.cat
   Rfe
   $ mcat2config7 -set-libdir ./libdir -let tr-ib aarch64.cat
@@ -2057,24 +2057,24 @@ Option -show expanded in conjunction with -let should only show the specified re
   $ mcat2config7 -set-libdir ./libdir -let all-DC-Exp_W-enums aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let all-IC-Imp_Instr_R-enums aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let dmb.sy aarch64.cat
-
-
   Fatal Error: Variable not in matcher: dmb.ish
+
+
   $ mcat2config7 -set-libdir ./libdir -let dmb.st aarch64.cat
-
-
   Fatal Error: Variable not in matcher: dmb.fullst
+
+
   $ mcat2config7 -set-libdir ./libdir -let dmb.ld aarch64.cat
-
-
   Fatal Error: Variable not in matcher: dmb.fullld
+
+
   $ mcat2config7 -set-libdir ./libdir -let dmb.full aarch64.cat
   DMB.ISHs** DMB.ISHd** DMB.OSHs** DMB.OSHd** DMB.SYs** DMB.SYd** DSB.ISHs** DSB.ISHd**
   $ mcat2config7 -set-libdir ./libdir -let dmb.ld aarch64.cat
-
-
   Fatal Error: Variable not in matcher: dmb.fullld
+
+
   $ mcat2config7 -set-libdir ./libdir -let dmb.st aarch64.cat
-
-
   Fatal Error: Variable not in matcher: dmb.fullst
+
+
