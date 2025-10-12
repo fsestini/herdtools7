@@ -408,8 +408,8 @@ struct
 
   let pp_tree (tree : let_statements) : unit =
     (* This function takes a list of let statements, in the form
-        of string * expression, and prints the expanded tree of the cat file.
-        It is important to note that the output gets quite large, as the fully expanded statements are very long
+        of string * expression, and prints the expanded tree of the cat file,
+        filtered by `lets_to_print`.
         Inputs:
           - tree: A list of let statements, as ast type.
         Outputs:
@@ -423,7 +423,11 @@ struct
               (fun a -> match a with "" -> false | _ -> true)
               (List.map pp_sequence ins)))
     in
-    List.iter pp tree
+    let filtered_tree =
+      if List.is_empty O.lets_to_print then tree
+      else List.filter (fun (name, _) -> List.mem name O.lets_to_print) tree
+    in
+    List.iter pp filtered_tree
 
   let empty_expr = Empty ""
   let first_expr = First ""
