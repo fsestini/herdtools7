@@ -1572,7 +1572,13 @@ struct
           let remove_duplicates xs =
             List.rev (List.fold_left cons_uniq [] xs)
           in
-          List.iter (Printf.printf "%s ") (remove_duplicates s_relax))
+          let deduplicated = remove_duplicates s_relax in
+          if not (List.is_empty deduplicated) then
+            Format.printf "%a@."
+              (Format.pp_print_list
+                 ~pp_sep:(fun fmt () -> Format.fprintf fmt " ")
+                 Format.pp_print_string)
+              (remove_duplicates s_relax))
         O.lets_to_print
     with Not_found ->
       raise
@@ -1594,8 +1600,8 @@ entry point
         printf "\n\n\n");
       pp_relaxations tree
     with
-    | NotImplemented msg -> printf "\n\nNot Implemented Error: %s\n%!" msg
-    | Misc.Fatal msg -> printf "\n\nFatal Error: %s\n%!" msg
+    | NotImplemented msg -> Format.printf "Error: Not Implemented: %s@." msg
+    | Misc.Fatal msg -> Format.printf "Fatal Error: %s@." msg
     | Misc.Exit -> ()
 end
 
