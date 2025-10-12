@@ -26,9 +26,66 @@ further work
 - implement more comprehensive support for pte and mte
 *)
 
-let prog =
-  if Array.length Sys.argv > 0 then Filename.basename Sys.argv.(0)
-  else "cat2config7"
+module Arg = struct
+  type opts = {
+    verbose : int;
+    lets_to_print : string list;
+    conds : string list;
+    unroll : int;
+    print_tree : bool;
+    libdir : string option;
+  }
+
+  let parse : unit -> opts * string list =
+   fun () ->
+    let verbose = ref 0 in
+    let lets_to_print = ref [] in
+    let conds = ref [] in
+    let unroll = ref 1 in
+    let file_paths = ref [] in
+    let add_file_path fp = file_paths := !file_paths @ [ fp ] in
+    let print_tree = ref false in
+    let libdir = ref None in
+    let opts =
+      [
+        ("-v", Arg.Unit (fun () -> incr verbose), " be verbose");
+        ( "-let",
+          Arg.String (fun s -> lets_to_print := !lets_to_print @ [ s ]),
+          "<statement> print out selected let statements" );
+        ( "-conds",
+          Arg.String (fun s -> conds := !conds @ [ s ]),
+          "<cond> choose what variant conditions to set" );
+        ( "-unroll",
+          Arg.Int (fun i -> unroll := i),
+          "<unroll> choose how many times transitive and reflexive and \
+           transitive operators unroll. Default = 1" );
+        ( "-tree",
+          Arg.Bool (fun s -> print_tree := s),
+          "<true|false> print out expanded cat file" );
+        ( "-set-libdir",
+          Arg.String (fun s -> libdir := Some s),
+          "<path> set location of libdir to <path>" );
+      ]
+    in
+    let prog =
+      if Array.length Sys.argv > 0 then Filename.basename Sys.argv.(0)
+      else "cat2config7"
+    in
+    let () =
+      Arg.parse opts add_file_path (sprintf "Usage: %s [options]* cats*" prog)
+    in
+    let opts =
+      {
+        verbose = !verbose;
+        lets_to_print = !lets_to_print;
+        conds = !conds;
+        unroll = !unroll;
+        print_tree = !print_tree;
+        libdir = !libdir;
+      }
+    in
+    (opts, !file_paths)
+end
 
 module Make_parser (O : sig
   val debug : bool
@@ -1605,52 +1662,20 @@ entry point
     | Misc.Exit -> ()
 end
 
-let verbose = ref 0
-let lets_to_print = ref []
-let conds = ref []
-let unroll = ref 1
-let arg = ref []
-let setarg name = arg := !arg @ [ name ]
-let print_tree = ref false
-let libdir = ref None
-
-let opts =
-  [
-    ("-v", Arg.Unit (fun () -> incr verbose), " be verbose");
-    ( "-let",
-      Arg.String (fun s -> lets_to_print := !lets_to_print @ [ s ]),
-      "<statement> print out selected let statements" );
-    ( "-conds",
-      Arg.String (fun s -> conds := !conds @ [ s ]),
-      "<cond> choose what variant conditions to set" );
-    ( "-unroll",
-      Arg.Int (fun i -> unroll := i),
-      "<unroll> choose how many times transitive and reflexive and transitive \
-       operators unroll. Default = 1" );
-    ( "-tree",
-      Arg.Bool (fun s -> print_tree := s),
-      "<true|false> print out expanded cat file" );
-    ( "-set-libdir",
-      Arg.String (fun s -> libdir := Some s),
-      "<path> set location of libdir to <path>" );
-  ]
-
-let () = Arg.parse opts setarg (sprintf "Usage: %s [options]* cats*" prog)
-
-module Z = Make (struct
-  let verbose = !verbose
-  let lets_to_print = !lets_to_print
-  let conds = !conds
-  let unroll = !unroll
-  let print_tree = !print_tree
-end)
-
 let () =
+  let opts, file_paths = Arg.parse () in
   let module Parser = Make_parser (struct
-    let debug = !verbose > 0
-    let libdir = !libdir
+    let debug = opts.verbose > 0
+    let libdir = opts.libdir
   end) in
-  !arg
+  let module Z = Make (struct
+    let verbose = opts.verbose
+    let lets_to_print = opts.lets_to_print
+    let conds = opts.conds
+    let unroll = opts.unroll
+    let print_tree = opts.print_tree
+  end) in
+  file_paths
   |> List.iter (fun file_path ->
          let tree = Parser.find_parse_deep file_path in
          Z.zyva tree);
