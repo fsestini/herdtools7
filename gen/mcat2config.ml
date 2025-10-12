@@ -139,7 +139,6 @@ end
 
 module Make (O : sig
   val verbose : int
-  val lets_to_print : string list
   val conds : string list
   val unroll : int
   val print_tree : bool
@@ -420,7 +419,7 @@ struct
 
   (* Takes a list of expanded (fully inlined) let statements,
      filters it by `lets_to_print`, and pretty-prints it to stdout. *)
-  let pp_tree (tree : let_statements) : unit =
+  let pp_tree ~(lets_to_print : string list) (tree : let_statements) : unit =
     let open Format in
     let pp_union fmt (name, Union ins) =
       let sequences =
@@ -432,8 +431,8 @@ struct
         fprintf fmt "   %a@." (pp_print_list ~pp_sep pp_print_string) sequences
     in
     let filtered_tree =
-      if List.is_empty O.lets_to_print then tree
-      else List.filter (fun (name, _) -> List.mem name O.lets_to_print) tree
+      if List.is_empty lets_to_print then tree
+      else List.filter (fun (name, _) -> List.mem name lets_to_print) tree
     in
     filtered_tree |> List.iter (fun s -> printf "%a@." pp_union s)
 
@@ -869,7 +868,7 @@ struct
         then raise (Skip "has ignore")
         else raise (Misc.Fatal "cannot have empty intersection")
 
-  let var_to_edge tree =
+  let var_to_edge ~lets_to_print (tree : (var * ir) list) =
     (* translate variables in let statements to edge_ir type
        Inputs:
          - tree: list of let statemenets
@@ -895,7 +894,7 @@ struct
       (name, union_concat_map edges_of_sequence p)
     in
     (* when compiling edges of tree, also include local-hw-reqs for the use in DC calculations later *)
-    try List.map edges_of_union (O.lets_to_print @ [ "local-hw-reqs" ])
+    try List.map edges_of_union (lets_to_print @ [ "local-hw-reqs" ])
     with Not_found ->
       raise
         (Misc.Fatal "let statements that were asked for are not in cat file")
@@ -1414,14 +1413,14 @@ struct
   let is_insert e =
     match e with DC _ | IC _ | Tedge (E.Insert _, _) -> true | _ -> false
 
-  let pp_relaxations (tree : let_statements) =
+  let pp_relaxations ~lets_to_print (tree : let_statements) =
     (* Pretty prints the given list of let statements as DIY relaxations
        Inputs:
          - tree: the list of let statements to pretty print, of type ast
        Outputs: None
        Side effects: Prints the DIY relaxation to the console
     *)
-    let tree = var_to_edge tree in
+    let tree = var_to_edge ~lets_to_print tree in
     let f expl =
       try
         let expl = merge_pos expl in
@@ -1660,7 +1659,7 @@ struct
                    ~pp_sep:(fun fmt () -> fprintf fmt " ")
                    pp_print_string)
                 (remove_duplicates s_relax)))
-        O.lets_to_print
+        lets_to_print
     with Not_found ->
       raise
         (Misc.Fatal "let statements that were asked for are not in cat file \n")
@@ -1672,18 +1671,18 @@ entry point
 
 *)
 
-  let zyva ~(show : Arg.show option) (tree : AST.ins list) =
+  let zyva ~(show : Arg.show option) ~lets_to_print (tree : AST.ins list) =
     try
       let tree = ast_to_ir tree in
       let tree = solve_id tree in
       match show with
-      | Some TreeOnly -> pp_tree tree
+      | Some TreeOnly -> pp_tree ~lets_to_print tree
       | Some Lets -> tree |> List.map fst |> List.iter print_endline
       | _ ->
           if O.print_tree || show = Some Tree then (
-            pp_tree tree;
+            pp_tree ~lets_to_print tree;
             Format.printf "\n\n\n");
-          pp_relaxations tree
+          pp_relaxations ~lets_to_print tree
     with
     | NotImplemented msg -> Format.printf "Error: Not Implemented: %s@." msg
     | Misc.Fatal msg -> Format.printf "Fatal Error: %s@." msg
@@ -1706,5 +1705,5 @@ let () =
   file_paths
   |> List.iter (fun file_path ->
          let tree = Parser.find_parse_deep file_path in
-         Z.zyva ~show:opts.show tree);
+         Z.zyva ~show:opts.show ~lets_to_print:opts.lets_to_print tree);
   exit 0
