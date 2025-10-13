@@ -647,6 +647,9 @@ struct
     (*Expand AST function logic and inline variables that are defined in other let statements*)
     let open AST in
     match expression with
+    (* TODO: [Filippo]: how can we simply filter out subexpressions
+       that return None here? Wouldn't that just lead to relaxations
+       being calculated on an incorrect/incomplete relation? *)
     | Op (a, op, expl) ->
         Some (Op (a, op, List.filter_map (inline_vars varname tree) expl))
     | Op1 (a, op, exp) ->
