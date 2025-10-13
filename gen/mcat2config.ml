@@ -647,7 +647,7 @@ struct
     | Op (a, op, expl) ->
         Some (Op (a, op, List.filter_map (inline_vars varname tree) expl))
     | Op1 (a, op, exp) ->
-        inline_vars varname tree exp |> Option.map (fun exp -> Op1 (a, op, exp))
+        Some (Op1 (a, op, get_option (inline_vars varname tree exp)))
     | Var (a, var) -> (
         (* checking a variable against the name of its let statement allows
            us to avoid expanding recursive references *)
