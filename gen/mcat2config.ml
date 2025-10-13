@@ -1035,7 +1035,7 @@ struct
       | Op (_, AST.Diff, expl) -> expand is_id (List.hd expl)
       | Op (_, AST.Cartesian, _) -> raise (Skip "Cartesian not yet implemented")
       | Konst (_, AST.Empty _) -> raise (Skip "Empty exp")
-      | Var (_, var) -> (make_id is_id) (ir_single_var var)
+      | Var (_, var) -> make_id is_id (ir_single_var var)
       | _ ->
           raise
             (Misc.Fatal
