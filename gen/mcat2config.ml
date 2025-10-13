@@ -575,14 +575,12 @@ struct
              (Format.sprintf "inter not implemented in matcher: [%s] "
                 (String.concat "," (List.map pp_edge_ir expl))))
 
-  let unroll_inter expr : AST.exp list =
-    let open AST in
-    let rec f l =
+  let unroll_inter (expl : AST.exp list) : AST.exp list =
+    let rec f (l : AST.exp) =
       match l with Op (_, Inter, expl) -> Misc.concat_map f expl | _ -> [ l ]
     in
-    match expr with
-    | Op (_, Inter, exp) -> Misc.concat_map f exp
-    | _ -> raise (Misc.Fatal "non intersection passed to unroll inter function")
+    Misc.concat_map f expl
+
   (*
     ------------------------------------------
       Parse AST and make into custom type
@@ -944,8 +942,8 @@ struct
         Union (List.map (fun (Sequence b) -> Sequence (List.rev b)) a)
     | Op1 (_, AST.Comp, exp) -> (
         match exp with
-        | Op (_, AST.Inter, _) -> (
-            let unrolled = unroll_inter exp in
+        | Op (_, AST.Inter, expl) -> (
+            let unrolled = unroll_inter expl in
             match unrolled with
             | [ Var (_, "NExp"); Var (_, "M") ] ->
                 make_id
@@ -970,8 +968,8 @@ struct
                     "Complement of non-intersection not supported: %s"
                     (pp_exp exp))))
     | Op (_, AST.Cartesian, _) -> raise (Skip "Cartesian not implemented yet")
-    | Op (_, AST.Inter, _) ->
-        let unrolled = unroll_inter input_item in
+    | Op (_, AST.Inter, expl) ->
+        let unrolled = unroll_inter expl in
         let unrolled =
           match unrolled with
           | [ Var (t, "po"); Var (_, "loc") ] -> [ Var (t, "po-loc") ]
