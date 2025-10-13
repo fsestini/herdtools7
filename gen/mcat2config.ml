@@ -444,19 +444,16 @@ struct
     Misc.concat_map f l
 
   let get_option a =
-    List.hd
-      (match a with
-      | Some x -> [ x ]
-      | None ->
-          [
-            AST.Konst
-              ( {
-                  loc_start = Lexing.dummy_pos;
-                  loc_end = Lexing.dummy_pos;
-                  loc_ghost = true;
-                },
-                Empty SET );
-          ])
+    match a with
+    | Some x -> x
+    | None ->
+        AST.Konst
+          ( {
+              loc_start = Lexing.dummy_pos;
+              loc_end = Lexing.dummy_pos;
+              loc_ghost = true;
+            },
+            Empty SET )
 
   (* ir, sequence and inter helper functions*)
   let make_sequence expl = Sequence expl
