@@ -307,6 +307,9 @@ struct
           [ Tedge (Fenced (Barrier (DSB (SY, LD)), Same, Irr, Irr), v) ]
       | "dsb.st" ->
           [ Tedge (Fenced (Barrier (DSB (SY, ST)), Same, Irr, Irr), v) ]
+      | "dmb.ish" ->
+          (* TODO: [Filippo]: is this correct? *)
+          [ Tedge (Fenced (Barrier (DMB (ISH, FULL)), Same, Irr, Irr), v) ]
       | "ca" -> [ Fr_single v ]
       | "rfi" -> [ Tedge (Rf Int, v) ]
       | "lxsx" -> lxsx
