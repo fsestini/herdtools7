@@ -118,7 +118,7 @@ struct
   end)
 
   module ParserConfig = struct
-    let debug = O.debug
+    let debug = false
     let libfind = ML.find
   end
 
