@@ -2038,7 +2038,7 @@ Option -show tree in conjunction with -let should only show the specified relati
   $ mcat2config7 -set-libdir ./libdir -let intervening aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let sca-class aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let dmb.sy aarch64.cat
-  Fatal Error: Variable not in matcher: dmb.ish
+  DMB.SYs** DMB.SYd** DMB.ISHs** DMB.ISHd**
   $ mcat2config7 -set-libdir ./libdir -let dmb.st aarch64.cat
   Fatal Error: Variable not in matcher: dmb.fullst
   $ mcat2config7 -set-libdir ./libdir -let dmb.ld aarch64.cat
@@ -2097,7 +2097,7 @@ Option -show tree in conjunction with -let should only show the specified relati
   $ mcat2config7 -set-libdir ./libdir -let all-DC-Exp_W-enums aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let all-IC-Imp_Instr_R-enums aarch64.cat
   $ mcat2config7 -set-libdir ./libdir -let dmb.sy aarch64.cat
-  Fatal Error: Variable not in matcher: dmb.ish
+  DMB.SYs** DMB.SYd** DMB.ISHs** DMB.ISHd**
   $ mcat2config7 -set-libdir ./libdir -let dmb.st aarch64.cat
   Fatal Error: Variable not in matcher: dmb.fullst
   $ mcat2config7 -set-libdir ./libdir -let dmb.ld aarch64.cat
