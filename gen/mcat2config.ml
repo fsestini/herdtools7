@@ -917,42 +917,7 @@ struct
     in
     ff O.unroll
 
-  let rec apply_expand (tree : (var * AST.exp) list) : let_statements =
-    (* Expand operations in AST and translate AST to internal representation *)
-    let rec f (name, instr) =
-      try
-        match instr with
-        | AST.Op (_, AST.Seq, _) | AST.Op (_, AST.Inter, _) ->
-            (name, expand false instr)
-        | AST.Op1 (t, AST.Plus, exp) ->
-            f (name, AST.Op (t, AST.Union, repeat exp t))
-        | AST.Op1 (_, AST.Inv, _) ->
-            raise
-              (Skip
-                 "Let statement defined as an inverse relation is not supported")
-        | AST.Op1 (_, AST.Comp, _) ->
-            raise
-              (Skip "Let statement defined as a complement is not supported")
-        | AST.Op (_, AST.Diff, expl) -> (name, expand false (List.hd expl))
-        | AST.Konst (_, AST.Empty _) -> raise (Skip "Expression is empty")
-        | AST.Op (_, AST.Union, expl) ->
-            (name, union_concat_map (expand false) (Union expl))
-        | AST.Var (_, _) -> (name, expand false instr)
-        | _ ->
-            raise
-              (Misc.Fatal
-                 (Format.sprintf "Expression not supported: %s" (pp_exp instr)))
-      with
-      | Skip s ->
-          eprintv 2 "\nlet statement (%s) not generated because of: %s\n" name s;
-          (name, Union [])
-      | NotImplemented s ->
-          eprintv 1 "\nlet statement (%s) not generated because of: %s\n" name s;
-          (name, Union [])
-    in
-    List.map f tree
-
-  and expand_expression is_id input_item : ir =
+  let rec expand_expression is_id input_item : ir =
     (* Expand a chosen expression, unrolling intersections, expanding unions and extracting variables from operations
        Inputs:
        - input_item: expression to expand (AST.exp)
@@ -1062,7 +1027,8 @@ struct
     *)
     try
       match exp with
-      | Op (_, AST.Union, expl) -> union_concat_map (expand is_id) (Union expl)
+      | AST.Op (_, AST.Union, expl) ->
+          union_concat_map (expand is_id) (Union expl)
       | Op (_, AST.Inter, expl) -> expand_list is_id expl
       | Op (_, AST.Seq, expl) -> expand_list is_id expl
       | Op1 (_, ToId, expl) -> expand true expl
@@ -1080,6 +1046,41 @@ struct
         Union []
     | NotImplemented s | Misc.Fatal s ->
         raise (Misc.Fatal ("Fail in expand:" ^ s))
+
+  let apply_expand (tree : (var * AST.exp) list) : let_statements =
+    (* Expand operations in AST and translate AST to internal representation *)
+    let rec f (name, instr) =
+      try
+        match instr with
+        | AST.Op (_, AST.Seq, _) | AST.Op (_, AST.Inter, _) ->
+            (name, expand false instr)
+        | AST.Op1 (t, AST.Plus, exp) ->
+            f (name, AST.Op (t, AST.Union, repeat exp t))
+        | AST.Op1 (_, AST.Inv, _) ->
+            raise
+              (Skip
+                 "Let statement defined as an inverse relation is not supported")
+        | AST.Op1 (_, AST.Comp, _) ->
+            raise
+              (Skip "Let statement defined as a complement is not supported")
+        | AST.Op (_, AST.Diff, expl) -> (name, expand false (List.hd expl))
+        | AST.Konst (_, AST.Empty _) -> raise (Skip "Expression is empty")
+        | AST.Op (_, AST.Union, expl) ->
+            (name, union_concat_map (expand false) (Union expl))
+        | AST.Var (_, _) -> (name, expand false instr)
+        | _ ->
+            raise
+              (Misc.Fatal
+                 (Format.sprintf "Expression not supported: %s" (pp_exp instr)))
+      with
+      | Skip s ->
+          eprintv 2 "\nlet statement (%s) not generated because of: %s\n" name s;
+          (name, Union [])
+      | NotImplemented s ->
+          eprintv 1 "\nlet statement (%s) not generated because of: %s\n" name s;
+          (name, Union [])
+    in
+    List.map f tree
 
   (*
     ------------------------------------------
