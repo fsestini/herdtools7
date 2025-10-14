@@ -1,30 +1,27 @@
 [@@@warning "-40-42"]
 
+module NonEmpty = struct
+  type 'a t = Cons of 'a * 'a list [@@deriving show]
+
+  let of_list : 'a list -> 'a t = function
+    | [] -> failwith "cannot create non-empty list from an empty list"
+    | x :: xs -> Cons (x, xs)
+end
+
 module CoreAST = struct
   type 'a t =
-    | Union of 'a t * 'a t
-    | Inter of 'a t * 'a t
-    | Seq of 'a t * 'a t
+    | Union of 'a t NonEmpty.t
+    | Inter of 'a t NonEmpty.t
+    | Seq of 'a t NonEmpty.t
     | Inv of 'a t
     | Comp of 'a t
     | ToId of 'a t
-    | Pure of 'a
+    | Var of 'a
   [@@deriving show]
 
-  let rec union : 'a t list -> 'a t = function
-    | [] -> failwith "cannot form union of empty list"
-    | [ e ] -> e
-    | e :: rest -> Union (e, union rest)
-
-  let rec inter : 'a t list -> 'a t = function
-    | [] -> failwith "cannot form intersection of empty list"
-    | [ e ] -> e
-    | e :: rest -> Inter (e, inter rest)
-
-  let rec seq : 'a t list -> 'a t = function
-    | [] -> failwith "cannot form sequence of empty list"
-    | [ e ] -> e
-    | e :: rest -> Seq (e, seq rest)
+  let union_of_list : 'a t list -> 'a t = fun xs -> Union (NonEmpty.of_list xs)
+  let inter_of_list : 'a t list -> 'a t = fun xs -> Inter (NonEmpty.of_list xs)
+  let seq_of_list : 'a t list -> 'a t = fun xs -> Seq (NonEmpty.of_list xs)
 end
 
 type var = string
@@ -32,9 +29,9 @@ type var = string
 let to_core_ast ~(unroll : int) ~(conds : string list) (exp : AST.exp) :
     var CoreAST.t =
   let unrolled (e : var CoreAST.t) : var CoreAST.t =
-    CoreAST.union
+    CoreAST.union_of_list
       (List.init unroll (fun i ->
-           CoreAST.seq (List.init (unroll - i) (fun _ -> e))))
+           CoreAST.seq_of_list (List.init (unroll - i) (fun _ -> e))))
   in
   let rec eval_variant_cond : AST.variant_cond -> bool = function
     | Variant v -> List.mem v conds
@@ -45,15 +42,16 @@ let to_core_ast ~(unroll : int) ~(conds : string list) (exp : AST.exp) :
   let rec go (exp : AST.exp) : var CoreAST.t =
     let open AST in
     match exp with
-    | Op (_, Union, expl) -> CoreAST.union (List.map go expl)
-    | Op (_, Inter, expl) -> CoreAST.inter (List.map go expl)
-    | Op (_, Seq, expl) -> CoreAST.seq (List.map go expl)
+    | Op (_, Union, expl) -> CoreAST.union_of_list (List.map go expl)
+    | Op (_, Inter, expl) -> CoreAST.inter_of_list (List.map go expl)
+    | Op (_, Seq, expl) -> CoreAST.seq_of_list (List.map go expl)
     | Op (_, Diff, expl) -> go (List.hd expl)
     | Op (_, Cartesian, _) -> failwith "Cartesian not implemented yet"
     | Op1 (_, ToId, exp) -> ToId (go exp)
     | Op1 (_, Plus, exp) -> unrolled (go exp)
-    | Op1 (_, Star, exp) -> Union (unrolled (go exp), Pure "ignore")
-    | Op1 (_, Opt, exp) -> Union (go exp, Pure "ignore")
+    | Op1 (_, Star, exp) ->
+        CoreAST.union_of_list [ unrolled (go exp); Var "ignore" ]
+    | Op1 (_, Opt, exp) -> CoreAST.union_of_list [ go exp; Var "ignore" ]
     | Op1 (_, Inv, exp) -> Inv (go exp)
     | Op1 (_, Comp, exp) -> Comp (go exp)
     | Konst (_, Empty _) -> failwith "Empty exp"
@@ -62,7 +60,7 @@ let to_core_ast ~(unroll : int) ~(conds : string list) (exp : AST.exp) :
         | Var (_, ("range" | "domain")) -> go exp
         | _ -> failwith "function not supported")
     | Var (_, "emptyset") -> failwith "emptyset"
-    | Var (_, var) -> CoreAST.Pure var
+    | Var (_, var) -> Var var
     | If (_, VariantCond a, exp, exp2) ->
         if eval_variant_cond a then go exp else go exp2
     | _ -> failwith "expression not supported"
