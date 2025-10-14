@@ -29,6 +29,8 @@
   norm7
   mcat2config7)
  (libraries herdtools unix)
+ (preprocess
+  (pps ppx_deriving.show))
  (modules_without_implementation
   archLoc
   archRun
