@@ -134,7 +134,7 @@ struct
     let _, (_, _, ast) = Parser.find_parse file_path in
     let includes = get_includes ast in
     let included_asts = List.concat_map find_parse_deep includes in
-    ast @ included_asts
+    included_asts @ ast
 end
 
 module Make (O : sig
