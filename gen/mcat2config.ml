@@ -1670,21 +1670,45 @@ entry point
 *)
 
   let zyva ~(show : Arg.show option) ~lets_to_print (tree : AST.ins list) =
-    try
-      let tree = ast_to_ir tree in
-      let tree = solve_id tree in
-      match show with
-      | Some TreeOnly -> pp_tree ~lets_to_print tree
-      | Some Lets -> tree |> List.map fst |> List.iter print_endline
-      | _ ->
-          if O.print_tree || show = Some Tree then (
-            pp_tree ~lets_to_print tree;
-            Format.printf "\n\n\n");
-          pp_relaxations ~lets_to_print tree
-    with
-    | NotImplemented msg -> Format.printf "Error: Not Implemented: %s@." msg
-    | Misc.Fatal msg -> Format.printf "Fatal Error: %s@." msg
-    | Misc.Exit -> ()
+    let map_ast f l =
+      List.fold_left
+        (fun acc a ->
+          try f a :: acc with
+          | NotImplemented s ->
+              eprintv 1 "%s@." s;
+              acc
+          | Skip s ->
+              eprintv 2 "%s@." s;
+              acc)
+        [] l
+    in
+    let tree_base = map_ast get_ins tree in
+    let parsed_core = Ast2edges.parse_core ~unroll:1 ~conds:[] tree_base in
+    let () =
+      lets_to_print
+      |> List.iter (fun l ->
+             match List.assoc_opt l parsed_core with
+             | Some t ->
+                 print_endline (Ast2edges.CoreAST.show Format.pp_print_string t)
+             | None -> Format.printf "Failed to parse `%s` into core AST@." l)
+    in
+    ()
+
+  (* try *)
+  (*   let tree = ast_to_ir tree in *)
+  (*   let tree = solve_id tree in *)
+  (*   match show with *)
+  (*   | Some TreeOnly -> pp_tree ~lets_to_print tree *)
+  (*   | Some Lets -> tree |> List.map fst |> List.iter print_endline *)
+  (*   | _ -> *)
+  (*       if O.print_tree || show = Some Tree then ( *)
+  (*         pp_tree ~lets_to_print tree; *)
+  (*         Format.printf "\n\n\n"); *)
+  (*       pp_relaxations ~lets_to_print tree *)
+  (* with *)
+  (* | NotImplemented msg -> Format.printf "Error: Not Implemented: %s@." msg *)
+  (* | Misc.Fatal msg -> Format.printf "Fatal Error: %s@." msg *)
+  (* | Misc.Exit -> () *)
 end
 
 let () =
