@@ -1684,12 +1684,20 @@ entry point
     in
     let tree_base = map_ast get_ins tree in
     let parsed_core = Ast2edges.parse_core ~unroll:1 ~conds:[] tree_base in
+    (* let () = *)
+    (*   lets_to_print *)
+    (*   |> List.iter (fun l -> *)
+    (*          match List.assoc_opt l parsed_core with *)
+    (*          | Some t -> *)
+    (*              print_endline (Ast2edges.CoreAST.show Format.pp_print_string t) *)
+    (*          | None -> Format.printf "Failed to parse `%s` into core AST@." l) *)
+    (* in *)
+    let normalized = Ast2edges.normalize_core parsed_core in
     let () =
       lets_to_print
       |> List.iter (fun l ->
-             match List.assoc_opt l parsed_core with
-             | Some t ->
-                 print_endline (Ast2edges.CoreAST.show Format.pp_print_string t)
+             match List.assoc_opt l normalized with
+             | Some t -> print_endline (Ast2edges.IR.pp t)
              | None -> Format.printf "Failed to parse `%s` into core AST@." l)
     in
     ()

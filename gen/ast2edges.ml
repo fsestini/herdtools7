@@ -80,7 +80,7 @@ let to_core_ast ~(unroll : int) ~(conds : string list) (exp : AST.exp) :
     | Op1 (_, Opt, exp) -> CoreAST.union_of_list [ go exp; Var "ignore" ]
     | Op1 (_, Inv, exp) -> Inv (go exp)
     | Op1 (_, Comp, exp) -> Comp (go exp)
-    | Konst (_, Empty _) -> raise (NormalizationError "Empty exp")
+    | Konst (_, Empty _) -> Empty
     | App (_, fexp, exp) -> (
         match fexp with
         | Var (_, "domain") -> App (Domain, go exp)
@@ -127,28 +127,28 @@ module IR = struct
   type 'a inter = Inter of 'a NonEmpty.t
   type ('a, 'b) rel_inter = Rel of 'a | Set of 'b
   type 'a seq = Seq of 'a NonEmpty.t
-  type 'a union = Union of 'a NonEmpty.t
+  type 'a union = Union of 'a list
   type ('a, 'b) t = ('a inter, 'b inter) rel_inter seq union
   type 'a set = 'a inter union
 
   (* let pp_union ~(pp : 'a -> string) : 'a union -> string = function *)
   (*   | Union x -> _ *)
-
-  let pure_union : 'a -> 'a union = fun x -> Union (NonEmpty.pure x)
-  let un_union : 'a union -> 'a NonEmpty.t = fun (Union x) -> x
+  let pp (_t : ('a, 'b) t) : string = "t"
+  let pure_union : 'a -> 'a union = fun x -> Union [ x ]
+  let un_union : 'a union -> 'a list = fun (Union x) -> x
   let pure_seq : 'a -> 'a seq = fun x -> Seq (NonEmpty.pure x)
   let pure_inter : 'a -> 'a inter = fun x -> Inter (NonEmpty.pure x)
   let pure_rel_inter : 'a -> ('a, 'b) rel_inter = fun x -> Rel x
 
   let map_union (f : 'a -> 'b) : 'a union -> 'b union = function
-    | Union x -> Union (NonEmpty.map f x)
+    | Union x -> Union (List.map f x)
 
   let seq (e1 : ('a, 'b) t) (e2 : ('a, 'b) t) : ('a, 'b) t =
     let aux =
-      let ( let* ) = NonEmpty.bind in
+      let ( let* ) = fun x f -> List.concat_map f x in
       let* (Seq x) = un_union e1 in
       let* (Seq y) = un_union e2 in
-      NonEmpty.pure (Seq (NonEmpty.concat x y))
+      [ Seq (NonEmpty.concat x y) ]
     in
     Union aux
 
@@ -157,23 +157,21 @@ module IR = struct
 
   let inter_set (e1 : 'a set) (e2 : 'a set) : 'a set =
     let aux =
-      let ( let* ) = NonEmpty.bind in
+      let ( let* ) = fun x f -> List.concat_map f x in
       let* x = un_union e1 in
       let* y = un_union e2 in
-      NonEmpty.pure (inter x y)
+      [ inter x y ]
     in
     Union aux
 
   let inter_t (e1 : ('a, 'b) t) (e2 : ('a, 'b) t) : ('a, 'b) t =
     let aux =
-      let ( let* ) = NonEmpty.bind in
+      let ( let* ) = fun x f -> List.concat_map f x in
       let* (Seq x) = un_union e1 in
       let* (Seq y) = un_union e2 in
       match (x, y) with
-      | Cons (Rel x, []), Cons (Rel y, []) ->
-          NonEmpty.pure (pure_seq (Rel (inter x y)))
-      | Cons (Set x, []), Cons (Set y, []) ->
-          NonEmpty.pure (pure_seq (Set (inter x y)))
+      | Cons (Rel x, []), Cons (Rel y, []) -> [ pure_seq (Rel (inter x y)) ]
+      | Cons (Set x, []), Cons (Set y, []) -> [ pure_seq (Set (inter x y)) ]
       | _, _ -> raise (NormalizationError "impossible intersection")
     in
     Union aux
@@ -185,14 +183,61 @@ module IR = struct
     pure_union (pure_seq (pure_rel_inter (pure_inter x)))
 
   let union : 'a union -> 'a union -> 'a union =
-   fun (Union x) (Union y) -> Union (NonEmpty.concat x y)
+   fun (Union x) (Union y) -> Union (List.append x y)
+
+  let as_pure_set : 'a set -> 'a option = function
+    | Union [ Inter (Cons (x, [])) ] -> Some x
+    | _ -> None
+  (* let as_pure_set : ('a, 'b) t -> 'b option = function *)
+  (*   | Union [ Seq (Cons (Set (Inter (Cons (x, []))), [])) ] -> Some x *)
+  (*   | _ -> None *)
 end
 
-type builtin_set = R | W | DMB_SY | DMB_ISH (* etc... *)
+type builtin_rel =
+  | ISB
+  | DMB_SY
+  | DMB_ISH
+  | DMB_OSHST
+  | DMB_ST
+  | DMB_ISHST
+  | DSB_ST
+  | DSB_OSHST
+  | DSB_ISHST
+
+type builtin_set =
+  | R
+  | W
+  | ISB
+  | DMB_SY
+  | DMB_ISH
+  | DMB_OSHST
+  | DMB_ISHST
+  | DMB_ST
+  | DSB_ST
+  | DSB_OSHST
+  | DSB_ISHST
+
+let fencerel : builtin_set -> builtin_rel = function
+  | ISB -> ISB
+  | DMB_ISH -> DMB_ISH
+  | DMB_SY -> DMB_SY
+  | DMB_OSHST -> DMB_OSHST
+  | DMB_ST -> DMB_ST
+  | DMB_ISHST -> DMB_ISHST
+  | DSB_ST -> DSB_ST
+  | DSB_ISHST -> DSB_ISHST
+  | DSB_OSHST -> DSB_OSHST
+  | _ -> raise (NormalizationError "unsupported argument for fencerel")
 
 let parse_builtin_set : string -> builtin_set option = function
-  | "DMB_SY" -> Some DMB_SY
-  | "DMB_ISH" -> Some DMB_ISH
+  | "DMB.SY" -> Some DMB_SY
+  | "DMB.ISH" -> Some DMB_ISH
+  | "DMB.OSHST" -> Some DMB_OSHST
+  | "DMB.ST" -> Some DMB_ST
+  | "DMB.ISHST" -> Some DMB_ISHST
+  | "DSB.ST" -> Some DSB_ST
+  | "DSB.ISHST" -> Some DSB_ISHST
+  | "DSB.OSHST" -> Some DSB_OSHST
   | "R" -> Some R
   | "W" -> Some W
   | _ -> None
@@ -210,31 +255,27 @@ let to_set ~(env : (var * builtin_set IR.set) list) (t : var CoreAST.t) :
     | Comp e ->
         (* the complement of unions is the intersection of complements *)
         let (Union aux) = go e in
-        let complemented = NonEmpty.map comp_set_inter aux in
-        NonEmpty.foldl1 IR.inter_set complemented
+        let complemented = List.map comp_set_inter aux in
+        List.fold_left IR.inter_set (Union []) complemented
     | Var v -> (
         match parse_builtin_set v with
         | Some s -> IR.pure_union (IR.pure_inter s)
         | None -> (
             match List.assoc_opt v env with
             | Some t -> t
-            | None -> raise (NormalizationError "unknown set variable")))
+            | None ->
+                let err = Format.sprintf "unknown set variable: %s" v in
+                raise (NormalizationError err)))
     | _ -> raise (NormalizationError "set expression not supported")
   in
   go t
 
-type ir = (var, builtin_set) IR.t
+type ir = (builtin_rel, builtin_set) IR.t
 
-let comp_rel_inter : var IR.inter -> ir =
+let comp_rel_inter : builtin_rel IR.inter -> ir =
  (* TODO: implement as in cat2config *)
  fun is ->
   IR.(pure_union (pure_seq (pure_rel_inter is)))
-
-let app_ir (fn : CoreAST.fn_name) (t : ir) : ir =
-  match fn with
-  | Fencerel -> raise (NormalizationError "fencerel function not supported")
-  | Domain -> raise (NormalizationError "domain function not supported")
-  | Range -> raise (NormalizationError "range function not supported")
 
 (* TODO: account for recursive definitions *)
 let to_ir ~(env : (var * ir) list) ~(set_env : (var * builtin_set IR.set) list)
@@ -250,17 +291,32 @@ let to_ir ~(env : (var * ir) list) ~(set_env : (var * builtin_set IR.set) list)
     | Comp e ->
         let (Union aux) = go e in
         let complemented =
-          NonEmpty.map
+          List.map
             (function
               | IR.Seq (Cons (IR.Rel x, [])) -> comp_rel_inter x
               | _ -> raise (NormalizationError "unsupported complement"))
             aux
         in
-        NonEmpty.foldl1 IR.inter_t complemented
-    | App (fn, e) -> app_ir fn (go e)
-    | Empty -> _
+        List.fold_left IR.inter_t (Union []) complemented
+    | App (fn, e) -> (
+        match fn with
+        | Fencerel -> (
+            let s = to_set ~env:set_env e in
+            match IR.as_pure_set s with
+            | Some x ->
+                let r = fencerel x in
+                IR.pure r
+            | None -> raise (NormalizationError "fencerel failed"))
+        | _ ->
+            raise (NormalizationError "unsupported function")
+            (* app_ir fn (go e) *))
+    | Empty -> Union []
     | Var v -> (
-        match List.assoc_opt v env with Some t -> t | None -> IR.pure v)
+        match List.assoc_opt v env with
+        | Some t -> t
+        | None ->
+            let err = Format.sprintf "unsupported rel var: %s" v in
+            raise (NormalizationError err))
   in
   go t
 
@@ -271,8 +327,8 @@ let parse_core ~(unroll : int) ~(conds : string list)
          try
            let core = to_core_ast ~unroll ~conds e in
            Some (v, core)
-         with NormalizationError err ->
-           Format.eprintf "parse_core (%s): %s@." v err;
+         with NormalizationError _err ->
+           (* Format.eprintf "parse_core (%s): %s@." v err; *)
            None)
 
 let normalize_core (core_bindings : (var * var CoreAST.t) list) :
@@ -284,12 +340,13 @@ let normalize_core (core_bindings : (var * var CoreAST.t) list) :
            try
              let s = to_set ~env:set_env t in
              (env, (v, s) :: set_env)
-           with NormalizationError _ -> (
+           with NormalizationError err -> (
+             Format.eprintf "normalize_core(set)(%s): %s@." v err;
              try
                let t = to_ir ~env ~set_env t in
                ((v, t) :: env, set_env)
              with NormalizationError err ->
-               Format.eprintf "normalize_core(%s): %s@." v err;
+               Format.eprintf "normalize_core(rel)(%s): %s@." v err;
                (env, set_env)))
          ([], [])
   in
