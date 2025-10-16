@@ -398,15 +398,15 @@ struct
     | Empty _ -> "Empty"
     | Imp _ -> "Imp"
     | PTE _ -> "PTE"
-    | After (DC _, _) -> sprintf "DC_a"
-    | After (IC _, _) -> sprintf "IC_a"
+    | After (DC _, _) -> "DC_a"
+    | After (IC _, _) -> "IC_a"
     | D_atom (_, _, v) -> sprintf "D_atom: %s" v
     | Exp _ -> "exp"
     | Rf_single _ -> "rf"
     | Fr_single _ -> "fr"
     | Ws_single _ -> "ws"
-    | DC _ -> sprintf "DC"
-    | IC _ -> sprintf "IC"
+    | DC _ -> "DC"
+    | IC _ -> "IC"
     | Ignore | Mix _ | Loc _ | Ie _ | _ -> ""
 
   let get_inter = function Intersection a | Event a -> a
