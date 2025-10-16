@@ -1001,7 +1001,7 @@ struct
                (Format.sprintf "Expression not supported: %s" (pp_exp exp)))
     with
     | Skip s ->
-        eprintv 2 "%s" s;
+        eprintv 2 "%s@." s;
         Union []
     | NotImplemented s | Misc.Fatal s ->
         raise (Misc.Fatal ("Fail in expand:" ^ s))
