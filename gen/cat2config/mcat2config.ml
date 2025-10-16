@@ -1364,18 +1364,7 @@ struct
       fold_ast
         (fun acc (varname, expression) ->
           (varname, get_option (inline_vars [ varname ] ast_env expression))
-          :: acc
-          (* NOTE: this code is in case we want to restrict the compiled let statements. Currently this is not desired as the whole tree is necessary to construct composite relaxations for DC/IC after *)
-          (* match
-             List.find_opt
-               (fun name -> String.equal name varname)
-               O.lets_to_print
-           with
-           | Some _ ->
-               ( varname,
-                 get_option (inline_vars [ varname ] tree_base expression) )
-           | None ->
-               raise (Skip "") *))
+          :: acc)
         []
         (StringMap.to_list ast_env)
     in
