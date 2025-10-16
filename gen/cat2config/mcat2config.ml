@@ -858,8 +858,17 @@ struct
       in
       (name, union_concat_map edges_of_sequence p)
     in
-    (* when compiling edges of tree, also include local-hw-reqs for the use in DC calculations later *)
-    try List.map edges_of_union (lets_to_print @ [ "local-hw-reqs" ])
+    (* when compiling edges of tree, also include local-hw-reqs
+       for the use in DC calculations later,
+       provided the binding exists in the cat model *)
+    let lets_to_print =
+      let has_local_hw_reqs =
+        List.exists (fun (v, _) -> v = "local-hw-reqs") tree
+      in
+      if has_local_hw_reqs then lets_to_print @ [ "local-hw-reqs" ]
+      else lets_to_print
+    in
+    try List.map edges_of_union lets_to_print
     with Not_found ->
       raise
         (Misc.Fatal "let statements that were asked for are not in cat file")
