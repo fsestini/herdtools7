@@ -783,14 +783,12 @@ struct
       | [] -> []
       | h :: h2 :: t -> (
           match (h, h2) with
-          | Event a, Event b -> (
+          | Event a, Event b ->
               if List.equal String.equal a b then
                 Intersection a :: iter_sequence t
               else
-                try
-                  let new_inter = compare_id a b in
-                  Intersection new_inter :: iter_sequence t
-                with Skip s -> raise (Skip s))
+                let new_inter = compare_id a b in
+                Intersection new_inter :: iter_sequence t
           | _, _ -> h :: iter_sequence (h2 :: t))
       | h :: t -> h :: iter_sequence t
     in
