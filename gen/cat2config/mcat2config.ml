@@ -26,6 +26,8 @@ further work
 
 module StringMap = Map.Make (String)
 
+let pp_exp = Ast_utils.Pprinters.show_exp
+
 module Arg = struct
   type show = Tree | TreeOnly | Lets
 
@@ -350,46 +352,6 @@ struct
     | Some (A.Acq None, None) | Some (A.AcqPc None, None) -> Dir R
     | Some (A.Rel None, None) -> Dir W
     | _ -> a
-
-  let pp_op2 a =
-    let open AST in
-    match a with
-    | Union -> "Union"
-    | Inter -> "Inter"
-    | Diff -> "Diff"
-    | Seq -> "Seq"
-    | Cartesian -> "Cartesian"
-    | Add -> "Add"
-    | Tuple -> "Tuple"
-
-  let pp_op1 a =
-    let open AST in
-    match a with
-    | Plus -> "Plus"
-    | Star -> "Star"
-    | Opt -> "Opt"
-    | Comp -> "Comp"
-    | Inv -> "Inv"
-    | ToId -> "ToId"
-
-  let pp_exp a =
-    let open Format in
-    let open AST in
-    match a with
-    | Konst _ -> "Konst"
-    | Tag _ -> "Tag"
-    | Var (_, v) -> sprintf "Var: %s" v
-    | Op1 (_, op1, _) -> sprintf "Op1: %s" (pp_op1 op1)
-    | Op (_, op2, _) -> sprintf "Op: %s" (pp_op2 op2)
-    | App _ -> "App"
-    | Bind _ -> "Bind"
-    | BindRec _ -> "BindRec"
-    | Fun _ -> "Fun"
-    | ExplicitSet _ -> "ExplicitSet"
-    | Match _ -> "Match"
-    | MatchSet _ -> "MatchSet"
-    | Try _ -> "Try"
-    | If _ -> "If"
 
   let pp_edge_ir a =
     let open Format in
