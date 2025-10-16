@@ -411,12 +411,15 @@ struct
 
   let get_inter = function Intersection a | Event a -> a
 
-  let pp_intersection exp =
-    let exp = get_inter exp in
+  let pp_intersection (exp : var intersection) =
+    let do_pp : var list -> string = function
+      | [] -> raise (Misc.Fatal "Intersection cannot have an empty list")
+      | [ h ] -> if h = "ignore" then "" else h
+      | xs -> String.concat " & " xs
+    in
     match exp with
-    | h :: [] -> if h = "ignore" then "" else h
-    | h :: t -> Format.sprintf "[%s]" (String.concat " & " (h :: t))
-    | [] -> raise (Misc.Fatal "Intersection cannot have an empty list")
+    | Intersection l -> do_pp l
+    | Event l -> Format.sprintf "[%s]" (do_pp l)
 
   let pp_sequence (Sequence expl) =
     String.concat "; "
