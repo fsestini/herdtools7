@@ -1,0 +1,10 @@
+(rule
+ (copy ../../Version.ml Version.ml))
+
+(executable
+ (name mcat2config)
+ (public_name mcat2config7)
+ (libraries herdtools unix gen_common))
+
+(cram
+ (deps %{bin:mcat2config7}))
