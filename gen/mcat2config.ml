@@ -1670,19 +1670,19 @@ entry point
 *)
 
   let zyva ~(show : Arg.show option) ~lets_to_print (tree : AST.ins list) =
-    let map_ast f l =
-      List.fold_left
-        (fun acc a ->
-          try f a :: acc with
-          | NotImplemented s ->
-              eprintv 1 "%s@." s;
-              acc
-          | Skip s ->
-              eprintv 2 "%s@." s;
-              acc)
-        [] l
-    in
-    let tree_base = map_ast get_ins tree in
+    (* let map_ast f l = *)
+    (*   List.fold_left *)
+    (*     (fun acc a -> *)
+    (*       try f a :: acc with *)
+    (*       | NotImplemented s -> *)
+    (*           eprintv 1 "%s@." s; *)
+    (*           acc *)
+    (*       | Skip s -> *)
+    (*           eprintv 2 "%s@." s; *)
+    (*           acc) *)
+    (*     [] l *)
+    (* in *)
+    let tree_base = Ast2edges.extract_let_bindings tree in
     let parsed_core = Ast2edges.parse_core ~unroll:1 ~conds:[] tree_base in
     (* let () = *)
     (*   lets_to_print *)
