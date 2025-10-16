@@ -447,10 +447,6 @@ struct
   let empty_expr = Empty ""
   let first_expr = First ""
 
-  let get_option_list l =
-    let f a = match a with Some x -> [ x ] | None -> [] in
-    Misc.concat_map f l
-
   let get_option a =
     match a with
     | Some x -> x
