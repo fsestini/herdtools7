@@ -415,11 +415,11 @@ struct
     let exp = get_inter exp in
     match exp with
     | h :: [] -> if h = "ignore" then "" else h
-    | h :: t -> Format.sprintf "[%s]" (String.concat "&" (h :: t))
+    | h :: t -> Format.sprintf "[%s]" (String.concat " & " (h :: t))
     | [] -> raise (Misc.Fatal "Intersection cannot have an empty list")
 
   let pp_sequence (Sequence expl) =
-    String.concat ";"
+    String.concat "; "
       (List.filter (fun a -> not (a = "")) (List.map pp_intersection expl))
 
   (* Takes a list of expanded (fully inlined) let statements,
@@ -432,8 +432,8 @@ struct
       in
       fprintf fmt "(%s)@." name;
       if not (List.is_empty sequences) then
-        let pp_sep fmt () = fprintf fmt "@.  |" in
-        fprintf fmt "   %a@." (pp_print_list ~pp_sep pp_print_string) sequences
+        let pp_sep fmt () = fprintf fmt "@.  | " in
+        fprintf fmt "    %a@." (pp_print_list ~pp_sep pp_print_string) sequences
     in
     let filtered_tree =
       if List.is_empty lets_to_print then tree
