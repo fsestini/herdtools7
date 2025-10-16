@@ -9,14 +9,14 @@
     -show <tree|tree-only|lets> show info on parsed model
     -help  Display this list of options
     --help  Display this list of options
-  $ mcat2config7 -set-libdir ./libdir -let bob aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let bob libdir/aarch64.cat
   DMB.ISHs** DMB.ISHd** DMB.ISHs*RPT DMB.ISHd*RPT DMB.OSHs** DMB.OSHd** DMB.OSHs*RPT DMB.OSHd*RPT DMB.SYs** DMB.SYd** DMB.SYs*RPT DMB.SYd*RPT DSB.ISHs** DSB.ISHd** DSB.ISHs*RPT DSB.ISHd*RPT DMB.ISHsR*TP DMB.ISHdR*TP DMB.ISHsRRTT DMB.ISHdRRTT DMB.OSHsR*TP DMB.OSHdR*TP DMB.OSHsRRTT DMB.OSHdRRTT DMB.SYsR*TP DMB.SYdR*TP DMB.SYsRRTT DMB.SYdRRTT DSB.ISHsR*TP DSB.ISHdR*TP DSB.ISHsRRTT DSB.ISHdRRTT [DMB.ISHs**,DC.CVAUp] [DMB.ISHd**,DC.CVAUp] [DMB.OSHs**,DC.CVAUp] [DMB.OSHd**,DC.CVAUp] [DMB.SYs**,DC.CVAUp] [DMB.SYd**,DC.CVAUp] [DSB.ISHs**,DC.CVAUp] [DSB.ISHd**,DC.CVAUp] [DC.CVAUps**,DMB.ISH] [DC.CVAUpd**,DMB.ISH] [DC.CVAUps**,DMB.OSH] [DC.CVAUpd**,DMB.OSH] [DC.CVAUps**,DMB.SY] [DC.CVAUpd**,DMB.SY] [DC.CVAUps**,DSB.ISH] [DC.CVAUpd**,DSB.ISH] [DC.CVAUps**,DMB.ISH,DC.CVAUp] [DC.CVAUpd**,DMB.ISH,DC.CVAUp] [DC.CVAUps**,DMB.OSH,DC.CVAUp] [DC.CVAUpd**,DMB.OSH,DC.CVAUp] [DC.CVAUps**,DMB.SY,DC.CVAUp] [DC.CVAUpd**,DMB.SY,DC.CVAUp] [DC.CVAUps**,DSB.ISH,DC.CVAUp] [DC.CVAUpd**,DSB.ISH,DC.CVAUp] DMB.ISHLDsR* DMB.ISHLDdR* DMB.ISHLDsRRPT DMB.ISHLDdRRPT DMB.OSHLDsR* DMB.OSHLDdR* DMB.OSHLDsRRPT DMB.OSHLDdRRPT DMB.LDsR* DMB.LDdR* DMB.LDsRRPT DMB.LDdRRPT DSB.LDsR* DSB.LDdR* DSB.LDsRRPT DSB.LDdRRPT DMB.ISHLDsR*TP DMB.ISHLDdR*TP DMB.ISHLDsRRTT DMB.ISHLDdRRTT DMB.OSHLDsR*TP DMB.OSHLDdR*TP DMB.OSHLDsRRTT DMB.OSHLDdRRTT DMB.LDsR*TP DMB.LDdR*TP DMB.LDsRRTT DMB.LDdRRTT DSB.LDsR*TP DSB.LDdR*TP DSB.LDsRRTT DSB.LDdRRTT DMB.ISHSTsWW DMB.ISHSTdWW DMB.OSHSTsWW DMB.OSHSTdWW DMB.STsWW DMB.STdWW DSB.STsWW DSB.STdWW [Amo.SwpAP,Pos**] [Amo.SwpAP,Pod**] [Amo.CasAP,Pos**] [Amo.CasAP,Pod**] [Amo.LdAddAP,Pos**] [Amo.LdAddAP,Pod**] [Amo.LdEorAP,Pos**] [Amo.LdEorAP,Pod**] [Amo.LdSetAP,Pos**] [Amo.LdSetAP,Pod**] [Amo.LdClrAP,Pos**] [Amo.LdClrAP,Pod**] [Amo.SwpAP,Pos*RPT] [Amo.SwpAP,Pod*RPT] [Amo.CasAP,Pos*RPT] [Amo.CasAP,Pod*RPT] [Amo.LdAddAP,Pos*RPT] [Amo.LdAddAP,Pod*RPT] [Amo.LdEorAP,Pos*RPT] [Amo.LdEorAP,Pod*RPT] [Amo.LdSetAP,Pos*RPT] [Amo.LdSetAP,Pod*RPT] [Amo.LdClrAP,Pos*RPT] [Amo.LdClrAP,Pod*RPT] PosWRLA PodWRLA PosR*AP PodR*AP PosRRAT PodRRAT PosR*QP PodR*QP PosRRQT PodRRQT Pos*WPL Pod*WPL PosRWTL PodRWTL
-  $ mcat2config7 -set-libdir ./libdir -let dob aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let dob libdir/aarch64.cat
   DpAddrs* DpAddrd* DpDatas* DpDatad* DpCtrlsW DpCtrldW [DpCtrls*,DC.CVAUp] [DpCtrld*,DC.CVAUp] [DpCtrls*,IC.IVAUp] [DpCtrld*,IC.IVAUp] [DpAddrs*,Pos*W] [DpAddrs*,Pod*W] [DpAddrd*,Pos*W] [DpAddrd*,Pod*W] [DpAddrs*,Rfi] [DpAddrd*,Rfi] [DpAddrs*,RfiPT] [DpAddrd*,RfiPT] [DpDatas*,Rfi] [DpDatad*,Rfi] [DpDatas*,RfiPT] [DpDatad*,RfiPT]
-  $ mcat2config7 -set-libdir ./libdir -let ob aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let ob libdir/aarch64.cat
   PosRRIP PodRRIP DpCtrlIsbs* DpCtrlIsbd* DpCtrlIsbCsels* DpCtrlIsbCseld* [DpAddrs*,ISB] [DpAddrd*,ISB] [DpAddrCsels*,ISB] [DpAddrCseld*,ISB] DpAddrs* DpAddrd* DpDatas* DpDatad* DpCtrlsW DpCtrldW [DpCtrls*,DC.CVAUp] [DpCtrld*,DC.CVAUp] [DpCtrls*,IC.IVAUp] [DpCtrld*,IC.IVAUp] [DpAddrs*,Pos*W] [DpAddrs*,Pod*W] [DpAddrd*,Pos*W] [DpAddrd*,Pod*W] [DpAddrs*,Rfi] [DpAddrd*,Rfi] [DpAddrs*,RfiPT] [DpAddrd*,RfiPT] [DpDatas*,Rfi] [DpDatad*,Rfi] [DpDatas*,RfiPT] [DpDatad*,RfiPT] DpAddrCselsW DpAddrCseldW [DpAddrCsels*,DC.CVAUp] [DpAddrCseld*,DC.CVAUp] [DpAddrCsels*,IC.IVAUp] [DpAddrCseld*,IC.IVAUp] DpDataCsels* DpDataCseld* DpCtrlCselsW DpCtrlCseldW [DpCtrlCsels*,DC.CVAUp] [DpCtrlCseld*,DC.CVAUp] [DpCtrlCsels*,IC.IVAUp] [DpCtrlCseld*,IC.IVAUp] [DpAddrCsels*,Pos*W] [DpAddrCsels*,Pod*W] [DpAddrCseld*,Pos*W] [DpAddrCseld*,Pod*W] LxSx Amo.Swp Amo.Cas Amo.LdAdd Amo.LdEor Amo.LdSet Amo.LdClr Amo.StAdd Amo.StEor Amo.StSet Amo.StClr [LxSx,RfiPA] [Amo.Swp,RfiPA] [Amo.Cas,RfiPA] [Amo.LdAdd,RfiPA] [Amo.LdEor,RfiPA] [Amo.LdSet,RfiPA] [Amo.LdClr,RfiPA] [Amo.StAdd,RfiPA] [Amo.StEor,RfiPA] [Amo.StSet,RfiPA] [Amo.StClr,RfiPA] [LxSx,RfiPQ] [Amo.Swp,RfiPQ] [Amo.Cas,RfiPQ] [Amo.LdAdd,RfiPQ] [Amo.LdEor,RfiPQ] [Amo.LdSet,RfiPQ] [Amo.LdClr,RfiPQ] [Amo.StAdd,RfiPQ] [Amo.StEor,RfiPQ] [Amo.StSet,RfiPQ] [Amo.StClr,RfiPQ] DMB.ISHs** DMB.ISHd** DMB.ISHs*RPT DMB.ISHd*RPT DMB.OSHs** DMB.OSHd** DMB.OSHs*RPT DMB.OSHd*RPT DMB.SYs** DMB.SYd** DMB.SYs*RPT DMB.SYd*RPT DSB.ISHs** DSB.ISHd** DSB.ISHs*RPT DSB.ISHd*RPT DMB.ISHsR*TP DMB.ISHdR*TP DMB.ISHsRRTT DMB.ISHdRRTT DMB.OSHsR*TP DMB.OSHdR*TP DMB.OSHsRRTT DMB.OSHdRRTT DMB.SYsR*TP DMB.SYdR*TP DMB.SYsRRTT DMB.SYdRRTT DSB.ISHsR*TP DSB.ISHdR*TP DSB.ISHsRRTT DSB.ISHdRRTT [DMB.ISHs**,DC.CVAUp] [DMB.ISHd**,DC.CVAUp] [DMB.OSHs**,DC.CVAUp] [DMB.OSHd**,DC.CVAUp] [DMB.SYs**,DC.CVAUp] [DMB.SYd**,DC.CVAUp] [DSB.ISHs**,DC.CVAUp] [DSB.ISHd**,DC.CVAUp] [DC.CVAUps**,DMB.ISH] [DC.CVAUpd**,DMB.ISH] [DC.CVAUps**,DMB.OSH] [DC.CVAUpd**,DMB.OSH] [DC.CVAUps**,DMB.SY] [DC.CVAUpd**,DMB.SY] [DC.CVAUps**,DSB.ISH] [DC.CVAUpd**,DSB.ISH] [DC.CVAUps**,DMB.ISH,DC.CVAUp] [DC.CVAUpd**,DMB.ISH,DC.CVAUp] [DC.CVAUps**,DMB.OSH,DC.CVAUp] [DC.CVAUpd**,DMB.OSH,DC.CVAUp] [DC.CVAUps**,DMB.SY,DC.CVAUp] [DC.CVAUpd**,DMB.SY,DC.CVAUp] [DC.CVAUps**,DSB.ISH,DC.CVAUp] [DC.CVAUpd**,DSB.ISH,DC.CVAUp] DMB.ISHLDsR* DMB.ISHLDdR* DMB.ISHLDsRRPT DMB.ISHLDdRRPT DMB.OSHLDsR* DMB.OSHLDdR* DMB.OSHLDsRRPT DMB.OSHLDdRRPT DMB.LDsR* DMB.LDdR* DMB.LDsRRPT DMB.LDdRRPT DSB.LDsR* DSB.LDdR* DSB.LDsRRPT DSB.LDdRRPT DMB.ISHLDsR*TP DMB.ISHLDdR*TP DMB.ISHLDsRRTT DMB.ISHLDdRRTT DMB.OSHLDsR*TP DMB.OSHLDdR*TP DMB.OSHLDsRRTT DMB.OSHLDdRRTT DMB.LDsR*TP DMB.LDdR*TP DMB.LDsRRTT DMB.LDdRRTT DSB.LDsR*TP DSB.LDdR*TP DSB.LDsRRTT DSB.LDdRRTT DMB.ISHSTsWW DMB.ISHSTdWW DMB.OSHSTsWW DMB.OSHSTdWW DMB.STsWW DMB.STdWW DSB.STsWW DSB.STdWW [Amo.SwpAP,Pos**] [Amo.SwpAP,Pod**] [Amo.CasAP,Pos**] [Amo.CasAP,Pod**] [Amo.LdAddAP,Pos**] [Amo.LdAddAP,Pod**] [Amo.LdEorAP,Pos**] [Amo.LdEorAP,Pod**] [Amo.LdSetAP,Pos**] [Amo.LdSetAP,Pod**] [Amo.LdClrAP,Pos**] [Amo.LdClrAP,Pod**] [Amo.SwpAP,Pos*RPT] [Amo.SwpAP,Pod*RPT] [Amo.CasAP,Pos*RPT] [Amo.CasAP,Pod*RPT] [Amo.LdAddAP,Pos*RPT] [Amo.LdAddAP,Pod*RPT] [Amo.LdEorAP,Pos*RPT] [Amo.LdEorAP,Pod*RPT] [Amo.LdSetAP,Pos*RPT] [Amo.LdSetAP,Pod*RPT] [Amo.LdClrAP,Pos*RPT] [Amo.LdClrAP,Pod*RPT] PosWRLA PodWRLA PosR*AP PodR*AP PosRRAT PodRRAT PosR*QP PodR*QP PosRRQT PodRRQT Pos*WPL Pod*WPL PosRWTL PodRWTL [PosRRIP,DSB.ISH] [PodRRIP,DSB.ISH] [PosRRIP,DSB.ISH,ISB] [PodRRIP,DSB.ISH,ISB] [PosRRIP,DSB.ISH,DC.CVAUp] [PodRRIP,DSB.ISH,DC.CVAUp] [PosRRIP,DSB.ISH,IC.IVAUp] [PodRRIP,DSB.ISH,IC.IVAUp] RfePI FreIP
 Option -show tree
-  $ mcat2config7 -set-libdir ./libdir -show tree aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -show tree libdir/aarch64.cat
   (Exp-haz-ob)
      [Exp&R];[po&M&loc&M];[Exp&R];[ca&ext];[Exp&W]
     |[Exp&R];[po&MMU&Translation&FAULT&same-low-order-bits];[Exp&R];[ca&ext];[Exp&W]
@@ -1735,8 +1735,12 @@ Option -show tree
   
   
   
+
+
+
+
 Option -show tree in conjunction with -let should only show the specified relation
-  $ mcat2config7 -set-libdir ./libdir -let bob -show tree aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let bob -show tree libdir/aarch64.cat
   (bob)
      [Exp&M];po;DMB.ISH;po;[Exp&M]
     |[Exp&M];po;DMB.ISH;po;[NExp&T&R]
@@ -1831,7 +1835,7 @@ Option -show tree in conjunction with -let should only show the specified relati
   
   
   DMB.ISHs** DMB.ISHd** DMB.ISHs*RPT DMB.ISHd*RPT DMB.OSHs** DMB.OSHd** DMB.OSHs*RPT DMB.OSHd*RPT DMB.SYs** DMB.SYd** DMB.SYs*RPT DMB.SYd*RPT DSB.ISHs** DSB.ISHd** DSB.ISHs*RPT DSB.ISHd*RPT DMB.ISHsR*TP DMB.ISHdR*TP DMB.ISHsRRTT DMB.ISHdRRTT DMB.OSHsR*TP DMB.OSHdR*TP DMB.OSHsRRTT DMB.OSHdRRTT DMB.SYsR*TP DMB.SYdR*TP DMB.SYsRRTT DMB.SYdRRTT DSB.ISHsR*TP DSB.ISHdR*TP DSB.ISHsRRTT DSB.ISHdRRTT [DMB.ISHs**,DC.CVAUp] [DMB.ISHd**,DC.CVAUp] [DMB.OSHs**,DC.CVAUp] [DMB.OSHd**,DC.CVAUp] [DMB.SYs**,DC.CVAUp] [DMB.SYd**,DC.CVAUp] [DSB.ISHs**,DC.CVAUp] [DSB.ISHd**,DC.CVAUp] [DC.CVAUps**,DMB.ISH] [DC.CVAUpd**,DMB.ISH] [DC.CVAUps**,DMB.OSH] [DC.CVAUpd**,DMB.OSH] [DC.CVAUps**,DMB.SY] [DC.CVAUpd**,DMB.SY] [DC.CVAUps**,DSB.ISH] [DC.CVAUpd**,DSB.ISH] [DC.CVAUps**,DMB.ISH,DC.CVAUp] [DC.CVAUpd**,DMB.ISH,DC.CVAUp] [DC.CVAUps**,DMB.OSH,DC.CVAUp] [DC.CVAUpd**,DMB.OSH,DC.CVAUp] [DC.CVAUps**,DMB.SY,DC.CVAUp] [DC.CVAUpd**,DMB.SY,DC.CVAUp] [DC.CVAUps**,DSB.ISH,DC.CVAUp] [DC.CVAUpd**,DSB.ISH,DC.CVAUp] DMB.ISHLDsR* DMB.ISHLDdR* DMB.ISHLDsRRPT DMB.ISHLDdRRPT DMB.OSHLDsR* DMB.OSHLDdR* DMB.OSHLDsRRPT DMB.OSHLDdRRPT DMB.LDsR* DMB.LDdR* DMB.LDsRRPT DMB.LDdRRPT DSB.LDsR* DSB.LDdR* DSB.LDsRRPT DSB.LDdRRPT DMB.ISHLDsR*TP DMB.ISHLDdR*TP DMB.ISHLDsRRTT DMB.ISHLDdRRTT DMB.OSHLDsR*TP DMB.OSHLDdR*TP DMB.OSHLDsRRTT DMB.OSHLDdRRTT DMB.LDsR*TP DMB.LDdR*TP DMB.LDsRRTT DMB.LDdRRTT DSB.LDsR*TP DSB.LDdR*TP DSB.LDsRRTT DSB.LDdRRTT DMB.ISHSTsWW DMB.ISHSTdWW DMB.OSHSTsWW DMB.OSHSTdWW DMB.STsWW DMB.STdWW DSB.STsWW DSB.STdWW [Amo.SwpAP,Pos**] [Amo.SwpAP,Pod**] [Amo.CasAP,Pos**] [Amo.CasAP,Pod**] [Amo.LdAddAP,Pos**] [Amo.LdAddAP,Pod**] [Amo.LdEorAP,Pos**] [Amo.LdEorAP,Pod**] [Amo.LdSetAP,Pos**] [Amo.LdSetAP,Pod**] [Amo.LdClrAP,Pos**] [Amo.LdClrAP,Pod**] [Amo.SwpAP,Pos*RPT] [Amo.SwpAP,Pod*RPT] [Amo.CasAP,Pos*RPT] [Amo.CasAP,Pod*RPT] [Amo.LdAddAP,Pos*RPT] [Amo.LdAddAP,Pod*RPT] [Amo.LdEorAP,Pos*RPT] [Amo.LdEorAP,Pod*RPT] [Amo.LdSetAP,Pos*RPT] [Amo.LdSetAP,Pod*RPT] [Amo.LdClrAP,Pos*RPT] [Amo.LdClrAP,Pod*RPT] PosWRLA PodWRLA PosR*AP PodR*AP PosRRAT PodRRAT PosR*QP PodR*QP PosRRQT PodRRQT Pos*WPL Pod*WPL PosRWTL PodRWTL
-  $ mcat2config7 -set-libdir ./libdir -show lets aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -show lets libdir/aarch64.cat
   Exp-haz-ob
   TTD-read-ordered-before
   TLBI-ob
@@ -1945,166 +1949,166 @@ Option -show tree in conjunction with -let should only show the specified relati
   dmb.full
   dmb.ld
   dmb.st
-  $ mcat2config7 -set-libdir ./libdir -let Exp-haz-ob aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let TTD-read-ordered-before aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let TLBI-ob aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let Instr-read-ordered-before aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let Exp-haz-ob libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let TTD-read-ordered-before libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let TLBI-ob libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let Instr-read-ordered-before libdir/aarch64.cat
   DSB.ISH [DSB.ISH,ISB] [DSB.ISH,DC.CVAUp] [DSB.ISH,IC.IVAUp]
-  $ mcat2config7 -set-libdir ./libdir -let IC-ob aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let IC-ob libdir/aarch64.cat
   [PosRRIP,DSB.ISH] [PodRRIP,DSB.ISH] [PosRRIP,DSB.ISH,ISB] [PodRRIP,DSB.ISH,ISB] [PosRRIP,DSB.ISH,DC.CVAUp] [PodRRIP,DSB.ISH,DC.CVAUp] [PosRRIP,DSB.ISH,IC.IVAUp] [PodRRIP,DSB.ISH,IC.IVAUp]
-  $ mcat2config7 -set-libdir ./libdir -let haz-ob aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let haz-ob libdir/aarch64.cat
   [PosRRIP,DSB.ISH] [PodRRIP,DSB.ISH] [PosRRIP,DSB.ISH,ISB] [PodRRIP,DSB.ISH,ISB] [PosRRIP,DSB.ISH,DC.CVAUp] [PodRRIP,DSB.ISH,DC.CVAUp] [PosRRIP,DSB.ISH,IC.IVAUp] [PodRRIP,DSB.ISH,IC.IVAUp]
-  $ mcat2config7 -set-libdir ./libdir -let hw-reqs aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let hw-reqs libdir/aarch64.cat
   PosRRIP PodRRIP DpCtrlIsbs* DpCtrlIsbd* DpCtrlIsbCsels* DpCtrlIsbCseld* [DpAddrs*,ISB] [DpAddrd*,ISB] [DpAddrCsels*,ISB] [DpAddrCseld*,ISB] DpAddrs* DpAddrd* DpDatas* DpDatad* DpCtrlsW DpCtrldW [DpCtrls*,DC.CVAUp] [DpCtrld*,DC.CVAUp] [DpCtrls*,IC.IVAUp] [DpCtrld*,IC.IVAUp] [DpAddrs*,Pos*W] [DpAddrs*,Pod*W] [DpAddrd*,Pos*W] [DpAddrd*,Pod*W] [DpAddrs*,Rfi] [DpAddrd*,Rfi] [DpAddrs*,RfiPT] [DpAddrd*,RfiPT] [DpDatas*,Rfi] [DpDatad*,Rfi] [DpDatas*,RfiPT] [DpDatad*,RfiPT] DpAddrCselsW DpAddrCseldW [DpAddrCsels*,DC.CVAUp] [DpAddrCseld*,DC.CVAUp] [DpAddrCsels*,IC.IVAUp] [DpAddrCseld*,IC.IVAUp] DpDataCsels* DpDataCseld* DpCtrlCselsW DpCtrlCseldW [DpCtrlCsels*,DC.CVAUp] [DpCtrlCseld*,DC.CVAUp] [DpCtrlCsels*,IC.IVAUp] [DpCtrlCseld*,IC.IVAUp] [DpAddrCsels*,Pos*W] [DpAddrCsels*,Pod*W] [DpAddrCseld*,Pos*W] [DpAddrCseld*,Pod*W] LxSx Amo.Swp Amo.Cas Amo.LdAdd Amo.LdEor Amo.LdSet Amo.LdClr Amo.StAdd Amo.StEor Amo.StSet Amo.StClr [LxSx,RfiPA] [Amo.Swp,RfiPA] [Amo.Cas,RfiPA] [Amo.LdAdd,RfiPA] [Amo.LdEor,RfiPA] [Amo.LdSet,RfiPA] [Amo.LdClr,RfiPA] [Amo.StAdd,RfiPA] [Amo.StEor,RfiPA] [Amo.StSet,RfiPA] [Amo.StClr,RfiPA] [LxSx,RfiPQ] [Amo.Swp,RfiPQ] [Amo.Cas,RfiPQ] [Amo.LdAdd,RfiPQ] [Amo.LdEor,RfiPQ] [Amo.LdSet,RfiPQ] [Amo.LdClr,RfiPQ] [Amo.StAdd,RfiPQ] [Amo.StEor,RfiPQ] [Amo.StSet,RfiPQ] [Amo.StClr,RfiPQ] DMB.ISHs** DMB.ISHd** DMB.ISHs*RPT DMB.ISHd*RPT DMB.OSHs** DMB.OSHd** DMB.OSHs*RPT DMB.OSHd*RPT DMB.SYs** DMB.SYd** DMB.SYs*RPT DMB.SYd*RPT DSB.ISHs** DSB.ISHd** DSB.ISHs*RPT DSB.ISHd*RPT DMB.ISHsR*TP DMB.ISHdR*TP DMB.ISHsRRTT DMB.ISHdRRTT DMB.OSHsR*TP DMB.OSHdR*TP DMB.OSHsRRTT DMB.OSHdRRTT DMB.SYsR*TP DMB.SYdR*TP DMB.SYsRRTT DMB.SYdRRTT DSB.ISHsR*TP DSB.ISHdR*TP DSB.ISHsRRTT DSB.ISHdRRTT [DMB.ISHs**,DC.CVAUp] [DMB.ISHd**,DC.CVAUp] [DMB.OSHs**,DC.CVAUp] [DMB.OSHd**,DC.CVAUp] [DMB.SYs**,DC.CVAUp] [DMB.SYd**,DC.CVAUp] [DSB.ISHs**,DC.CVAUp] [DSB.ISHd**,DC.CVAUp] [DC.CVAUps**,DMB.ISH] [DC.CVAUpd**,DMB.ISH] [DC.CVAUps**,DMB.OSH] [DC.CVAUpd**,DMB.OSH] [DC.CVAUps**,DMB.SY] [DC.CVAUpd**,DMB.SY] [DC.CVAUps**,DSB.ISH] [DC.CVAUpd**,DSB.ISH] [DC.CVAUps**,DMB.ISH,DC.CVAUp] [DC.CVAUpd**,DMB.ISH,DC.CVAUp] [DC.CVAUps**,DMB.OSH,DC.CVAUp] [DC.CVAUpd**,DMB.OSH,DC.CVAUp] [DC.CVAUps**,DMB.SY,DC.CVAUp] [DC.CVAUpd**,DMB.SY,DC.CVAUp] [DC.CVAUps**,DSB.ISH,DC.CVAUp] [DC.CVAUpd**,DSB.ISH,DC.CVAUp] DMB.ISHLDsR* DMB.ISHLDdR* DMB.ISHLDsRRPT DMB.ISHLDdRRPT DMB.OSHLDsR* DMB.OSHLDdR* DMB.OSHLDsRRPT DMB.OSHLDdRRPT DMB.LDsR* DMB.LDdR* DMB.LDsRRPT DMB.LDdRRPT DSB.LDsR* DSB.LDdR* DSB.LDsRRPT DSB.LDdRRPT DMB.ISHLDsR*TP DMB.ISHLDdR*TP DMB.ISHLDsRRTT DMB.ISHLDdRRTT DMB.OSHLDsR*TP DMB.OSHLDdR*TP DMB.OSHLDsRRTT DMB.OSHLDdRRTT DMB.LDsR*TP DMB.LDdR*TP DMB.LDsRRTT DMB.LDdRRTT DSB.LDsR*TP DSB.LDdR*TP DSB.LDsRRTT DSB.LDdRRTT DMB.ISHSTsWW DMB.ISHSTdWW DMB.OSHSTsWW DMB.OSHSTdWW DMB.STsWW DMB.STdWW DSB.STsWW DSB.STdWW [Amo.SwpAP,Pos**] [Amo.SwpAP,Pod**] [Amo.CasAP,Pos**] [Amo.CasAP,Pod**] [Amo.LdAddAP,Pos**] [Amo.LdAddAP,Pod**] [Amo.LdEorAP,Pos**] [Amo.LdEorAP,Pod**] [Amo.LdSetAP,Pos**] [Amo.LdSetAP,Pod**] [Amo.LdClrAP,Pos**] [Amo.LdClrAP,Pod**] [Amo.SwpAP,Pos*RPT] [Amo.SwpAP,Pod*RPT] [Amo.CasAP,Pos*RPT] [Amo.CasAP,Pod*RPT] [Amo.LdAddAP,Pos*RPT] [Amo.LdAddAP,Pod*RPT] [Amo.LdEorAP,Pos*RPT] [Amo.LdEorAP,Pod*RPT] [Amo.LdSetAP,Pos*RPT] [Amo.LdSetAP,Pod*RPT] [Amo.LdClrAP,Pos*RPT] [Amo.LdClrAP,Pod*RPT] PosWRLA PodWRLA PosR*AP PodR*AP PosRRAT PodRRAT PosR*QP PodR*QP PosRRQT PodRRQT Pos*WPL Pod*WPL PosRWTL PodRWTL [PosRRIP,DSB.ISH] [PodRRIP,DSB.ISH] [PosRRIP,DSB.ISH,ISB] [PodRRIP,DSB.ISH,ISB] [PosRRIP,DSB.ISH,DC.CVAUp] [PodRRIP,DSB.ISH,DC.CVAUp] [PosRRIP,DSB.ISH,IC.IVAUp] [PodRRIP,DSB.ISH,IC.IVAUp]
-  $ mcat2config7 -set-libdir ./libdir -let Exp-obs aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let Exp-obs libdir/aarch64.cat
   Rfe Fre
-  $ mcat2config7 -set-libdir ./libdir -let Tag-obs aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let Tag-obs libdir/aarch64.cat
   RfePT FreTP
-  $ mcat2config7 -set-libdir ./libdir -let TLBuncacheable-pred aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let HU-pred aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let TLBI-ca aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let TTD-obs aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let IC-ca aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let TLBuncacheable-pred libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let HU-pred libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let TLBI-ca libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let TTD-obs libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let IC-ca libdir/aarch64.cat
   FreIP
-  $ mcat2config7 -set-libdir ./libdir -let Instr-obs aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let Instr-obs libdir/aarch64.cat
   RfePI FreIP
-  $ mcat2config7 -set-libdir ./libdir -let obs aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let obs libdir/aarch64.cat
   RfePI FreIP
-  $ mcat2config7 -set-libdir ./libdir -let ob aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let ob libdir/aarch64.cat
   PosRRIP PodRRIP DpCtrlIsbs* DpCtrlIsbd* DpCtrlIsbCsels* DpCtrlIsbCseld* [DpAddrs*,ISB] [DpAddrd*,ISB] [DpAddrCsels*,ISB] [DpAddrCseld*,ISB] DpAddrs* DpAddrd* DpDatas* DpDatad* DpCtrlsW DpCtrldW [DpCtrls*,DC.CVAUp] [DpCtrld*,DC.CVAUp] [DpCtrls*,IC.IVAUp] [DpCtrld*,IC.IVAUp] [DpAddrs*,Pos*W] [DpAddrs*,Pod*W] [DpAddrd*,Pos*W] [DpAddrd*,Pod*W] [DpAddrs*,Rfi] [DpAddrd*,Rfi] [DpAddrs*,RfiPT] [DpAddrd*,RfiPT] [DpDatas*,Rfi] [DpDatad*,Rfi] [DpDatas*,RfiPT] [DpDatad*,RfiPT] DpAddrCselsW DpAddrCseldW [DpAddrCsels*,DC.CVAUp] [DpAddrCseld*,DC.CVAUp] [DpAddrCsels*,IC.IVAUp] [DpAddrCseld*,IC.IVAUp] DpDataCsels* DpDataCseld* DpCtrlCselsW DpCtrlCseldW [DpCtrlCsels*,DC.CVAUp] [DpCtrlCseld*,DC.CVAUp] [DpCtrlCsels*,IC.IVAUp] [DpCtrlCseld*,IC.IVAUp] [DpAddrCsels*,Pos*W] [DpAddrCsels*,Pod*W] [DpAddrCseld*,Pos*W] [DpAddrCseld*,Pod*W] LxSx Amo.Swp Amo.Cas Amo.LdAdd Amo.LdEor Amo.LdSet Amo.LdClr Amo.StAdd Amo.StEor Amo.StSet Amo.StClr [LxSx,RfiPA] [Amo.Swp,RfiPA] [Amo.Cas,RfiPA] [Amo.LdAdd,RfiPA] [Amo.LdEor,RfiPA] [Amo.LdSet,RfiPA] [Amo.LdClr,RfiPA] [Amo.StAdd,RfiPA] [Amo.StEor,RfiPA] [Amo.StSet,RfiPA] [Amo.StClr,RfiPA] [LxSx,RfiPQ] [Amo.Swp,RfiPQ] [Amo.Cas,RfiPQ] [Amo.LdAdd,RfiPQ] [Amo.LdEor,RfiPQ] [Amo.LdSet,RfiPQ] [Amo.LdClr,RfiPQ] [Amo.StAdd,RfiPQ] [Amo.StEor,RfiPQ] [Amo.StSet,RfiPQ] [Amo.StClr,RfiPQ] DMB.ISHs** DMB.ISHd** DMB.ISHs*RPT DMB.ISHd*RPT DMB.OSHs** DMB.OSHd** DMB.OSHs*RPT DMB.OSHd*RPT DMB.SYs** DMB.SYd** DMB.SYs*RPT DMB.SYd*RPT DSB.ISHs** DSB.ISHd** DSB.ISHs*RPT DSB.ISHd*RPT DMB.ISHsR*TP DMB.ISHdR*TP DMB.ISHsRRTT DMB.ISHdRRTT DMB.OSHsR*TP DMB.OSHdR*TP DMB.OSHsRRTT DMB.OSHdRRTT DMB.SYsR*TP DMB.SYdR*TP DMB.SYsRRTT DMB.SYdRRTT DSB.ISHsR*TP DSB.ISHdR*TP DSB.ISHsRRTT DSB.ISHdRRTT [DMB.ISHs**,DC.CVAUp] [DMB.ISHd**,DC.CVAUp] [DMB.OSHs**,DC.CVAUp] [DMB.OSHd**,DC.CVAUp] [DMB.SYs**,DC.CVAUp] [DMB.SYd**,DC.CVAUp] [DSB.ISHs**,DC.CVAUp] [DSB.ISHd**,DC.CVAUp] [DC.CVAUps**,DMB.ISH] [DC.CVAUpd**,DMB.ISH] [DC.CVAUps**,DMB.OSH] [DC.CVAUpd**,DMB.OSH] [DC.CVAUps**,DMB.SY] [DC.CVAUpd**,DMB.SY] [DC.CVAUps**,DSB.ISH] [DC.CVAUpd**,DSB.ISH] [DC.CVAUps**,DMB.ISH,DC.CVAUp] [DC.CVAUpd**,DMB.ISH,DC.CVAUp] [DC.CVAUps**,DMB.OSH,DC.CVAUp] [DC.CVAUpd**,DMB.OSH,DC.CVAUp] [DC.CVAUps**,DMB.SY,DC.CVAUp] [DC.CVAUpd**,DMB.SY,DC.CVAUp] [DC.CVAUps**,DSB.ISH,DC.CVAUp] [DC.CVAUpd**,DSB.ISH,DC.CVAUp] DMB.ISHLDsR* DMB.ISHLDdR* DMB.ISHLDsRRPT DMB.ISHLDdRRPT DMB.OSHLDsR* DMB.OSHLDdR* DMB.OSHLDsRRPT DMB.OSHLDdRRPT DMB.LDsR* DMB.LDdR* DMB.LDsRRPT DMB.LDdRRPT DSB.LDsR* DSB.LDdR* DSB.LDsRRPT DSB.LDdRRPT DMB.ISHLDsR*TP DMB.ISHLDdR*TP DMB.ISHLDsRRTT DMB.ISHLDdRRTT DMB.OSHLDsR*TP DMB.OSHLDdR*TP DMB.OSHLDsRRTT DMB.OSHLDdRRTT DMB.LDsR*TP DMB.LDdR*TP DMB.LDsRRTT DMB.LDdRRTT DSB.LDsR*TP DSB.LDdR*TP DSB.LDsRRTT DSB.LDdRRTT DMB.ISHSTsWW DMB.ISHSTdWW DMB.OSHSTsWW DMB.OSHSTdWW DMB.STsWW DMB.STdWW DSB.STsWW DSB.STdWW [Amo.SwpAP,Pos**] [Amo.SwpAP,Pod**] [Amo.CasAP,Pos**] [Amo.CasAP,Pod**] [Amo.LdAddAP,Pos**] [Amo.LdAddAP,Pod**] [Amo.LdEorAP,Pos**] [Amo.LdEorAP,Pod**] [Amo.LdSetAP,Pos**] [Amo.LdSetAP,Pod**] [Amo.LdClrAP,Pos**] [Amo.LdClrAP,Pod**] [Amo.SwpAP,Pos*RPT] [Amo.SwpAP,Pod*RPT] [Amo.CasAP,Pos*RPT] [Amo.CasAP,Pod*RPT] [Amo.LdAddAP,Pos*RPT] [Amo.LdAddAP,Pod*RPT] [Amo.LdEorAP,Pos*RPT] [Amo.LdEorAP,Pod*RPT] [Amo.LdSetAP,Pos*RPT] [Amo.LdSetAP,Pod*RPT] [Amo.LdClrAP,Pos*RPT] [Amo.LdClrAP,Pod*RPT] PosWRLA PodWRLA PosR*AP PodR*AP PosRRAT PodRRAT PosR*QP PodR*QP PosRRQT PodRRQT Pos*WPL Pod*WPL PosRWTL PodRWTL [PosRRIP,DSB.ISH] [PodRRIP,DSB.ISH] [PosRRIP,DSB.ISH,ISB] [PodRRIP,DSB.ISH,ISB] [PosRRIP,DSB.ISH,DC.CVAUp] [PodRRIP,DSB.ISH,DC.CVAUp] [PosRRIP,DSB.ISH,IC.IVAUp] [PodRRIP,DSB.ISH,IC.IVAUp] RfePI FreIP
-  $ mcat2config7 -set-libdir ./libdir -let BBM aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let CMODX-conflicts aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let CMODX-ordering aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let CMODX-unordered-conflicts aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let tc-before aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let tc-ib aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let f-ib aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let DSB-ob aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let EXC-ENTRY-IFB aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let EXC-RET-IFB aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let BBM libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let CMODX-conflicts libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let CMODX-ordering libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let CMODX-unordered-conflicts libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let tc-before libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let tc-ib libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let f-ib libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let DSB-ob libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let EXC-ENTRY-IFB libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let EXC-RET-IFB libdir/aarch64.cat
   Fatal Error: Variable not in matcher: EXC-RET
-  $ mcat2config7 -set-libdir ./libdir -let IFB aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let IFB libdir/aarch64.cat
   ISBs** ISBd**
-  $ mcat2config7 -set-libdir ./libdir -let IFB-ob aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let IFB-ob libdir/aarch64.cat
   DpCtrlIsbs* DpCtrlIsbd* DpCtrlIsbCsels* DpCtrlIsbCseld* [DpAddrs*,ISB] [DpAddrd*,ISB] [DpAddrCsels*,ISB] [DpAddrCseld*,ISB]
-  $ mcat2config7 -set-libdir ./libdir -let dob aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let dob libdir/aarch64.cat
   DpAddrs* DpAddrd* DpDatas* DpDatad* DpCtrlsW DpCtrldW [DpCtrls*,DC.CVAUp] [DpCtrld*,DC.CVAUp] [DpCtrls*,IC.IVAUp] [DpCtrld*,IC.IVAUp] [DpAddrs*,Pos*W] [DpAddrs*,Pod*W] [DpAddrd*,Pos*W] [DpAddrd*,Pod*W] [DpAddrs*,Rfi] [DpAddrd*,Rfi] [DpAddrs*,RfiPT] [DpAddrd*,RfiPT] [DpDatas*,Rfi] [DpDatad*,Rfi] [DpDatas*,RfiPT] [DpDatad*,RfiPT]
-  $ mcat2config7 -set-libdir ./libdir -let f-ob aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let f-ob libdir/aarch64.cat
   PosRRIP PodRRIP
-  $ mcat2config7 -set-libdir ./libdir -let pob aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let pob libdir/aarch64.cat
   DpAddrCselsW DpAddrCseldW [DpAddrCsels*,DC.CVAUp] [DpAddrCseld*,DC.CVAUp] [DpAddrCsels*,IC.IVAUp] [DpAddrCseld*,IC.IVAUp] DpDataCsels* DpDataCseld* DpCtrlCselsW DpCtrlCseldW [DpCtrlCsels*,DC.CVAUp] [DpCtrlCseld*,DC.CVAUp] [DpCtrlCsels*,IC.IVAUp] [DpCtrlCseld*,IC.IVAUp] [DpAddrCsels*,Pos*W] [DpAddrCsels*,Pod*W] [DpAddrCseld*,Pos*W] [DpAddrCseld*,Pod*W]
-  $ mcat2config7 -set-libdir ./libdir -let aob aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let aob libdir/aarch64.cat
   LxSx Amo.Swp Amo.Cas Amo.LdAdd Amo.LdEor Amo.LdSet Amo.LdClr Amo.StAdd Amo.StEor Amo.StSet Amo.StClr [LxSx,RfiPA] [Amo.Swp,RfiPA] [Amo.Cas,RfiPA] [Amo.LdAdd,RfiPA] [Amo.LdEor,RfiPA] [Amo.LdSet,RfiPA] [Amo.LdClr,RfiPA] [Amo.StAdd,RfiPA] [Amo.StEor,RfiPA] [Amo.StSet,RfiPA] [Amo.StClr,RfiPA] [LxSx,RfiPQ] [Amo.Swp,RfiPQ] [Amo.Cas,RfiPQ] [Amo.LdAdd,RfiPQ] [Amo.LdEor,RfiPQ] [Amo.LdSet,RfiPQ] [Amo.LdClr,RfiPQ] [Amo.StAdd,RfiPQ] [Amo.StEor,RfiPQ] [Amo.StSet,RfiPQ] [Amo.StClr,RfiPQ]
-  $ mcat2config7 -set-libdir ./libdir -let bob aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let bob libdir/aarch64.cat
   DMB.ISHs** DMB.ISHd** DMB.ISHs*RPT DMB.ISHd*RPT DMB.OSHs** DMB.OSHd** DMB.OSHs*RPT DMB.OSHd*RPT DMB.SYs** DMB.SYd** DMB.SYs*RPT DMB.SYd*RPT DSB.ISHs** DSB.ISHd** DSB.ISHs*RPT DSB.ISHd*RPT DMB.ISHsR*TP DMB.ISHdR*TP DMB.ISHsRRTT DMB.ISHdRRTT DMB.OSHsR*TP DMB.OSHdR*TP DMB.OSHsRRTT DMB.OSHdRRTT DMB.SYsR*TP DMB.SYdR*TP DMB.SYsRRTT DMB.SYdRRTT DSB.ISHsR*TP DSB.ISHdR*TP DSB.ISHsRRTT DSB.ISHdRRTT [DMB.ISHs**,DC.CVAUp] [DMB.ISHd**,DC.CVAUp] [DMB.OSHs**,DC.CVAUp] [DMB.OSHd**,DC.CVAUp] [DMB.SYs**,DC.CVAUp] [DMB.SYd**,DC.CVAUp] [DSB.ISHs**,DC.CVAUp] [DSB.ISHd**,DC.CVAUp] [DC.CVAUps**,DMB.ISH] [DC.CVAUpd**,DMB.ISH] [DC.CVAUps**,DMB.OSH] [DC.CVAUpd**,DMB.OSH] [DC.CVAUps**,DMB.SY] [DC.CVAUpd**,DMB.SY] [DC.CVAUps**,DSB.ISH] [DC.CVAUpd**,DSB.ISH] [DC.CVAUps**,DMB.ISH,DC.CVAUp] [DC.CVAUpd**,DMB.ISH,DC.CVAUp] [DC.CVAUps**,DMB.OSH,DC.CVAUp] [DC.CVAUpd**,DMB.OSH,DC.CVAUp] [DC.CVAUps**,DMB.SY,DC.CVAUp] [DC.CVAUpd**,DMB.SY,DC.CVAUp] [DC.CVAUps**,DSB.ISH,DC.CVAUp] [DC.CVAUpd**,DSB.ISH,DC.CVAUp] DMB.ISHLDsR* DMB.ISHLDdR* DMB.ISHLDsRRPT DMB.ISHLDdRRPT DMB.OSHLDsR* DMB.OSHLDdR* DMB.OSHLDsRRPT DMB.OSHLDdRRPT DMB.LDsR* DMB.LDdR* DMB.LDsRRPT DMB.LDdRRPT DSB.LDsR* DSB.LDdR* DSB.LDsRRPT DSB.LDdRRPT DMB.ISHLDsR*TP DMB.ISHLDdR*TP DMB.ISHLDsRRTT DMB.ISHLDdRRTT DMB.OSHLDsR*TP DMB.OSHLDdR*TP DMB.OSHLDsRRTT DMB.OSHLDdRRTT DMB.LDsR*TP DMB.LDdR*TP DMB.LDsRRTT DMB.LDdRRTT DSB.LDsR*TP DSB.LDdR*TP DSB.LDsRRTT DSB.LDdRRTT DMB.ISHSTsWW DMB.ISHSTdWW DMB.OSHSTsWW DMB.OSHSTdWW DMB.STsWW DMB.STdWW DSB.STsWW DSB.STdWW [Amo.SwpAP,Pos**] [Amo.SwpAP,Pod**] [Amo.CasAP,Pos**] [Amo.CasAP,Pod**] [Amo.LdAddAP,Pos**] [Amo.LdAddAP,Pod**] [Amo.LdEorAP,Pos**] [Amo.LdEorAP,Pod**] [Amo.LdSetAP,Pos**] [Amo.LdSetAP,Pod**] [Amo.LdClrAP,Pos**] [Amo.LdClrAP,Pod**] [Amo.SwpAP,Pos*RPT] [Amo.SwpAP,Pod*RPT] [Amo.CasAP,Pos*RPT] [Amo.CasAP,Pod*RPT] [Amo.LdAddAP,Pos*RPT] [Amo.LdAddAP,Pod*RPT] [Amo.LdEorAP,Pos*RPT] [Amo.LdEorAP,Pod*RPT] [Amo.LdSetAP,Pos*RPT] [Amo.LdSetAP,Pod*RPT] [Amo.LdClrAP,Pos*RPT] [Amo.LdClrAP,Pod*RPT] PosWRLA PodWRLA PosR*AP PodR*AP PosRRAT PodRRAT PosR*QP PodR*QP PosRRQT PodRRQT Pos*WPL Pod*WPL PosRWTL PodRWTL
-  $ mcat2config7 -set-libdir ./libdir -let po-scl-ob aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let TLBUncacheable aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let ets-ob aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let lob aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let po-scl-ob libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let TLBUncacheable libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let ets-ob libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let lob libdir/aarch64.cat
   PosRRIP PodRRIP DpCtrlIsbs* DpCtrlIsbd* DpCtrlIsbCsels* DpCtrlIsbCseld* [DpAddrs*,ISB] [DpAddrd*,ISB] [DpAddrCsels*,ISB] [DpAddrCseld*,ISB] DpAddrs* DpAddrd* DpDatas* DpDatad* DpCtrlsW DpCtrldW [DpCtrls*,DC.CVAUp] [DpCtrld*,DC.CVAUp] [DpCtrls*,IC.IVAUp] [DpCtrld*,IC.IVAUp] [DpAddrs*,Pos*W] [DpAddrs*,Pod*W] [DpAddrd*,Pos*W] [DpAddrd*,Pod*W] [DpAddrs*,Rfi] [DpAddrd*,Rfi] [DpAddrs*,RfiPT] [DpAddrd*,RfiPT] [DpDatas*,Rfi] [DpDatad*,Rfi] [DpDatas*,RfiPT] [DpDatad*,RfiPT] DpAddrCselsW DpAddrCseldW [DpAddrCsels*,DC.CVAUp] [DpAddrCseld*,DC.CVAUp] [DpAddrCsels*,IC.IVAUp] [DpAddrCseld*,IC.IVAUp] DpDataCsels* DpDataCseld* DpCtrlCselsW DpCtrlCseldW [DpCtrlCsels*,DC.CVAUp] [DpCtrlCseld*,DC.CVAUp] [DpCtrlCsels*,IC.IVAUp] [DpCtrlCseld*,IC.IVAUp] [DpAddrCsels*,Pos*W] [DpAddrCsels*,Pod*W] [DpAddrCseld*,Pos*W] [DpAddrCseld*,Pod*W] LxSx Amo.Swp Amo.Cas Amo.LdAdd Amo.LdEor Amo.LdSet Amo.LdClr Amo.StAdd Amo.StEor Amo.StSet Amo.StClr [LxSx,RfiPA] [Amo.Swp,RfiPA] [Amo.Cas,RfiPA] [Amo.LdAdd,RfiPA] [Amo.LdEor,RfiPA] [Amo.LdSet,RfiPA] [Amo.LdClr,RfiPA] [Amo.StAdd,RfiPA] [Amo.StEor,RfiPA] [Amo.StSet,RfiPA] [Amo.StClr,RfiPA] [LxSx,RfiPQ] [Amo.Swp,RfiPQ] [Amo.Cas,RfiPQ] [Amo.LdAdd,RfiPQ] [Amo.LdEor,RfiPQ] [Amo.LdSet,RfiPQ] [Amo.LdClr,RfiPQ] [Amo.StAdd,RfiPQ] [Amo.StEor,RfiPQ] [Amo.StSet,RfiPQ] [Amo.StClr,RfiPQ] DMB.ISHs** DMB.ISHd** DMB.ISHs*RPT DMB.ISHd*RPT DMB.OSHs** DMB.OSHd** DMB.OSHs*RPT DMB.OSHd*RPT DMB.SYs** DMB.SYd** DMB.SYs*RPT DMB.SYd*RPT DSB.ISHs** DSB.ISHd** DSB.ISHs*RPT DSB.ISHd*RPT DMB.ISHsR*TP DMB.ISHdR*TP DMB.ISHsRRTT DMB.ISHdRRTT DMB.OSHsR*TP DMB.OSHdR*TP DMB.OSHsRRTT DMB.OSHdRRTT DMB.SYsR*TP DMB.SYdR*TP DMB.SYsRRTT DMB.SYdRRTT DSB.ISHsR*TP DSB.ISHdR*TP DSB.ISHsRRTT DSB.ISHdRRTT [DMB.ISHs**,DC.CVAUp] [DMB.ISHd**,DC.CVAUp] [DMB.OSHs**,DC.CVAUp] [DMB.OSHd**,DC.CVAUp] [DMB.SYs**,DC.CVAUp] [DMB.SYd**,DC.CVAUp] [DSB.ISHs**,DC.CVAUp] [DSB.ISHd**,DC.CVAUp] [DC.CVAUps**,DMB.ISH] [DC.CVAUpd**,DMB.ISH] [DC.CVAUps**,DMB.OSH] [DC.CVAUpd**,DMB.OSH] [DC.CVAUps**,DMB.SY] [DC.CVAUpd**,DMB.SY] [DC.CVAUps**,DSB.ISH] [DC.CVAUpd**,DSB.ISH] [DC.CVAUps**,DMB.ISH,DC.CVAUp] [DC.CVAUpd**,DMB.ISH,DC.CVAUp] [DC.CVAUps**,DMB.OSH,DC.CVAUp] [DC.CVAUpd**,DMB.OSH,DC.CVAUp] [DC.CVAUps**,DMB.SY,DC.CVAUp] [DC.CVAUpd**,DMB.SY,DC.CVAUp] [DC.CVAUps**,DSB.ISH,DC.CVAUp] [DC.CVAUpd**,DSB.ISH,DC.CVAUp] DMB.ISHLDsR* DMB.ISHLDdR* DMB.ISHLDsRRPT DMB.ISHLDdRRPT DMB.OSHLDsR* DMB.OSHLDdR* DMB.OSHLDsRRPT DMB.OSHLDdRRPT DMB.LDsR* DMB.LDdR* DMB.LDsRRPT DMB.LDdRRPT DSB.LDsR* DSB.LDdR* DSB.LDsRRPT DSB.LDdRRPT DMB.ISHLDsR*TP DMB.ISHLDdR*TP DMB.ISHLDsRRTT DMB.ISHLDdRRTT DMB.OSHLDsR*TP DMB.OSHLDdR*TP DMB.OSHLDsRRTT DMB.OSHLDdRRTT DMB.LDsR*TP DMB.LDdR*TP DMB.LDsRRTT DMB.LDdRRTT DSB.LDsR*TP DSB.LDdR*TP DSB.LDsRRTT DSB.LDdRRTT DMB.ISHSTsWW DMB.ISHSTdWW DMB.OSHSTsWW DMB.OSHSTdWW DMB.STsWW DMB.STdWW DSB.STsWW DSB.STdWW [Amo.SwpAP,Pos**] [Amo.SwpAP,Pod**] [Amo.CasAP,Pos**] [Amo.CasAP,Pod**] [Amo.LdAddAP,Pos**] [Amo.LdAddAP,Pod**] [Amo.LdEorAP,Pos**] [Amo.LdEorAP,Pod**] [Amo.LdSetAP,Pos**] [Amo.LdSetAP,Pod**] [Amo.LdClrAP,Pos**] [Amo.LdClrAP,Pod**] [Amo.SwpAP,Pos*RPT] [Amo.SwpAP,Pod*RPT] [Amo.CasAP,Pos*RPT] [Amo.CasAP,Pod*RPT] [Amo.LdAddAP,Pos*RPT] [Amo.LdAddAP,Pod*RPT] [Amo.LdEorAP,Pos*RPT] [Amo.LdEorAP,Pod*RPT] [Amo.LdSetAP,Pos*RPT] [Amo.LdSetAP,Pod*RPT] [Amo.LdClrAP,Pos*RPT] [Amo.LdClrAP,Pod*RPT] PosWRLA PodWRLA PosR*AP PodR*AP PosRRAT PodRRAT PosR*QP PodR*QP PosRRQT PodRRQT Pos*WPL Pod*WPL PosRWTL PodRWTL
-  $ mcat2config7 -set-libdir ./libdir -let pick-lob aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let local-hw-reqs aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let pick-lob libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let local-hw-reqs libdir/aarch64.cat
   PosRRIP PodRRIP DpCtrlIsbs* DpCtrlIsbd* DpCtrlIsbCsels* DpCtrlIsbCseld* [DpAddrs*,ISB] [DpAddrd*,ISB] [DpAddrCsels*,ISB] [DpAddrCseld*,ISB] DpAddrs* DpAddrd* DpDatas* DpDatad* DpCtrlsW DpCtrldW [DpCtrls*,DC.CVAUp] [DpCtrld*,DC.CVAUp] [DpCtrls*,IC.IVAUp] [DpCtrld*,IC.IVAUp] [DpAddrs*,Pos*W] [DpAddrs*,Pod*W] [DpAddrd*,Pos*W] [DpAddrd*,Pod*W] [DpAddrs*,Rfi] [DpAddrd*,Rfi] [DpAddrs*,RfiPT] [DpAddrd*,RfiPT] [DpDatas*,Rfi] [DpDatad*,Rfi] [DpDatas*,RfiPT] [DpDatad*,RfiPT] DpAddrCselsW DpAddrCseldW [DpAddrCsels*,DC.CVAUp] [DpAddrCseld*,DC.CVAUp] [DpAddrCsels*,IC.IVAUp] [DpAddrCseld*,IC.IVAUp] DpDataCsels* DpDataCseld* DpCtrlCselsW DpCtrlCseldW [DpCtrlCsels*,DC.CVAUp] [DpCtrlCseld*,DC.CVAUp] [DpCtrlCsels*,IC.IVAUp] [DpCtrlCseld*,IC.IVAUp] [DpAddrCsels*,Pos*W] [DpAddrCsels*,Pod*W] [DpAddrCseld*,Pos*W] [DpAddrCseld*,Pod*W] LxSx Amo.Swp Amo.Cas Amo.LdAdd Amo.LdEor Amo.LdSet Amo.LdClr Amo.StAdd Amo.StEor Amo.StSet Amo.StClr [LxSx,RfiPA] [Amo.Swp,RfiPA] [Amo.Cas,RfiPA] [Amo.LdAdd,RfiPA] [Amo.LdEor,RfiPA] [Amo.LdSet,RfiPA] [Amo.LdClr,RfiPA] [Amo.StAdd,RfiPA] [Amo.StEor,RfiPA] [Amo.StSet,RfiPA] [Amo.StClr,RfiPA] [LxSx,RfiPQ] [Amo.Swp,RfiPQ] [Amo.Cas,RfiPQ] [Amo.LdAdd,RfiPQ] [Amo.LdEor,RfiPQ] [Amo.LdSet,RfiPQ] [Amo.LdClr,RfiPQ] [Amo.StAdd,RfiPQ] [Amo.StEor,RfiPQ] [Amo.StSet,RfiPQ] [Amo.StClr,RfiPQ] DMB.ISHs** DMB.ISHd** DMB.ISHs*RPT DMB.ISHd*RPT DMB.OSHs** DMB.OSHd** DMB.OSHs*RPT DMB.OSHd*RPT DMB.SYs** DMB.SYd** DMB.SYs*RPT DMB.SYd*RPT DSB.ISHs** DSB.ISHd** DSB.ISHs*RPT DSB.ISHd*RPT DMB.ISHsR*TP DMB.ISHdR*TP DMB.ISHsRRTT DMB.ISHdRRTT DMB.OSHsR*TP DMB.OSHdR*TP DMB.OSHsRRTT DMB.OSHdRRTT DMB.SYsR*TP DMB.SYdR*TP DMB.SYsRRTT DMB.SYdRRTT DSB.ISHsR*TP DSB.ISHdR*TP DSB.ISHsRRTT DSB.ISHdRRTT [DMB.ISHs**,DC.CVAUp] [DMB.ISHd**,DC.CVAUp] [DMB.OSHs**,DC.CVAUp] [DMB.OSHd**,DC.CVAUp] [DMB.SYs**,DC.CVAUp] [DMB.SYd**,DC.CVAUp] [DSB.ISHs**,DC.CVAUp] [DSB.ISHd**,DC.CVAUp] [DC.CVAUps**,DMB.ISH] [DC.CVAUpd**,DMB.ISH] [DC.CVAUps**,DMB.OSH] [DC.CVAUpd**,DMB.OSH] [DC.CVAUps**,DMB.SY] [DC.CVAUpd**,DMB.SY] [DC.CVAUps**,DSB.ISH] [DC.CVAUpd**,DSB.ISH] [DC.CVAUps**,DMB.ISH,DC.CVAUp] [DC.CVAUpd**,DMB.ISH,DC.CVAUp] [DC.CVAUps**,DMB.OSH,DC.CVAUp] [DC.CVAUpd**,DMB.OSH,DC.CVAUp] [DC.CVAUps**,DMB.SY,DC.CVAUp] [DC.CVAUpd**,DMB.SY,DC.CVAUp] [DC.CVAUps**,DSB.ISH,DC.CVAUp] [DC.CVAUpd**,DSB.ISH,DC.CVAUp] DMB.ISHLDsR* DMB.ISHLDdR* DMB.ISHLDsRRPT DMB.ISHLDdRRPT DMB.OSHLDsR* DMB.OSHLDdR* DMB.OSHLDsRRPT DMB.OSHLDdRRPT DMB.LDsR* DMB.LDdR* DMB.LDsRRPT DMB.LDdRRPT DSB.LDsR* DSB.LDdR* DSB.LDsRRPT DSB.LDdRRPT DMB.ISHLDsR*TP DMB.ISHLDdR*TP DMB.ISHLDsRRTT DMB.ISHLDdRRTT DMB.OSHLDsR*TP DMB.OSHLDdR*TP DMB.OSHLDsRRTT DMB.OSHLDdRRTT DMB.LDsR*TP DMB.LDdR*TP DMB.LDsRRTT DMB.LDdRRTT DSB.LDsR*TP DSB.LDdR*TP DSB.LDsRRTT DSB.LDdRRTT DMB.ISHSTsWW DMB.ISHSTdWW DMB.OSHSTsWW DMB.OSHSTdWW DMB.STsWW DMB.STdWW DSB.STsWW DSB.STdWW [Amo.SwpAP,Pos**] [Amo.SwpAP,Pod**] [Amo.CasAP,Pos**] [Amo.CasAP,Pod**] [Amo.LdAddAP,Pos**] [Amo.LdAddAP,Pod**] [Amo.LdEorAP,Pos**] [Amo.LdEorAP,Pod**] [Amo.LdSetAP,Pos**] [Amo.LdSetAP,Pod**] [Amo.LdClrAP,Pos**] [Amo.LdClrAP,Pod**] [Amo.SwpAP,Pos*RPT] [Amo.SwpAP,Pod*RPT] [Amo.CasAP,Pos*RPT] [Amo.CasAP,Pod*RPT] [Amo.LdAddAP,Pos*RPT] [Amo.LdAddAP,Pod*RPT] [Amo.LdEorAP,Pos*RPT] [Amo.LdEorAP,Pod*RPT] [Amo.LdSetAP,Pos*RPT] [Amo.LdSetAP,Pod*RPT] [Amo.LdClrAP,Pos*RPT] [Amo.LdClrAP,Pod*RPT] PosWRLA PodWRLA PosR*AP PodR*AP PosRRAT PodRRAT PosR*QP PodR*QP PosRRQT PodRRQT Pos*WPL Pod*WPL PosRWTL PodRWTL
-  $ mcat2config7 -set-libdir ./libdir -let lwfs aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let dtrm aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let lwfs libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let dtrm libdir/aarch64.cat
   Rfi
-  $ mcat2config7 -set-libdir ./libdir -let basic-dep aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let pick-dtrm aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let basic-dep libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let pick-dtrm libdir/aarch64.cat
   Rfi
-  $ mcat2config7 -set-libdir ./libdir -let pick-dep aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let PTE aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let PTEV aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let PTEINV aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let inv-domain aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let AF aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let DB aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let MMU aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let Translation aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let AccessFlag aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let Instr aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let Within-CMODX-List aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let AFtoDB aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let co0 aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let IC aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let pick-dep libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let PTE libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let PTEV libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let PTEINV libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let inv-domain libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let AF libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let DB libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let MMU libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let Translation libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let AccessFlag libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let Instr libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let Within-CMODX-List libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let AFtoDB libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let co0 libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let IC libdir/aarch64.cat
   IC.IVAUps** IC.IVAUpd**
-  $ mcat2config7 -set-libdir ./libdir -let Imp aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let SPONTANEOUS aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let Imp libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let SPONTANEOUS libdir/aarch64.cat
   Fatal Error: Variable not in matcher: SPURIOUS
-  $ mcat2config7 -set-libdir ./libdir -let inv-scope aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let inv-scope libdir/aarch64.cat
   Fatal Error: Variable not in matcher: inv-domain
-  $ mcat2config7 -set-libdir ./libdir -let TTD aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let Tag aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let HU aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let intervening aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let sca-class aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let dmb.sy aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let TTD libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let Tag libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let HU libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let intervening libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let sca-class libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let dmb.sy libdir/aarch64.cat
   DMB.SYs** DMB.SYd** DMB.ISHs** DMB.ISHd**
-  $ mcat2config7 -set-libdir ./libdir -let dmb.st aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let dmb.st libdir/aarch64.cat
   Fatal Error: Variable not in matcher: dmb.fullst
-  $ mcat2config7 -set-libdir ./libdir -let dmb.ld aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let dmb.ld libdir/aarch64.cat
   Fatal Error: Variable not in matcher: dmb.fullld
-  $ mcat2config7 -set-libdir ./libdir -let dmb.full aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let dmb.full libdir/aarch64.cat
   DMB.ISHs** DMB.ISHd** DMB.OSHs** DMB.OSHd** DMB.SYs** DMB.SYd** DSB.ISHs** DSB.ISHd**
-  $ mcat2config7 -set-libdir ./libdir -let dmb.ld aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let dmb.ld libdir/aarch64.cat
   Fatal Error: Variable not in matcher: dmb.fullld
-  $ mcat2config7 -set-libdir ./libdir -let dmb.st aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let dmb.st libdir/aarch64.cat
   Fatal Error: Variable not in matcher: dmb.fullst
-  $ mcat2config7 -set-libdir ./libdir -let PTE-MT-update aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let PTE-MT-update libdir/aarch64.cat
   Fatal Error: Variable not in matcher: Normal
-  $ mcat2config7 -set-libdir ./libdir -let PTE-SH-update aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let PTE-SH-update libdir/aarch64.cat
   Fatal Error: Variable not in matcher: NSH
-  $ mcat2config7 -set-libdir ./libdir -let PTE-ICH-update aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let PTE-ICH-update libdir/aarch64.cat
   Fatal Error: Variable not in matcher: iNC
-  $ mcat2config7 -set-libdir ./libdir -let PTE-OCH-update aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let PTE-OCH-update libdir/aarch64.cat
   Fatal Error: Variable not in matcher: oNC
-  $ mcat2config7 -set-libdir ./libdir -let PTE-DT-update aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let PTE-DT-update libdir/aarch64.cat
   Fatal Error: Variable not in matcher: Device-GRE
-  $ mcat2config7 -set-libdir ./libdir -let PTE-OA-update aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let PTE-OA-update-writable aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let PTE-update-needsBBM aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let TTDV aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let TTDINV aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let PTE-OA-update libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let PTE-OA-update-writable libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let PTE-update-needsBBM libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let TTDV libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let TTDINV libdir/aarch64.cat
   Fatal Error: Variable not in matcher: PTEINV
-  $ mcat2config7 -set-libdir ./libdir -let TTD-update-needsBBM aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let TTD aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let Device aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let TTD-update-needsBBM libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let TTD libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let Device libdir/aarch64.cat
   Fatal Error: Variable not in matcher: Device-GRE
-  $ mcat2config7 -set-libdir ./libdir -let Shareability aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let Shareability libdir/aarch64.cat
   Fatal Error: Variable not in matcher: NSH
-  $ mcat2config7 -set-libdir ./libdir -let InnerCacheability aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let InnerCacheability libdir/aarch64.cat
   Fatal Error: Variable not in matcher: iWB
-  $ mcat2config7 -set-libdir ./libdir -let OuterCacheability aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let OuterCacheability libdir/aarch64.cat
   Fatal Error: Variable not in matcher: oWB
-  $ mcat2config7 -set-libdir ./libdir -let rf-mem aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let rf-mem libdir/aarch64.cat
   Rfe
-  $ mcat2config7 -set-libdir ./libdir -let tr-ib aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let TTD-same-oa aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let same-loc aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let scl aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let va-loc aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let po-va-loc aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let rf-mem aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let tr-ib libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let TTD-same-oa libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let same-loc libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let scl libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let va-loc libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let po-va-loc libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let rf-mem libdir/aarch64.cat
   Rfe
-  $ mcat2config7 -set-libdir ./libdir -let Imp aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let C_TLBI aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let C_IC aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let Imp libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let C_TLBI libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let C_IC libdir/aarch64.cat
   [IC.IVAUps**,DSB.ISH] [IC.IVAUpd**,DSB.ISH]
-  $ mcat2config7 -set-libdir ./libdir -let add_pair aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let add_both_choices aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let enumerate-ordered-pairs aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let TLBI-Imp_TTD_R-pairs aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let all-TLBI-Imp_TTD_R-enums aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let all-DC-Exp_W-enums aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let all-IC-Imp_Instr_R-enums aarch64.cat
-  $ mcat2config7 -set-libdir ./libdir -let dmb.sy aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let add_pair libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let add_both_choices libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let enumerate-ordered-pairs libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let TLBI-Imp_TTD_R-pairs libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let all-TLBI-Imp_TTD_R-enums libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let all-DC-Exp_W-enums libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let all-IC-Imp_Instr_R-enums libdir/aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let dmb.sy libdir/aarch64.cat
   DMB.SYs** DMB.SYd** DMB.ISHs** DMB.ISHd**
-  $ mcat2config7 -set-libdir ./libdir -let dmb.st aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let dmb.st libdir/aarch64.cat
   Fatal Error: Variable not in matcher: dmb.fullst
-  $ mcat2config7 -set-libdir ./libdir -let dmb.ld aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let dmb.ld libdir/aarch64.cat
   Fatal Error: Variable not in matcher: dmb.fullld
-  $ mcat2config7 -set-libdir ./libdir -let dmb.full aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let dmb.full libdir/aarch64.cat
   DMB.ISHs** DMB.ISHd** DMB.OSHs** DMB.OSHd** DMB.SYs** DMB.SYd** DSB.ISHs** DSB.ISHd**
-  $ mcat2config7 -set-libdir ./libdir -let dmb.ld aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let dmb.ld libdir/aarch64.cat
   Fatal Error: Variable not in matcher: dmb.fullld
-  $ mcat2config7 -set-libdir ./libdir -let dmb.st aarch64.cat
+  $ mcat2config7 -set-libdir ./libdir -let dmb.st libdir/aarch64.cat
   Fatal Error: Variable not in matcher: dmb.fullst
