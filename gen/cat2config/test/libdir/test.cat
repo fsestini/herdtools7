@@ -1,0 +1,5 @@
+(* Local write successor *)
+let lws = (po & loc); [W]
+
+(* Local write successor - alternative definition *)
+let lws-alt = (loc & po); [W]
