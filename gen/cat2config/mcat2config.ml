@@ -24,6 +24,8 @@ further work
 - implement more comprehensive support for pte and mte
 *)
 
+module StringMap = Map.Make (String)
+
 module Arg = struct
   type show = Tree | TreeOnly | Lets
 
@@ -633,15 +635,15 @@ struct
         else (varname, expression)
     | _ -> raise (Skip "instruction not supported")
 
-  let expand_var tree (a, var) =
+  type 'a env = 'a StringMap.t
+
+  let expand_var (env : AST.exp env) (a, var) =
     (* compare a single AST variable to all let statements. If a match is found, return that expression*)
-    let open AST in
-    let is_var (name, _) = String.equal name var in
-    match List.find_opt is_var tree with
-    | Some (_, exp) -> exp
+    match StringMap.find_opt var env with
+    | Some exp -> exp
     | None -> Var (a, var)
 
-  let rec inline_vars varname tree expression =
+  let rec inline_vars varname (env : AST.exp env) expression =
     (*Expand AST function logic and inline variables that are defined in other let statements*)
     let open AST in
     match expression with
@@ -649,26 +651,26 @@ struct
        that return None here? Wouldn't that just lead to relaxations
        being calculated on an incorrect/incomplete relation? *)
     | Op (a, op, expl) ->
-        Some (Op (a, op, List.filter_map (inline_vars varname tree) expl))
+        Some (Op (a, op, List.filter_map (inline_vars varname env) expl))
     | Op1 (a, op, exp) ->
-        Some (Op1 (a, op, get_option (inline_vars varname tree exp)))
+        Some (Op1 (a, op, get_option (inline_vars varname env exp)))
     | Var (a, var) -> (
         (* checking a variable against the name of its let statement allows
            us to avoid expanding recursive references *)
         match List.find_opt (fun a -> String.equal var a) varname with
         | Some _ -> None
         | None -> (
-            let br = expand_var tree (a, var) in
+            let br = expand_var env (a, var) in
             match br with
             | Var (_, "emptyset") -> None
             | Var (_, _) -> Some br
             | Op (_, _, _) | Op1 (_, _, _) ->
-                inline_vars (var :: varname) tree br
+                inline_vars (var :: varname) env br
             | _ -> Some expression))
     | App (_, exp1, exp2) -> (
         match exp1 with
         (* TODO: [Filippo]: why are we ignoring `range` and `domain` here? *)
-        | Var (_, ("range" | "domain")) -> inline_vars varname tree exp2
+        | Var (_, ("range" | "domain")) -> inline_vars varname env exp2
         | Var (_, "intervening-write")
         | Var (_, "same-oa")
         | Var (_, "oa-changes")
@@ -713,8 +715,8 @@ struct
           | OpAnd (v1, v2) -> eval_variant_cond v1 && eval_variant_cond v2
           | OpOr (v1, v2) -> eval_variant_cond v1 || eval_variant_cond v2
         in
-        if eval_variant_cond a then inline_vars varname tree exp
-        else inline_vars varname tree exp2
+        if eval_variant_cond a then inline_vars varname env exp
+        else inline_vars varname env exp2
     | Fun _ -> None
     | Konst _ -> None
     | _ ->
@@ -1371,23 +1373,30 @@ struct
     ------------------------------------------
     *)
   let ast_to_ir ast : let_statements =
-    let map_ast f l =
+    let fold_ast f acc =
       List.fold_left
-        (fun acc a ->
-          try f a :: acc with
+        (fun acc x ->
+          try f acc x with
           | NotImplemented s ->
               eprintv 1 "%s@." s;
               acc
           | Skip s ->
               eprintv 2 "%s@." s;
               acc)
-        [] l
+        acc
     in
-    let tree_base = map_ast get_ins ast in
+    let ast_env =
+      fold_ast
+        (fun env i ->
+          let v, e = get_ins i in
+          StringMap.add v e env)
+        StringMap.empty ast
+    in
     let map_vars =
-      map_ast
-        (fun (varname, expression) ->
-          (varname, get_option (inline_vars [ varname ] tree_base expression))
+      fold_ast
+        (fun acc (varname, expression) ->
+          (varname, get_option (inline_vars [ varname ] ast_env expression))
+          :: acc
           (* NOTE: this code is in case we want to restrict the compiled let statements. Currently this is not desired as the whole tree is necessary to construct composite relaxations for DC/IC after *)
           (* match
              List.find_opt
@@ -1399,7 +1408,8 @@ struct
                  get_option (inline_vars [ varname ] tree_base expression) )
            | None ->
                raise (Skip "") *))
-        tree_base
+        []
+        (StringMap.to_list ast_env)
     in
     apply_expand map_vars
 
