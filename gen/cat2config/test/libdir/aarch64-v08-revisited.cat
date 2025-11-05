@@ -1,0 +1,82 @@
+AArch64 "ARMv8 AArch64"
+
+include "cos.cat"
+
+include "aarch64fences.cat"
+include "aarch64deps.cat"
+include "aarch64loc.cat"
+
+let dsb.full = DSB.ISH | DSB.OSH | DSB.SY
+let dsb.ld = DSB.ISHLD | DSB.OSHLD | DSB.LD
+let dsb.st = DSB.ISHST | DSB.OSHST | DSB.ST
+let dmb.full = DMB.ISH | DMB.OSH | DMB.SY | dsb.full
+let dmb.ld = DMB.ISHLD | DMB.OSHLD | DMB.LD | dsb.ld
+let dmb.st = DMB.ISHST | DMB.OSHST | DMB.ST | dsb.st
+
+(* Coherence-after *)
+let ca = fr | co
+
+(* Local read successor *)
+let lrs = [W]; (po-loc & ~(po-loc;[W];po-loc)) ; [R]
+
+(* Local write successor *)
+let lws = po-loc; [W]
+
+(* Observed-by *)
+let obs = rfe | fre | coe
+
+(* Read-modify-write *)
+let rmw = lxsx | amo
+
+(* Dependency-ordered-before *)
+let dob =
+   addr
+ | data
+ | ctrl; [W]
+ | (ctrl | (addr; po)); [ISB]; po; [M]
+ | addr; po; [W]
+ | (addr | data); lrs
+
+(* Pick-ordered-before *)
+let pob = pick-addr-dep; [Exp & W]
+        | pick-data-dep
+        | pick-ctrl-dep; [Exp & W]
+        | pick-addr-dep; [Exp & M]; po; [Exp & W]
+
+(* Atomic-ordered-before *)
+let aob =
+   [Exp & M]; rmw; [Exp & M]
+ | [Exp & M]; rmw; lrs; [A | Q]
+
+(* Barrier-ordered-before *)
+let bob =
+    [Exp & M]; po; [dmb.full]; po; [Exp & M]
+  | [range([A];amo;[L])]; po; [Exp & W]
+  | [Exp & (R \ NoRet)]; po; [dmb.ld]; po; [Exp & M]
+  | [Exp & W]; po; [dmb.st]; po; [Exp & W]
+  | [L]; po; [A]
+  | [A | Q]; po; [Exp & M]
+  | [Exp & M]; po; [L]
+
+(* OMITTED: Tag-ordered-before *)
+(* let tob = [R & T]; iico_data; [PRED]; iico_ctrl; [W \ T] *)
+
+(* Locally-ordered-before *)
+let rec lob = lws; sm
+            | dob
+            | pob
+            | aob
+            | bob
+            | lob; lob
+
+let pick-lob = pick-dep; lob; [Exp & W]
+
+(* Ordered-before *)
+let rec ob =
+    obs; si
+  | lob
+  | pick-lob
+  | ob; ob
+
+(* OMITTED: Tag-location-ordered *)
+(* let tlo = [R & T]; tob; loc; tob^-1; [R & T] *)
