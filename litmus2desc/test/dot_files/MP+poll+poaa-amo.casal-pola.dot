@@ -1,0 +1,98 @@
+digraph G {
+
+
+/* legend */
+label="Test MP+poll+poaa-amo.casal-pola, Generic[withcatdep](Unknown)";
+
+
+/* init events */
+eiid6 [label="g: W[z]=0\lInit", shape="box", color="blue"];
+eiid7 [label="h: W[y]=0\lInit", shape="box", color="blue"];
+eiid8 [label="i: W[x]=0\lInit", shape="box", color="blue"];
+
+/* the unlocked events */
+subgraph cluster_proc0 { rank=sink; label = "Thread 0"; color=magenta; shape=box;
+eiid0 [label="a: W[x]Rel=1\lproc:P0 poi:1\lSTLR W0,[X1]", shape="box", color="blue"];
+eiid1 [label="b: W[y]Rel=1\lproc:P0 poi:3\lSTLR W2,[X3]", shape="box", color="blue"];
+}
+subgraph cluster_proc1 { rank=sink; label = "Thread 1"; color=magenta; shape=box;
+eiid2 [label="c: R[y]Acq=1\lproc:P1 poi:0\lLDAR W1,[X0]", shape="box", color="blue"];
+eiid3 [label="d: R[z]Acq*=0\lproc:P1 poi:3\lCASAL W3,W4,[X2]", shape="box", color="blue"];
+eiid4 [label="e: W[z]Rel*=1\lproc:P1 poi:3\lCASAL W3,W4,[X2]", shape="box", color="blue"];
+eiid23 [label="x: Branching(pred)([z]==1:X3)\lproc:P1 poi:3\lCASAL W3,W4,[X2]", shape="box", color="blue"];
+eiid5 [label="f: R[x]Acq=0\lproc:P1 poi:4\lLDAR W6,[X5]", shape="box", color="blue"];
+}
+
+/* the intra_causality_data edges */
+
+eiid3 -> eiid23 [label="iico_data", color="black", fontcolor="black"];
+
+/* the intra_causality_control edges */
+eiid23 -> eiid4 [label="iico_ctrl", color="grey", fontcolor="grey"];
+
+/* the poi edges */
+eiid0 -> eiid1 [label="po", color="black", fontcolor="black"];
+eiid2 -> eiid3 [label="po", color="black", fontcolor="black"];
+eiid4 -> eiid5 [label="po", color="black", fontcolor="black"];
+/* the rfmap edges */
+
+
+/* The viewed-before edges */
+eiid1 -> eiid2 [label="rf", color="red", fontcolor="red"];
+eiid6 -> eiid3 [label="rf", color="red", fontcolor="red"];
+eiid8 -> eiid5 [label="rf", color="red", fontcolor="red"];
+eiid3 -> eiid4 [label="ca", color="blue", fontcolor="blue"];
+eiid5 -> eiid0 [label="ca", color="blue", fontcolor="blue"];
+eiid6 -> eiid4 [label="ca", color="blue", fontcolor="blue"];
+eiid7 -> eiid1 [label="ca", color="blue", fontcolor="blue"];
+eiid8 -> eiid0 [label="ca", color="blue", fontcolor="blue"];
+}
+digraph G {
+
+
+/* legend */
+label="Test MP+poll+poaa-amo.casal-pola, Generic[withcatdep](Unknown)";
+
+
+/* init events */
+eiid6 [label="g: W[z]=0\lInit", shape="box", color="blue"];
+eiid7 [label="h: W[y]=0\lInit", shape="box", color="blue"];
+eiid8 [label="i: W[x]=0\lInit", shape="box", color="blue"];
+
+/* the unlocked events */
+subgraph cluster_proc0 { rank=sink; label = "Thread 0"; color=magenta; shape=box;
+eiid0 [label="a: W[x]Rel=1\lproc:P0 poi:1\lSTLR W0,[X1]", shape="box", color="blue"];
+eiid1 [label="b: W[y]Rel=1\lproc:P0 poi:3\lSTLR W2,[X3]", shape="box", color="blue"];
+}
+subgraph cluster_proc1 { rank=sink; label = "Thread 1"; color=magenta; shape=box;
+eiid2 [label="c: R[y]Acq=1\lproc:P1 poi:0\lLDAR W1,[X0]", shape="box", color="blue"];
+eiid3 [label="d: R[z]Acq*=0\lproc:P1 poi:3\lCASAL W3,W4,[X2]", shape="box", color="blue"];
+eiid4 [label="e: W[z]Rel*=1\lproc:P1 poi:3\lCASAL W3,W4,[X2]", shape="box", color="blue"];
+eiid23 [label="x: Branching(pred)([z]==1:X3)\lproc:P1 poi:3\lCASAL W3,W4,[X2]", shape="box", color="blue"];
+eiid5 [label="f: R[x]Acq=0\lproc:P1 poi:4\lLDAR W6,[X5]", shape="box", color="blue"];
+}
+
+/* the intra_causality_data edges */
+
+eiid3 -> eiid23 [label="iico_data", color="black", fontcolor="black"];
+
+/* the intra_causality_control edges */
+eiid23 -> eiid4 [label="iico_ctrl", color="grey", fontcolor="grey"];
+
+/* the poi edges */
+eiid0 -> eiid1 [label="po", color="black", fontcolor="black"];
+eiid2 -> eiid3 [label="po", color="black", fontcolor="black"];
+eiid4 -> eiid5 [label="po", color="black", fontcolor="black"];
+/* the rfmap edges */
+
+
+/* The viewed-before edges */
+eiid1 -> eiid2 [label="rf", color="red", fontcolor="red"];
+eiid6 -> eiid3 [label="rf", color="red", fontcolor="red"];
+eiid8 -> eiid5 [label="rf", color="red", fontcolor="red"];
+eiid3 -> eiid4 [label="ca", color="blue", fontcolor="blue"];
+eiid5 -> eiid0 [label="ca", color="blue", fontcolor="blue"];
+eiid6 -> eiid4 [label="ca", color="blue", fontcolor="blue"];
+eiid7 -> eiid1 [label="ca", color="blue", fontcolor="blue"];
+eiid8 -> eiid0 [label="ca", color="blue", fontcolor="blue"];
+}
