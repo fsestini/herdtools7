@@ -1,0 +1,6 @@
+(rule
+ (copy ../../Version.ml Version.ml))
+
+(library
+ (name catcheck)
+ (libraries herdtools minisat))
