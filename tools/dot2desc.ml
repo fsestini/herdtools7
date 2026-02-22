@@ -568,7 +568,7 @@ module DotGraph = struct
 
   (** Filter out all nodes that don't match regex *)
   let get_matching_nodes node_map regex =
-    StringMap.filter (fun key ->
+    StringMap.filter (fun key _ ->
       let value = StringMap.find key node_map in
       check_regex regex value
     ) node_map
