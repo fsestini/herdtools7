@@ -1,0 +1,3 @@
+(library
+ (name partitions)
+ (libraries angstrom minisat))

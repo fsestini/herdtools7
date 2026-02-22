@@ -1,0 +1,5 @@
+Parsed:
+subseteq R,W M
+subseteq IW W
+disjoint R,W
+disjoint Exp,Imp

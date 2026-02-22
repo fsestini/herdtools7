@@ -1,0 +1,4 @@
+(executable
+ (public_name partitions)
+ (name main)
+ (libraries partitions))
