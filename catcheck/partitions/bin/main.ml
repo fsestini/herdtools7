@@ -6,12 +6,17 @@ let () =
     In_channel.with_open_text fname (fun ch -> In_channel.input_all ch)
   in
   let solutions = Solver.run content in
-  let partitioned_sets = Sets.from_solutions solutions in
+  let ps, partitioned_sets = Sets.from_solutions solutions in
+  let () = Sets.dump_partitions ps in
+  let () = Sets.dump_defs partitioned_sets in
   let facts_map = Sets.compute_facts partitioned_sets in
-  solutions
-  |> List.iter (fun sol ->
-      let simplified = Sets.simplify_intersection facts_map sol in
-      Format.printf "%a@." Solver.pp_solution simplified)
+  let () = Sets.dump_facts facts_map in
+  ()
+(* solutions *)
+(* |> List.iter (fun sol -> *)
+(*     let simplified = Sets.simplify_intersection facts_map sol in *)
+(*     Format.printf "%a@." Solver.pp_solution simplified) *)
+
 (* facts_map *)
 (* |> StringMap.iter *)
 (*      Sets.( *)

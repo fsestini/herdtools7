@@ -237,7 +237,7 @@ let run text =
       Solver.exclude solver solution;
       loop (solution :: acc) ()
     with Minisat.Unsat ->
-      Format.printf "unsat.@.";
+      (* Format.printf "unsat.@."; *)
       acc
   in
   loop [] ()
