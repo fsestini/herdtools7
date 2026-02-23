@@ -1,3 +1,5 @@
+module Log = (val Logs.src_log (Logs.Src.create "pset") : Logs.LOG)
+
 type t = IntSet.t
 
 let universe : t = Partitions.of_set_name "_"
@@ -5,7 +7,7 @@ let universe : t = Partitions.of_set_name "_"
 let of_primitive_set s =
   try Partitions.of_set_name s
   with Invalid_argument msg ->
-    Format.eprintf "%s@." msg;
+    Log.warn (fun m -> m "%s" msg);
     (* FIXME:  *)
     universe
 
@@ -82,6 +84,7 @@ let pp fmt t =
     @ [
         ("Exp & R", inter (of_primitive_set "Exp") (of_primitive_set "R"));
         ("Exp & W", inter (of_primitive_set "Exp") (of_primitive_set "W"));
+        ("Exp & M", inter (of_primitive_set "Exp") (of_primitive_set "M"));
       ]
   in
   match List.find_opt (fun (_nm, t') -> IntSet.equal t t') predefined_sets with

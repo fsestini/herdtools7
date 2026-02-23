@@ -1,14 +1,23 @@
-type opts = { libdir : string; verbose : bool; debug : bool }
+type opts = {
+  libdir : string;
+  verbose : bool;
+  debug : bool;
+  primitives : string option;
+}
 
 let parse_options () =
   let libdir = ref None in
   let verbose = ref false in
   let debug = ref false in
+  let primitives = ref None in
 
   let opts =
     [
       ("-v", Arg.Unit (fun () -> verbose := true), "be verbose.");
       ("--debug", Arg.Unit (fun () -> debug := true), "enable debug logging.");
+      ( "--primitives",
+        Arg.String (fun s -> primitives := Some s),
+        "enable debug logging." );
       ( "--set-libdir",
         Arg.String (fun s -> libdir := Some s),
         "<path>  Set location of libdir to <path>." );
@@ -28,7 +37,7 @@ let parse_options () =
     | Some libdir -> libdir
     | None -> Filename.concat Version.libdir "herd"
   in
-  { verbose = !verbose; debug = !debug; libdir }
+  { verbose = !verbose; debug = !debug; libdir; primitives = !primitives }
 
 open Catcheck
 module E = TxtLoc.Extract ()
@@ -53,7 +62,13 @@ let () =
     let libdir = opts.libdir
   end) in
   print_endline "Catcheck";
+  let prims =
+    match opts.primitives with
+    | Some fname -> P.read_bindings fname
+    | None -> []
+  in
   let bs = P.read_bindings "aarch64.cat" in
+  let bs = prims @ bs in
   let () =
     bs
     |> List.iter (fun b ->
