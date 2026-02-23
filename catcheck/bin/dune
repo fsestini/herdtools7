@@ -1,4 +1,7 @@
+(rule
+ (copy ../../Version.ml Version.ml))
+
 (executable
  (public_name catcheck)
  (name main)
- (libraries catcheck))
+ (libraries catcheck logs))

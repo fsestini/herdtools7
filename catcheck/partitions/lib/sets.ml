@@ -94,18 +94,26 @@ let dump_partitions (m : conj_map IntMap.t) : unit =
 
 let dump_defs (m : partitioned StringMap.t) : unit =
   Format.printf "let of_set_name : string -> IntSet.t = function@.";
-  let () =
-    m
-    |> StringMap.iter (fun k v ->
+  let all_sets =
+    StringMap.fold
+      (fun k v acc ->
         let lst = PSet.to_list v in
         Format.(
           printf "  | %S -> IntSet.of_list [%a]@." k
             (pp_print_list
                ~pp_sep:(fun fmt () -> pp_print_string fmt "; ")
                pp_print_int)
-            lst))
+            lst);
+        k :: acc)
+      m []
   in
-  Format.printf "  | _ -> invalid_arg %S@." "unknown set identifier"
+  Format.printf "  | s -> invalid_arg (%S ^ s)@." "unknown set identifier: ";
+  Format.(
+    printf "let set_names = [%a]@."
+      (pp_print_list
+         ~pp_sep:(fun fmt () -> pp_print_string fmt "; ")
+         (fun fmt s -> fprintf fmt "%S" s))
+      all_sets)
 
 let dump_facts (m : facts StringMap.t) : unit =
   let print_fact_set fn_name f =
@@ -119,7 +127,7 @@ let dump_facts (m : facts StringMap.t) : unit =
                ~pp_sep:(fun fmt () -> pp_print_string fmt "; ")
                (fun fmt s -> fprintf fmt "%S" s))
             (StringSet.to_list set)));
-    Format.printf "  | _ -> invalid_arg %S@." "unknown set identifier"
+    Format.printf "  | s -> invalid_arg (%S ^ s)@." "unknown set identifier: "
   in
   print_fact_set "subsets" (fun fs -> fs.subsets);
   print_fact_set "supersets" (fun fs -> fs.supersets);

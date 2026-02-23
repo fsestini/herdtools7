@@ -1,41 +1,55 @@
-cover M,F,FAULT
-cover Imp,Exp
-disjoint M,F,FAULT
+cover M,F,FAULT,TLBI,B,Rreg,Wreg
+cover NExp,Exp
+disjoint M,F,FAULT,TLBI,B,Rreg,Wreg
 subseteq R,W,Instr,PTE,T M
 disjoint R,W
 disjoint Instr,PTE,T
 subseteq M R,W,Instr,PTE,T
 subseteq M R,W
-disjoint Imp,Exp
+disjoint NExp,Exp
 subseteq NoRet R
 subseteq IW W
 subseteq IW Exp
-subseteq AF Imp
-subseteq DB Imp
-subseteq MMU FAULT
+subseteq AF NExp
+subseteq DB NExp
+subseteq EXC-ENTRY,TagCheck FAULT
+disjoint MMU,SVC,UndefinedInstruction
+subseteq MMU,SVC,UndefinedInstruction EXC-ENTRY
 disjoint FAULT,Exp
+
+disjoint AccessFlag,Permission,Translation
+subseteq AccessFlag,Permission,Translation MMU
 
 disjoint DMB.ISH,DMB.ISHLD,DMB.ISHST,DSB.ISH,DSB.ISHLD,DSB.ISHST,DMB.SY,DMB.ST,DMB.LD,DSB.SY,DSB.ST,DSB.LD,DMB.OSH,DSB.OSH,DMB.OSHLD,DSB.OSHLD,DMB.OSHST,DSB.OSHST,ISB
 subseteq DMB.ISH,DMB.ISHLD,DMB.ISHST,DSB.ISH,DSB.ISHLD,DSB.ISHST,DMB.SY,DMB.ST,DMB.LD,DSB.SY,DSB.ST,DSB.LD,DMB.OSH,DSB.OSH,DMB.OSHLD,DSB.OSHLD,DMB.OSHST,DSB.OSHST,ISB F
 subseteq F DMB.ISH,DMB.ISHLD,DMB.ISHST,DSB.ISH,DSB.ISHLD,DSB.ISHST,DMB.SY,DMB.ST,DMB.LD,DSB.SY,DSB.ST,DSB.LD,DMB.OSH,DSB.OSH,DMB.OSHLD,DSB.OSHLD,DMB.OSHST,DSB.OSHST,ISB
-subseteq F Imp
+subseteq F NExp
 disjoint F,AF
 disjoint F,DB
 
 subseteq A R
 subseteq A M
-disjoint A,Imp
+disjoint A,NExp
 disjoint A,PTE
 disjoint A,Instr
 disjoint A,T
 subseteq Q R
 subseteq Q M
-disjoint Q,Imp
+disjoint Q,NExp
 disjoint A,Q,L,NoRet
 subseteq L W
 subseteq L M
-disjoint L,Imp
+disjoint L,NExp
 disjoint L,PTE
 disjoint L,Instr
 disjoint L,T
 disjoint IW,L
+
+disjoint TLBI,Exp
+disjoint TLBIIS,TLBInXS
+subseteq TLBIIS,TLBInXS TLBI
+
+disjoint BCC,EXC-RET
+subseteq BCC,EXC-RET B
+
+subseteq DATA Rreg

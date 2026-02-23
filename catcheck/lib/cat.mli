@@ -1,4 +1,9 @@
-type binding = { name : string; exp : AST.exp; is_recursive : bool }
+type binding = {
+  name : string;
+  exp : AST.exp;
+  is_recursive : bool;
+  location : TxtLoc.t;
+}
 
 module MakeParser (_ : sig
   val libdir : string

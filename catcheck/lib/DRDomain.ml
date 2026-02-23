@@ -24,7 +24,17 @@ let builtin = function
       let domain = CatSet.of_primitive_set "W" in
       let range = CatSet.of_primitive_set "R" in
       Some { domain; range }
-  | s -> failwith (Format.sprintf "unknown builtin: %s" s)
+  | "fr" ->
+      let domain = CatSet.of_primitive_set "R" in
+      let range = CatSet.of_primitive_set "W" in
+      Some { domain; range }
+  | "co" ->
+      let domain = CatSet.of_primitive_set "W" in
+      let range = CatSet.of_primitive_set "W" in
+      Some { domain; range }
+  | s ->
+      Format.eprintf "unknown builtin `%s`.@." s;
+      Some top
 
 let op1_f (op : AST.op1) t =
   let open AST in
@@ -34,7 +44,9 @@ let op1_f (op : AST.op1) t =
   | Star -> top
   | Comp -> top
   | Inv -> { domain = t.range; range = t.domain }
-  | ToId -> assert false
+  | ToId ->
+      Format.eprintf "op1_f ToId@.";
+      assert false
 
 let seq t1 t2 = { domain = t1.domain; range = t2.range }
 
@@ -54,7 +66,9 @@ let op2_f (op : AST.op2) l =
   | Diff, _ -> failwith "invalid diff"
   | Seq, [] -> failwith "invalid seq"
   | Seq, x :: xs -> List.fold_left seq x xs
-  | Cartesian, _ -> assert false
+  | Cartesian, _ ->
+      Format.eprintf "op2_f Cartesian@.";
+      assert false
   | Add, _ -> failwith "op2_f: Add not supported"
   | Tuple, _ -> failwith "op2_f: Tuple not supported"
 

@@ -13,11 +13,16 @@ open Catcheck
 (*  Cat.let_ "foo" body *)
 
 module P = Cat.MakeParser (struct
+  (* let libdir = "test-libdir" *)
   let libdir = "libdir"
 end)
 
+module E = TxtLoc.Extract ()
+
 let () =
-  let bs = P.read_bindings "test.cat" in
+  (* let bs = P.read_bindings "test.cat" in *)
+  let bs = P.read_bindings "aarch64.cat" in
+
   (* Format.printf "%a@." Cat.pp_stmt test_stmt; *)
   (* let test_stmt_lbld = List.hd (Graph.label_all [ test_stmt ]) in *)
   (* Format.printf "%a@." *)
@@ -29,4 +34,16 @@ let () =
   (*   res.values_in_order *)
   let module G = Graph.Make (DRDomain) in
   (* G.forward_all [ test_stmt ] *)
-  G.solve_all bs
+  let results = G.solve_all bs in
+  results
+  |> List.iter (fun (loc, res) ->
+      let combined = DRDomain.meet res.G.forward res.G.backward in
+      if DRDomain.equal combined res.G.forward then
+        Printf.printf "%a: %s: OK.\n" TxtLoc.pp loc (E.extract loc)
+      else
+        let expected =
+          CatSet.inter combined.DRDomain.domain combined.DRDomain.range
+        in
+        Printf.printf "%a:\n" TxtLoc.pp loc;
+        Format.printf "  expression `%s` could be simplified to `[%a]`@."
+          (E.extract loc) CatSet.pp expected)

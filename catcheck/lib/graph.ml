@@ -1,3 +1,5 @@
+module Log = (val Logs.src_log (Logs.Src.create "fixpoint") : Logs.LOG)
+
 module DefId : sig
   type t
 
@@ -29,7 +31,7 @@ type node_id = NodeId.t
 
 module Node = struct
   type t =
-    | To_id of AST.exp
+    | To_id of TxtLoc.t * AST.exp
     | Cartesian of AST.exp * AST.exp
     | Ref of def_id
     | Base of string (* other builtins / primitives *)
@@ -39,7 +41,7 @@ module Node = struct
   let pp_node fmt =
     let open Format in
     function
-    | To_id _exp -> fprintf fmt "To_id _"
+    | To_id (_, _exp) -> fprintf fmt "To_id _"
     | Cartesian _ -> fprintf fmt "Cartesian _"
     | Ref id -> fprintf fmt "Ref %a" DefId.pp id
     | Base s -> fprintf fmt "Base %s" s
@@ -79,7 +81,11 @@ let rec compile_exp ~(env : def_id StringMap.t)
     AST.exp -> (node_id * node_map) * node_id =
   let open AST in
   function
-  | AST.Op (_, op, exps) ->
+  | Op (_, Cartesian, [ a; b ]) ->
+      let node = Node.Cartesian (a, b) in
+      let nm = NodeMap.add next node nm in
+      ((NodeId.succ next, nm), next)
+  | Op (_, op, exps) ->
       let (next, nm), ids =
         List.fold_left_map (compile_exp ~env) (next, nm) exps
       in
@@ -87,17 +93,17 @@ let rec compile_exp ~(env : def_id StringMap.t)
       let node = Node.Op (op, ids) in
       let nm = NodeMap.add op_id node nm in
       ((NodeId.succ next, nm), op_id)
-  | AST.Op1 (_, ToId, exp) ->
-      let node = Node.To_id exp in
+  | Op1 (loc, ToId, exp) ->
+      let node = Node.To_id (loc, exp) in
       let nm = NodeMap.add next node nm in
       ((NodeId.succ next, nm), next)
-  | AST.Op1 (_, op, exp) ->
+  | Op1 (_, op, exp) ->
       let (next, nm), n_id = compile_exp ~env (next, nm) exp in
       let op_id = next in
       let node = Node.Op1 (op, n_id) in
       let nm = NodeMap.add op_id node nm in
       ((NodeId.succ next, nm), op_id)
-  | AST.Var (_, s) ->
+  | Var (_, s) ->
       let ident_id = next in
       let node =
         match StringMap.find_opt s env with
@@ -106,19 +112,29 @@ let rec compile_exp ~(env : def_id StringMap.t)
       in
       let nm = NodeMap.add next node nm in
       ((NodeId.succ next, nm), ident_id)
-  | _ -> failwith "compile_exp: unsupported expression"
+  | _ ->
+      Format.eprintf "compile_exp: unsupported expression@.";
+      let s = "<unsupported>" in
+      let ident_id = next in
+      let node =
+        match StringMap.find_opt s env with
+        | Some x -> Node.Ref x
+        | None -> Node.Base s
+      in
+      let nm = NodeMap.add next node nm in
+      ((NodeId.succ next, nm), ident_id)
 
 let compile_binding
     ((next_did, dm, next_nid, nm, env) :
       def_id * def_map * node_id * node_map * env) :
     Cat.binding -> def_id * def_map * node_id * node_map * env = function
-  | Cat.{ name; exp; is_recursive = false } ->
+  | Cat.{ name; exp; is_recursive = false; location = _ } ->
       let def_id = next_did in
       let (next_nid, nm), n_id = compile_exp ~env (next_nid, nm) exp in
       let dm = DefMap.add def_id n_id dm in
       let env = StringMap.add name def_id env in
       (DefId.succ next_did, dm, next_nid, nm, env)
-  | Cat.{ name; exp; is_recursive = true } ->
+  | Cat.{ name; exp; is_recursive = true; location = _ } ->
       let def_id = next_did in
       let env = StringMap.add name def_id env in
       let (next_nid, nm), n_id = compile_exp ~env (next_nid, nm) exp in
@@ -209,7 +225,7 @@ module Make (D : Domain.S) = struct
         | Node.Base s -> begin
             match D.builtin s with Some x -> x | None -> D.bottom
           end
-        | Node.To_id e -> D.to_id e
+        | Node.To_id (_, e) -> D.to_id e
         | Node.Cartesian (left, right) -> D.cartesian left right
         | Node.Ref did -> sol (VDef did)
         | Node.Op1 (op, c) -> D.op1_f op (sol (VNode c))
@@ -231,15 +247,15 @@ module Make (D : Domain.S) = struct
     let vars = all_vars ~dm ~nm in
     Fw.solve ~vars ~deps ~rhs:(fw_rhs env) ~init:fw_init
 
-  let forward_all (stmts : Cat.binding list) : unit =
-    let dm, nm = compile_bindings stmts in
-    Format.printf "%a@." pp_graph (dm, nm);
-    let vars = all_vars ~dm ~nm in
-    let fw_map = forward ~dm ~nm in
-    vars
-    |> List.iter (fun v ->
-        let value = fw_map v in
-        Format.printf "%a -> %a@." Var.pp v D.pp value)
+  (* let forward_all (stmts : Cat.binding list) : unit = *)
+  (*   let dm, nm = compile_bindings stmts in *)
+  (*   Format.printf "%a@." pp_graph (dm, nm); *)
+  (*   let vars = all_vars ~dm ~nm in *)
+  (*   let fw_map = forward ~dm ~nm in *)
+  (*   vars *)
+  (*   |> List.iter (fun v -> *)
+  (*       let value = fw_map v in *)
+  (*       Format.printf "%a -> %a@." Var.pp v D.pp value) *)
 
   (* ---------------- Backward (demand) analysis ---------------- *)
 
@@ -283,48 +299,46 @@ module Make (D : Domain.S) = struct
     in
     Bw.solve ~vars ~step:(bw_step env) ~seeds
 
-  let solve_all (stmts : Cat.binding list) : unit =
+  type analysis_result = { forward : D.t; backward : D.t }
+
+  let debug_analysis ~name ~vars f =
+    Log.debug (fun m ->
+        m "%s:@.%a" name
+          Format.(
+            pp_print_list
+              ~pp_sep:(fun fmt () -> pp_print_string fmt "@.")
+              (fun fmt v ->
+                let value = f v in
+                fprintf fmt "%a -> %a@." Var.pp v D.pp value))
+          vars)
+
+  let solve_all (stmts : Cat.binding list) : (TxtLoc.t * analysis_result) list =
     let dm, nm = compile_bindings stmts in
     Format.printf "%a@." pp_graph (dm, nm);
     let vars = all_vars ~dm ~nm in
     let fw_map = forward ~dm ~nm in
 
-    Format.printf "Forward analysis:@.";
-    let () =
-      vars
-      |> List.iter (fun v ->
-          let value = fw_map v in
-          Format.printf "%a -> %a@." Var.pp v D.pp value)
-    in
+    debug_analysis ~name:"Forward analysis" ~vars fw_map;
 
     let roots =
       (* Treat all definitions as "publicly exported" *)
       vars |> List.filter_map (function VDef v -> Some v | VNode _ -> None)
     in
     let bw_map = backward ~dm ~nm ~v:fw_map ~roots in
-    Format.printf "Backward analysis:@.";
-    let () =
-      vars
-      |> List.iter (fun v ->
-          let value = bw_map v in
-          Format.printf "%a -> %a@." Var.pp v D.pp value)
-    in
-    let full_analysis = fun v -> D.meet (fw_map v) (bw_map v) in
-    Format.printf "Final analysis:@.";
-    vars
-    |> List.iter (fun v ->
-        let value = full_analysis v in
-        Format.printf "%a -> %a@." Var.pp v D.pp value);
 
-    Format.printf "Effect analysis:@.";
+    debug_analysis ~name:"Backward analysis" ~vars bw_map;
+    debug_analysis ~name:"Full analysis" ~vars (fun v ->
+        D.meet (fw_map v) (bw_map v));
+
     vars
     |> List.filter_map (function
       | VNode nid as v -> (
-          match get_node nm nid with Node.To_id e -> Some (v, e) | _ -> None)
+          match get_node nm nid with
+          | Node.To_id (loc, _) -> Some (v, loc)
+          | _ -> None)
       | _ -> None)
-    |> List.iter (fun (v, e) ->
-        let s = D.to_id e in
-        let value = full_analysis v in
-        let met = D.meet s value in
-        Format.printf "%a -> Verify (%a) <= (%a)@." Var.pp v D.pp s D.pp met)
+    |> List.map (fun (v, loc) ->
+        let fw = fw_map v in
+        let bw = bw_map v in
+        (loc, { forward = fw; backward = bw }))
 end

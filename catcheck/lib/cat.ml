@@ -1,4 +1,9 @@
-type binding = { name : string; exp : AST.exp; is_recursive : bool }
+type binding = {
+  name : string;
+  exp : AST.exp;
+  is_recursive : bool;
+  location : TxtLoc.t;
+}
 
 module MakeParser (O : sig
   val libdir : string
@@ -19,11 +24,11 @@ struct
   module Parser = ParseModel.Make (ParserConfig)
 
   let rec read_bindings_ =
-    let of_bindings bs =
+    let of_bindings is_recursive location bs =
       bs
       |> List.concat_map (function
         | _, AST.Pvar (Some name), exp ->
-            [ { name; exp; is_recursive = false } ]
+            [ { name; exp; is_recursive; location } ]
         | _ -> [])
     in
     fun ~seen fname ->
@@ -32,11 +37,11 @@ struct
         let _, (_, _, ast) = Parser.find_parse fname in
         ast
         |> List.concat_map (function
-          | AST.Include (_, fname) ->
+          | AST.Include (_, included_fname) ->
               let seen = StringSet.add fname seen in
-              read_bindings_ ~seen fname
-          | AST.Let (_, bs) -> of_bindings bs
-          | AST.Rec (_, bs, _) -> of_bindings bs
+              read_bindings_ ~seen included_fname
+          | AST.Let (loc, bs) -> of_bindings false loc bs
+          | AST.Rec (loc, bs, _) -> of_bindings true loc bs
           | _ -> [])
 
   let read_bindings = read_bindings_ ~seen:StringSet.empty
