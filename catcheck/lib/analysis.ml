@@ -31,21 +31,19 @@ type node_id = NodeId.t
 
 module Node = struct
   type t =
-    | To_id of TxtLoc.t * AST.exp
-    | Cartesian of AST.exp * AST.exp
     | Ref of def_id
     | Base of string (* other builtins / primitives *)
-    | Op1 of AST.op1 * node_id
+    | Op1 of TxtLoc.t * AST.op1 * node_id
     | Op of AST.op2 * node_id list
+    | Unsupported
 
   let pp_node fmt =
     let open Format in
     function
-    | To_id (_, _exp) -> fprintf fmt "To_id _"
-    | Cartesian _ -> fprintf fmt "Cartesian _"
+    | Unsupported -> fprintf fmt "Unsupported"
     | Ref id -> fprintf fmt "Ref %a" DefId.pp id
     | Base s -> fprintf fmt "Base %s" s
-    | Op1 (_op, n) -> fprintf fmt "Op1 (_, %a)" NodeId.pp n
+    | Op1 (_, _op, n) -> fprintf fmt "Op1 (_, %a)" NodeId.pp n
     | Op (_op, n) ->
         fprintf fmt "Op (_, %a)"
           (pp_print_list
@@ -81,10 +79,6 @@ let rec compile_exp ~(env : def_id StringMap.t)
     AST.exp -> (node_id * node_map) * node_id =
   let open AST in
   function
-  | Op (_, Cartesian, [ a; b ]) ->
-      let node = Node.Cartesian (a, b) in
-      let nm = NodeMap.add next node nm in
-      ((NodeId.succ next, nm), next)
   | Op (_, op, exps) ->
       let (next, nm), ids =
         List.fold_left_map (compile_exp ~env) (next, nm) exps
@@ -93,14 +87,10 @@ let rec compile_exp ~(env : def_id StringMap.t)
       let node = Node.Op (op, ids) in
       let nm = NodeMap.add op_id node nm in
       ((NodeId.succ next, nm), op_id)
-  | Op1 (loc, ToId, exp) ->
-      let node = Node.To_id (loc, exp) in
-      let nm = NodeMap.add next node nm in
-      ((NodeId.succ next, nm), next)
-  | Op1 (_, op, exp) ->
+  | Op1 (loc, op, exp) ->
       let (next, nm), n_id = compile_exp ~env (next, nm) exp in
       let op_id = next in
-      let node = Node.Op1 (op, n_id) in
+      let node = Node.Op1 (loc, op, n_id) in
       let nm = NodeMap.add op_id node nm in
       ((NodeId.succ next, nm), op_id)
   | Var (_, s) ->
@@ -113,14 +103,9 @@ let rec compile_exp ~(env : def_id StringMap.t)
       let nm = NodeMap.add next node nm in
       ((NodeId.succ next, nm), ident_id)
   | _ ->
-      Format.eprintf "compile_exp: unsupported expression@.";
-      let s = "<unsupported>" in
+      Log.warn (fun m -> m "compile_exp: unsupported expression@.");
       let ident_id = next in
-      let node =
-        match StringMap.find_opt s env with
-        | Some x -> Node.Ref x
-        | None -> Node.Base s
-      in
+      let node = Node.Unsupported in
       let nm = NodeMap.add next node nm in
       ((NodeId.succ next, nm), ident_id)
 
@@ -201,9 +186,10 @@ module Make (D : Domain.S) = struct
         (fun n_id n acc ->
           let node_v = VNode n_id in
           match n with
-          | Node.(Base _ | To_id _ | Cartesian _) -> acc
+          | Node.Unsupported -> acc
+          | Node.Base _ -> acc
           | Node.Ref d -> add_edge acc ~from_:(VDef d) ~to_:node_v
-          | Node.Op1 (_, c) -> add_edge acc ~from_:(VNode c) ~to_:node_v
+          | Node.Op1 (_, _, c) -> add_edge acc ~from_:(VNode c) ~to_:node_v
           | Node.Op (_, cs) ->
               List.fold_left
                 (fun acc c -> add_edge acc ~from_:(VNode c) ~to_:node_v)
@@ -225,15 +211,12 @@ module Make (D : Domain.S) = struct
         | Node.Base s -> begin
             match D.builtin s with Some x -> x | None -> D.bottom
           end
-        | Node.To_id (_, e) -> D.to_id e
-        | Node.Cartesian (left, right) -> D.cartesian left right
+        | Node.Unsupported -> D.top
         | Node.Ref did -> sol (VDef did)
-        | Node.Op1 (op, c) -> D.op1_f op (sol (VNode c))
+        | Node.Op1 (_, op, c) -> D.op1_f op (sol (VNode c))
         | Node.Op (op, cs) ->
             let args = List.map (fun c -> sol (VNode c)) cs in
             D.op2_f op args)
-
-  let fw_init (_ : var) : D.t = D.bottom
 
   (* Enumerate all vars (defs + nodes) once; used by both solvers. *)
   let all_vars ~(dm : def_map) ~(nm : node_map) : var list =
@@ -245,17 +228,7 @@ module Make (D : Domain.S) = struct
     let deps = build_revdeps ~dm ~nm in
     let env = { dm; nm; deps } in
     let vars = all_vars ~dm ~nm in
-    Fw.solve ~vars ~deps ~rhs:(fw_rhs env) ~init:fw_init
-
-  (* let forward_all (stmts : Cat.binding list) : unit = *)
-  (*   let dm, nm = compile_bindings stmts in *)
-  (*   Format.printf "%a@." pp_graph (dm, nm); *)
-  (*   let vars = all_vars ~dm ~nm in *)
-  (*   let fw_map = forward ~dm ~nm in *)
-  (*   vars *)
-  (*   |> List.iter (fun v -> *)
-  (*       let value = fw_map v in *)
-  (*       Format.printf "%a -> %a@." Var.pp v D.pp value) *)
+    Fw.solve ~vars ~deps ~rhs:(fw_rhs env) ~init:(fun _ -> D.bottom)
 
   (* ---------------- Backward (demand) analysis ---------------- *)
 
@@ -273,9 +246,9 @@ module Make (D : Domain.S) = struct
         [ (VNode root, c (VDef did)) ]
     | VNode nid -> (
         match get_node env.nm nid with
-        | Node.(Base _ | To_id _ | Cartesian _) -> []
+        | Node.(Base _ | Unsupported) -> []
         | Node.Ref did -> [ (VDef did, c (VNode nid)) ]
-        | Node.Op1 (op, child) ->
+        | Node.Op1 (_, op, child) ->
             let parent_d = c (VNode nid) in
             let child_f = env.v (VNode child) in
             [ (VNode child, D.op1_b op ~parent:parent_d ~child_f) ]
@@ -334,7 +307,7 @@ module Make (D : Domain.S) = struct
     |> List.filter_map (function
       | VNode nid as v -> (
           match get_node nm nid with
-          | Node.To_id (loc, _) -> Some (v, loc)
+          | Node.Op1 (loc, AST.ToId, _) -> Some (v, loc)
           | _ -> None)
       | _ -> None)
     |> List.map (fun (v, loc) ->
