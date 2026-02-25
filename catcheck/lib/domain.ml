@@ -74,18 +74,14 @@ end
 module type S = sig
   type t
 
+  val top : t
   val bottom : t
   val join : t -> t -> t
   val meet : t -> t -> t
   val equal : t -> t -> bool
 
-  (* Leaves *)
-  (* val builtin_id : t (* meaning of id *) *)
   val builtin :
     string -> t option (* meaning of primitive/builtin named relation *)
-
-  val to_id : AST.exp -> t
-  val cartesian : AST.exp -> AST.exp -> t
 
   (* Forward transfer *)
   val op1_f : AST.op1 -> t -> t
@@ -97,4 +93,8 @@ module type S = sig
   val op1_b : AST.op1 -> parent:t -> child_f:t -> t
   val op2_b : AST.op2 -> parent:t -> children_f:t list -> t list
   val pp : Format.formatter -> t -> unit
+end
+
+module MakeTyped (D : Typed) = struct
+  type t = Top | Rel of D.rel | Set of D.set | Bottom
 end
