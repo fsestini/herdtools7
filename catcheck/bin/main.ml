@@ -74,14 +74,14 @@ let () =
     |> List.iter (fun b ->
         Logs.app (fun m -> m "%a: %s" pp_txtloc b.Cat.location b.Cat.name))
   in
-  let module G = Graph.Make (DRDomain) in
-  let results = G.solve_all bs in
+  let module A = Analysis.Make (DRDomain) in
+  let results = A.solve_all bs in
   results
   |> List.iter (fun (loc, res) ->
-      let combined = DRDomain.meet res.G.forward res.G.backward in
+      let combined = DRDomain.meet res.A.forward res.A.backward in
       if
-        (not DRDomain.(equal top res.G.forward))
-        && not (DRDomain.equal combined res.G.forward)
+        (not DRDomain.(equal top res.A.forward))
+        && not (DRDomain.equal combined res.A.forward)
       then (
         let expected =
           CatSet.inter combined.DRDomain.domain combined.DRDomain.range

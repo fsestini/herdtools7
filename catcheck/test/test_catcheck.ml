@@ -32,7 +32,7 @@ let () =
   (* List.iter *)
   (*   (fun (n, v) -> Format.printf "%s = %a\n" n DRDomain.pp v) *)
   (*   res.values_in_order *)
-  let module G = Graph.Make (DRDomain) in
+  let module G = Analysis.Make (DRDomain) in
   (* G.forward_all [ test_stmt ] *)
   let results = G.solve_all bs in
   results
