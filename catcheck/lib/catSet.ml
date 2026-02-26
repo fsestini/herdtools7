@@ -5,30 +5,18 @@ type t = IntSet.t
 let universe : t = Partitions.of_set_name "_"
 
 let of_primitive_set s =
-  try Partitions.of_set_name s
+  try Some (Partitions.of_set_name s)
   with Invalid_argument msg ->
     Log.warn (fun m -> m "%s" msg);
     (* FIXME:  *)
-    universe
+    None
 
 let empty : t = IntSet.empty
 let union (s1 : t) (s2 : t) : t = IntSet.union s1 s2
 let inter (s1 : t) (s2 : t) : t = IntSet.inter s1 s2
+let diff x y = IntSet.diff x y
 let is_subset s1 s2 = IntSet.subset s1 s2
 let equal s1 s2 = IntSet.equal s1 s2
-
-let rec of_set_expr (e : AST.exp) : t =
-  let open AST in
-  match e with
-  | Var (_, s) -> of_primitive_set s
-  | Op (_, Union, es) -> List.fold_left union empty (List.map of_set_expr es)
-  | Op (_, Inter, es) -> List.fold_left inter universe (List.map of_set_expr es)
-  | Op (_, Diff, [ x; y ]) -> IntSet.diff (of_set_expr x) (of_set_expr y)
-  | Op1 (_, Inv, e) -> IntSet.diff universe (of_set_expr e)
-  | _ ->
-      Format.eprintf "invalid set expression@.";
-      (* FIXME: *)
-      universe
 
 let simplify_intersection : bool StringMap.t -> bool StringMap.t =
   let should_include sol s b =
@@ -79,12 +67,13 @@ let to_intersection (t : t) : bool StringMap.t option =
       |> simplify_intersection |> Option.some
 
 let pp fmt t =
+  let of_prim x = of_primitive_set x |> Option.get in
   let predefined_sets =
     List.map (fun nm -> (nm, Partitions.of_set_name nm)) Partitions.set_names
     @ [
-        ("Exp & R", inter (of_primitive_set "Exp") (of_primitive_set "R"));
-        ("Exp & W", inter (of_primitive_set "Exp") (of_primitive_set "W"));
-        ("Exp & M", inter (of_primitive_set "Exp") (of_primitive_set "M"));
+        ("Exp & R", inter (of_prim "Exp") (of_prim "R"));
+        ("Exp & W", inter (of_prim "Exp") (of_prim "W"));
+        ("Exp & M", inter (of_prim "Exp") (of_prim "M"));
       ]
   in
   match List.find_opt (fun (_nm, t') -> IntSet.equal t t') predefined_sets with

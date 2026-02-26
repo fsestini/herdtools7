@@ -34,7 +34,7 @@ module Node = struct
     | Ref of def_id
     | Base of string (* other builtins / primitives *)
     | Op1 of TxtLoc.t * AST.op1 * node_id
-    | Op of AST.op2 * node_id list
+    | Op of TxtLoc.t * AST.op2 * node_id list
     | Unsupported
 
   let pp_node fmt =
@@ -44,7 +44,7 @@ module Node = struct
     | Ref id -> fprintf fmt "Ref %a" DefId.pp id
     | Base s -> fprintf fmt "Base %s" s
     | Op1 (_, _op, n) -> fprintf fmt "Op1 (_, %a)" NodeId.pp n
-    | Op (_op, n) ->
+    | Op (_, _op, n) ->
         fprintf fmt "Op (_, %a)"
           (pp_print_list
              ~pp_sep:(fun fmt () -> pp_print_string fmt ", ")
@@ -79,12 +79,12 @@ let rec compile_exp ~(env : def_id StringMap.t)
     AST.exp -> (node_id * node_map) * node_id =
   let open AST in
   function
-  | Op (_, op, exps) ->
+  | Op (loc, op, exps) ->
       let (next, nm), ids =
         List.fold_left_map (compile_exp ~env) (next, nm) exps
       in
       let op_id = next in
-      let node = Node.Op (op, ids) in
+      let node = Node.Op (loc, op, ids) in
       let nm = NodeMap.add op_id node nm in
       ((NodeId.succ next, nm), op_id)
   | Op1 (loc, op, exp) ->
@@ -190,7 +190,7 @@ module Make (D : Domain.S) = struct
           | Node.Base _ -> acc
           | Node.Ref d -> add_edge acc ~from_:(VDef d) ~to_:node_v
           | Node.Op1 (_, _, c) -> add_edge acc ~from_:(VNode c) ~to_:node_v
-          | Node.Op (_, cs) ->
+          | Node.Op (_, _, cs) ->
               List.fold_left
                 (fun acc c -> add_edge acc ~from_:(VNode c) ~to_:node_v)
                 acc cs)
@@ -203,6 +203,8 @@ module Make (D : Domain.S) = struct
     in
     fun v -> match VarMap.find_opt v rev_map with Some xs -> xs | None -> []
 
+  module E = TxtLoc.Extract ()
+
   let fw_rhs (env : fw_env) (sol : var -> D.t) (v : var) : D.t =
     match v with
     | VDef did -> sol (VNode (get_def_root env.dm did))
@@ -213,8 +215,11 @@ module Make (D : Domain.S) = struct
           end
         | Node.Unsupported -> D.top
         | Node.Ref did -> sol (VDef did)
-        | Node.Op1 (_, op, c) -> D.op1_f op (sol (VNode c))
-        | Node.Op (op, cs) ->
+        | Node.Op1 (loc, op, c) ->
+            Format.printf "doing op1 of %s@." (E.extract loc);
+            D.op1_f op (sol (VNode c))
+        | Node.Op (loc, op, cs) ->
+            Format.printf "doing op2 of %s@." (E.extract loc);
             let args = List.map (fun c -> sol (VNode c)) cs in
             D.op2_f op args)
 
@@ -252,7 +257,7 @@ module Make (D : Domain.S) = struct
             let parent_d = c (VNode nid) in
             let child_f = env.v (VNode child) in
             [ (VNode child, D.op1_b op ~parent:parent_d ~child_f) ]
-        | Node.Op (op, children) ->
+        | Node.Op (_, op, children) ->
             let parent_d = c (VNode nid) in
             let children_f = List.map (fun ch -> env.v (VNode ch)) children in
             let ds = D.op2_b op ~parent:parent_d ~children_f in
@@ -287,7 +292,7 @@ module Make (D : Domain.S) = struct
 
   let solve_all (stmts : Cat.binding list) : (TxtLoc.t * analysis_result) list =
     let dm, nm = compile_bindings stmts in
-    Format.printf "%a@." pp_graph (dm, nm);
+    Log.debug (fun m -> m "%a" pp_graph (dm, nm));
     let vars = all_vars ~dm ~nm in
     let fw_map = forward ~dm ~nm in
 

@@ -2,6 +2,8 @@ module List : sig
   module Syntax : sig
     val ( let* ) : 'a list -> ('a -> 'b list) -> 'b list
   end
+
+  val traverse_option : ('a -> 'b option) -> 'a list -> 'b list option
 end
 
 module NonEmpty : sig
