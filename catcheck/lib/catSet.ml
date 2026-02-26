@@ -6,8 +6,8 @@ let universe : t = Partitions.of_set_name "_"
 
 let of_primitive_set s =
   try Some (Partitions.of_set_name s)
-  with Invalid_argument msg ->
-    Log.warn (fun m -> m "%s" msg);
+  with Invalid_argument _msg ->
+    (* Log.warn (fun m -> m "%s" msg); *)
     (* FIXME:  *)
     None
 

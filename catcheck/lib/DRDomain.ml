@@ -71,7 +71,7 @@ module Rel = struct
         let range = CatSet.of_primitive_set "W" |> Option.get in
         Some { domain; range }
     | s ->
-        Format.eprintf "unknown builtin `%s`.@." s;
+        Format.eprintf "unknown relation builtin `%s`.@." s;
         None
 
   module Forward = struct

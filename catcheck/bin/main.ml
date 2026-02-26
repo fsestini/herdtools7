@@ -10,6 +10,7 @@ let parse_options () =
   let verbose = ref false in
   let debug = ref false in
   let primitives = ref None in
+  let args = ref [] in
 
   let opts =
     [
@@ -29,7 +30,7 @@ let parse_options () =
   in
   let () =
     Arg.parse opts
-      (fun _s -> ())
+      (fun s -> args := s :: !args)
       (Format.sprintf "Usage: %s [OPTIONS] FILE" prog)
   in
   let libdir =
@@ -37,7 +38,10 @@ let parse_options () =
     | Some libdir -> libdir
     | None -> Filename.concat Version.libdir "herd"
   in
-  { verbose = !verbose; debug = !debug; libdir; primitives = !primitives }
+  let arg =
+    match !args with [ x ] -> x | _ -> failwith "need exactly one arg"
+  in
+  ({ verbose = !verbose; debug = !debug; libdir; primitives = !primitives }, arg)
 
 open Catcheck
 module E = TxtLoc.Extract ()
@@ -48,7 +52,7 @@ let pp_txtloc fmt (p : TxtLoc.t) =
     p.loc_start.Lexing.pos_lnum
 
 let () =
-  let opts = parse_options () in
+  let opts, fname = parse_options () in
   let log_level =
     if opts.debug then Logs.Debug
     else if opts.verbose then Logs.Info
@@ -67,14 +71,14 @@ let () =
     | Some fname -> P.read_bindings fname
     | None -> []
   in
-  let bs = P.read_bindings "aarch64.cat" in
+  let bs = P.read_bindings fname in
   let bs = prims @ bs in
   let () =
     bs
     |> List.iter (fun b ->
         Logs.app (fun m -> m "%a: %s" pp_txtloc b.Cat.location b.Cat.name))
   in
-  let module D = Domain.FromTyped (DRDomain) in
+  let module D = AbstractDomain.FromTyped (DRDomain) in
   let module A = Analysis.Make (D) in
   let _results = A.solve_all bs in
   ()

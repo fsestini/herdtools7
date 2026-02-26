@@ -1,4 +1,5 @@
-module Log = (val Logs.src_log (Logs.Src.create "fixpoint") : Logs.LOG)
+module Log = (val Logs.src_log (Logs.Src.create "analysis") : Logs.LOG)
+module E = TxtLoc.Extract ()
 
 module DefId : sig
   type t
@@ -43,9 +44,10 @@ module Node = struct
     | Unsupported -> fprintf fmt "Unsupported"
     | Ref id -> fprintf fmt "Ref %a" DefId.pp id
     | Base s -> fprintf fmt "Base %s" s
-    | Op1 (_, _op, n) -> fprintf fmt "Op1 (_, %a)" NodeId.pp n
-    | Op (_, _op, n) ->
-        fprintf fmt "Op (_, %a)"
+    | Op1 (loc, _op, n) ->
+        fprintf fmt "Op1 (%s, %a)" (E.extract loc) NodeId.pp n
+    | Op (loc, _op, n) ->
+        fprintf fmt "Op (%s, %a)" (E.extract loc)
           (pp_print_list
              ~pp_sep:(fun fmt () -> pp_print_string fmt ", ")
              NodeId.pp)
@@ -148,7 +150,7 @@ module Var = struct
     | VDef id -> fprintf fmt "VDef(%a)" DefId.pp id
 end
 
-module Make (D : Domain.S) = struct
+module Make (D : AbstractDomain.S) = struct
   module Lat = struct
     type t = D.t
 
@@ -203,8 +205,6 @@ module Make (D : Domain.S) = struct
     in
     fun v -> match VarMap.find_opt v rev_map with Some xs -> xs | None -> []
 
-  module E = TxtLoc.Extract ()
-
   let fw_rhs (env : fw_env) (sol : var -> D.t) (v : var) : D.t =
     match v with
     | VDef did -> sol (VNode (get_def_root env.dm did))
@@ -215,11 +215,11 @@ module Make (D : Domain.S) = struct
           end
         | Node.Unsupported -> D.top
         | Node.Ref did -> sol (VDef did)
-        | Node.Op1 (loc, op, c) ->
-            Format.printf "doing op1 of %s@." (E.extract loc);
+        | Node.Op1 (_loc, op, c) ->
+            (* Format.printf "doing op1 of %s@." (E.extract loc); *)
             D.op1_f op (sol (VNode c))
-        | Node.Op (loc, op, cs) ->
-            Format.printf "doing op2 of %s@." (E.extract loc);
+        | Node.Op (_loc, op, cs) ->
+            (* Format.printf "doing op2 of %s@." (E.extract loc); *)
             let args = List.map (fun c -> sol (VNode c)) cs in
             D.op2_f op args)
 
@@ -279,24 +279,36 @@ module Make (D : Domain.S) = struct
 
   type analysis_result = { forward : D.t; backward : D.t }
 
-  let debug_analysis ~name ~vars f =
+  let debug_analysis ~name ~vars ~(dm : def_map) ~(nm : node_map) f =
     Log.debug (fun m ->
         m "%s:@.%a" name
           Format.(
             pp_print_list
               ~pp_sep:(fun fmt () -> pp_print_string fmt "@.")
               (fun fmt v ->
+                let var_str =
+                  match v with
+                  | VDef did ->
+                      let nid = DefMap.find did dm in
+                      let node = NodeMap.find nid nm in
+                      Format.asprintf "def %a" Node.pp_node node
+                  | VNode nid ->
+                      let node = NodeMap.find nid nm in
+                      Format.asprintf "%a" Node.pp_node node
+                in
                 let value = f v in
-                fprintf fmt "%a -> %a@." Var.pp v D.pp value))
+                fprintf fmt "%a (%s) -> %a@." Var.pp v var_str D.pp value))
           vars)
 
   let solve_all (stmts : Cat.binding list) : (TxtLoc.t * analysis_result) list =
+    Log.debug (fun m -> m "solve_all");
+
     let dm, nm = compile_bindings stmts in
     Log.debug (fun m -> m "%a" pp_graph (dm, nm));
     let vars = all_vars ~dm ~nm in
     let fw_map = forward ~dm ~nm in
 
-    debug_analysis ~name:"Forward analysis" ~vars fw_map;
+    debug_analysis ~name:"Forward analysis" ~vars ~dm ~nm fw_map;
 
     let roots =
       (* Treat all definitions as "publicly exported" *)
@@ -304,8 +316,8 @@ module Make (D : Domain.S) = struct
     in
     let bw_map = backward ~dm ~nm ~v:fw_map ~roots in
 
-    debug_analysis ~name:"Backward analysis" ~vars bw_map;
-    debug_analysis ~name:"Full analysis" ~vars (fun v ->
+    debug_analysis ~name:"Backward analysis" ~vars ~dm ~nm bw_map;
+    debug_analysis ~name:"Full analysis" ~vars ~dm ~nm (fun v ->
         D.meet (fw_map v) (bw_map v));
 
     vars
