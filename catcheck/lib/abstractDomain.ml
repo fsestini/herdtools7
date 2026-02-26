@@ -162,7 +162,11 @@ module FromTyped (D : Typed) = struct
     match D.Set.builtin s with
     | Some x -> Some (Set x)
     | None -> (
-        match D.Rel.builtin s with Some x -> Some (Rel x) | None -> None)
+        match D.Rel.builtin s with
+        | Some x -> Some (Rel x)
+        | None ->
+            Log.warn (fun m -> m "Unknown builtin symbol: %s" s);
+            None)
 
   let op1_f (op : AST.op1) (x : t) : t =
     let open AST in
@@ -179,10 +183,18 @@ module FromTyped (D : Typed) = struct
     | Opt -> Rel (D.Rel.Forward.opt (as_rel x))
 
   let as_sets : t list -> D.set list option =
-    Util.List.traverse_option (function Set s -> Some s | _ -> None)
+    Util.List.traverse_option (function
+      | Set s -> Some s
+      | Top -> Some D.Set.top
+      | Bottom -> Some D.Set.bottom
+      | Rel _ -> None)
 
   let as_rels : t list -> D.rel list option =
-    Util.List.traverse_option (function Rel r -> Some r | _ -> None)
+    Util.List.traverse_option (function
+      | Rel r -> Some r
+      | Top -> Some D.Rel.top
+      | Bottom -> Some D.Rel.bottom
+      | Set _ -> None)
 
   module SetFw = D.Set.Forward
   module RelFw = D.Rel.Forward
