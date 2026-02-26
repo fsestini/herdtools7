@@ -11,4 +11,5 @@ module NonEmpty : sig
 
   val cons : 'a -> 'a list -> 'a t
   val uncons : 'a t -> 'a * 'a list
+  val map : ('a -> 'b) -> 'a t -> 'b t
 end

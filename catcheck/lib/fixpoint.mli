@@ -2,6 +2,8 @@ module type Var = sig
   type t
 
   val compare : t -> t -> int
+  val pp : Format.formatter -> t -> unit
+  val should_report : t -> bool
 end
 
 (** Bounded join semi-lattice, on a finite set with decidable equality. *)
@@ -11,6 +13,7 @@ module type Lattice = sig
   val bottom : t
   val join : t -> t -> t
   val equal : t -> t -> bool
+  val pp : Format.formatter -> t -> unit
 end
 
 (** Forward analysis. *)

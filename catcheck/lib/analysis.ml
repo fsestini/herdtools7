@@ -17,6 +17,7 @@ end
 module NodeId : sig
   type t
 
+  val is_int : int -> t -> bool
   val zero : t
   val succ : t -> t
   val compare : t -> t -> int
@@ -24,6 +25,7 @@ module NodeId : sig
 end = struct
   include Int
 
+  let is_int n x = Int.equal n x
   let pp = Format.pp_print_int
 end
 
@@ -148,6 +150,8 @@ module Var = struct
     function
     | VNode id -> fprintf fmt "VNode(%a)" NodeId.pp id
     | VDef id -> fprintf fmt "VDef(%a)" DefId.pp id
+
+  let should_report = function VNode nid -> NodeId.is_int 39 nid | _ -> false
 end
 
 module Make (D : AbstractDomain.S) = struct
@@ -157,6 +161,7 @@ module Make (D : AbstractDomain.S) = struct
     let bottom = D.bottom
     let join = D.join
     let equal = D.equal
+    let pp = D.pp
   end
 
   module Fw = Fixpoint.MakeForward (Var) (Lat)
@@ -209,17 +214,20 @@ module Make (D : AbstractDomain.S) = struct
     match v with
     | VDef did -> sol (VNode (get_def_root env.dm did))
     | VNode nid -> (
-        match get_node env.nm nid with
+        let node = get_node env.nm nid in
+        if NodeId.is_int 39 nid then
+          Log.debug (fun m -> m "Node 39: %a" Node.pp_node node);
+        match node with
         | Node.Base s -> begin
-            match D.builtin s with Some x -> x | None -> D.bottom
+            match D.builtin s with Some x -> x | None -> D.top
           end
         | Node.Unsupported -> D.top
         | Node.Ref did -> sol (VDef did)
         | Node.Op1 (_loc, op, c) ->
-            (* Format.printf "doing op1 of %s@." (E.extract loc); *)
+            (* Format.printf "doing op1_f of %s@." (E.extract loc); *)
             D.op1_f op (sol (VNode c))
-        | Node.Op (_loc, op, cs) ->
-            (* Format.printf "doing op2 of %s@." (E.extract loc); *)
+        | Node.Op (loc, op, cs) ->
+            Format.printf "doing op2_f of %s@." (E.extract loc);
             let args = List.map (fun c -> sol (VNode c)) cs in
             D.op2_f op args)
 

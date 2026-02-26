@@ -1,7 +1,11 @@
+module Log = (val Logs.src_log (Logs.Src.create "fixpoint") : Logs.LOG)
+
 module type Var = sig
   type t
 
   val compare : t -> t -> int
+  val pp : Format.formatter -> t -> unit
+  val should_report : t -> bool
 end
 
 module type Lattice = sig
@@ -10,6 +14,7 @@ module type Lattice = sig
   val bottom : t
   val join : t -> t -> t
   val equal : t -> t -> bool
+  val pp : Format.formatter -> t -> unit
 end
 
 module MakeWorklist (T : sig
@@ -80,7 +85,18 @@ module MakeForward (Var : Var) (Lat : Lattice) :
       | Some (v, wl) ->
           let oldv = get store v in
           let desired = rhs (sol_of store) v in
-          let newv = Lat.join oldv desired in
+          (* let newv = Lat.join oldv desired in *)
+          if Var.should_report v then
+            Log.app (fun m ->
+                m "Forward fixpoint step for var: %a. Old: %a; desired: %a"
+                  Var.pp v Lat.pp oldv Lat.pp desired);
+          let newv =
+            try Lat.join oldv desired
+            with Invalid_argument msg ->
+              Log.debug (fun m ->
+                  m "Failed forward fixpoint step for var: %a" Var.pp v);
+              raise (Invalid_argument msg)
+          in
 
           if Lat.equal newv oldv then loop store wl
           else

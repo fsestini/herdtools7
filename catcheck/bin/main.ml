@@ -80,8 +80,22 @@ let () =
   in
   let module D = AbstractDomain.FromTyped (DRDomain) in
   let module A = Analysis.Make (D) in
-  let _results = A.solve_all bs in
-  ()
+  let results = A.solve_all bs in
+  results
+  |> List.iter (fun (loc, res) ->
+      let fw = res.A.forward in
+      let bw = res.A.backward in
+      match (fw, bw) with
+      | D.Rel fw, D.Rel bw when not DRDomain.Rel.(equal fw top) ->
+          let combined = DRDomain.Rel.meet fw bw in
+          if not (DRDomain.Rel.equal combined fw) then (
+            let r = combined in
+            let expected = CatSet.inter r.DRDomain.domain r.DRDomain.range in
+            Printf.printf "%a:\n" TxtLoc.pp loc;
+            Format.printf
+              "  expression `%s` (fw: %a) could be simplified to `[%a]`@."
+              (E.extract loc) DRDomain.Rel.pp fw CatSet.pp expected)
+      | _ -> ())
 (* results *)
 (* |> List.iter (fun (loc, res) -> *)
 (*     let combined = D.meet res.A.forward res.A.backward in *)

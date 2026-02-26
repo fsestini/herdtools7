@@ -3,6 +3,10 @@ let Tag = T
 
 let foo = (po; [M]) & rf
 
+let RTag = Imp & Tag & R
+
+let iico_order = M * M
+
 let bob =
    [(Exp & R & A) | (Exp & R & Q)]; po; [Exp & M | Imp & Tag & R | MMU & FAULT]
  | [(Exp & R & A) | (Exp & R & Q)]; iico_order; [Exp & M | Imp & Tag & R | MMU & FAULT]

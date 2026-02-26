@@ -18,4 +18,5 @@ module NonEmpty = struct
 
   let cons x xs = (x, xs)
   let uncons t = t
+  let map f (x, xs) = (f x, Stdlib.List.map f xs)
 end

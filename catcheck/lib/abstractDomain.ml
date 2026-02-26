@@ -100,6 +100,11 @@ end
 module FromTyped (D : Typed) = struct
   type t = Top | Rel of D.rel | Set of D.set | Bottom
 
+  let is_top = function Top -> true | _ -> false
+  let is_bottom = function Bottom -> true | _ -> false
+  let is_rel = function Rel _ -> true | _ -> false
+  let is_set = function Set _ -> true | _ -> false
+
   let pp fmt =
     let open Format in
     function
@@ -135,8 +140,10 @@ module FromTyped (D : Typed) = struct
     | Rel x, Rel y -> Rel (D.Rel.join x y)
     | Set x, Set y -> Set (D.Set.join x y)
     | Set _, Rel _ | Rel _, Set _ ->
-        Log.warn (fun m -> m "Type mismatch in domain join");
-        Top
+        let err =
+          Format.asprintf "Type mismatch in domain join: %a  \\/  %a" pp x pp y
+        in
+        invalid_arg err
 
   let meet x y =
     match (x, y) with
@@ -147,8 +154,30 @@ module FromTyped (D : Typed) = struct
     | Rel x, Rel y -> Rel (D.Rel.meet x y)
     | Set x, Set y -> Set (D.Set.meet x y)
     | Set _, Rel _ | Rel _, Set _ ->
-        Log.warn (fun m -> m "Type mismatch in domain meet");
-        Bottom
+        let err =
+          Format.asprintf "Type mismatch in domain meet: %a  /  %a" pp x pp y
+        in
+        invalid_arg err
+
+  let as_sets : t list -> D.set list option =
+    Util.List.traverse_option (function
+      | Set s -> Some s
+      | Top -> Some D.Set.top
+      | Bottom -> Some D.Set.bottom
+      | Rel _ -> None)
+
+  let as_sets_exn l =
+    match as_sets l with Some ss -> ss | None -> invalid_arg "expected sets"
+
+  let as_rels : t list -> D.rel list option =
+    Util.List.traverse_option (function
+      | Rel r -> Some r
+      | Top -> Some D.Rel.top
+      | Bottom -> Some D.Rel.bottom
+      | Set _ -> None)
+
+  let as_rels_exn l =
+    match as_rels l with Some ss -> ss | None -> invalid_arg "expected rels"
 
   let equal x y =
     match (x, y) with
@@ -178,60 +207,51 @@ module FromTyped (D : Typed) = struct
         | Rel r -> Rel (D.Rel.Forward.comp r)
         | Top | Bottom -> Top)
     | ToId -> Rel (D.Rel.Forward.toid (as_set x))
-    | Plus -> Rel (D.Rel.Forward.plus (as_rel x))
+    | Plus ->
+        (* Log.app (fun m -> m "op1_f Plus on %a" pp x); *)
+        Rel (D.Rel.Forward.plus (as_rel x))
     | Star -> Rel (D.Rel.Forward.star (as_rel x))
     | Opt -> Rel (D.Rel.Forward.opt (as_rel x))
-
-  let as_sets : t list -> D.set list option =
-    Util.List.traverse_option (function
-      | Set s -> Some s
-      | Top -> Some D.Set.top
-      | Bottom -> Some D.Set.bottom
-      | Rel _ -> None)
-
-  let as_rels : t list -> D.rel list option =
-    Util.List.traverse_option (function
-      | Rel r -> Some r
-      | Top -> Some D.Rel.top
-      | Bottom -> Some D.Rel.bottom
-      | Set _ -> None)
 
   module SetFw = D.Set.Forward
   module RelFw = D.Rel.Forward
 
   let op2_f (op : AST.op2) (args : t list) : t =
     let open AST in
-    match op with
-    | Union -> (
-        match as_sets args with
-        | Some ss -> Set (SetFw.union ss)
-        | None -> (
-            match as_rels args with
-            | Some rr -> Rel (RelFw.union rr)
-            | None -> Top))
-    | Inter -> (
-        match as_sets args with
-        | Some ss -> Set (SetFw.inter ss)
-        | None -> (
-            match as_rels args with
-            | Some rr -> Rel (RelFw.inter rr)
-            | None -> Top))
-    | Diff -> (
-        match args with
-        | [ Set left; Set right ] -> Set (SetFw.diff left right)
-        | [ Rel left; Rel right ] -> Rel (RelFw.diff left right)
-        | [ _; _ ] -> Top
-        | _ -> failwith "invalid diff")
-    | Seq -> (
-        match as_rels args with
-        | Some (x :: xs) -> Rel (RelFw.seq (Util.NonEmpty.cons x xs))
-        | _ -> Top)
-    | Cartesian -> (
-        match args with
-        | [ Set left; Set right ] -> Rel (RelFw.cartesian left right)
-        | _ -> Top)
-    | Add -> Top (* failwith "op2_f: Add not supported" *)
-    | Tuple -> Top
+    match (op, args) with
+    | Union, _ ->
+        Log.app (fun m ->
+            m "op2_f: doing Union on %a"
+              Format.(
+                pp_print_list ~pp_sep:(fun fmt () -> pp_print_string fmt ",") pp)
+              args);
+        if List.for_all is_bottom args then Bottom
+        else if List.exists is_set args then
+          Set (SetFw.union (as_sets_exn args))
+        else if List.exists is_rel args then
+          Rel (RelFw.union (as_rels_exn args))
+        else Top
+    | Inter, _ ->
+        if List.for_all is_bottom args then Bottom
+        else if List.exists is_set args then
+          Set (SetFw.inter (as_sets_exn args))
+        else if List.exists is_rel args then
+          Rel (RelFw.inter (as_rels_exn args))
+        else Top
+    | Diff, [ a; b ] ->
+        if List.for_all is_bottom args then Bottom
+        else if is_set a || is_set b then Set (SetFw.diff (as_set a) (as_set b))
+        else if is_rel a || is_rel b then Rel (RelFw.diff (as_rel a) (as_rel b))
+        else Top
+    | Diff, _ -> failwith "malformed Diff"
+    | Seq, x :: xs ->
+        let rr = Util.NonEmpty.(cons x xs |> map as_rel) in
+        Rel (RelFw.seq rr)
+    | Seq, _ -> failwith "malformed seq"
+    | Cartesian, [ a; b ] -> Rel (RelFw.cartesian (as_set a) (as_set b))
+    | Cartesian, _ -> failwith "malformed cartesian product"
+    | Add, _ -> Top (* failwith "op2_f: Add not supported" *)
+    | Tuple, _ -> Top
   (* failwith "op2_f: Tuple not supported" *)
 
   module SetBw = D.Set.Backward
