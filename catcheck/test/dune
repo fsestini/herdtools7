@@ -1,5 +1,6 @@
 (tests
- (names test_catcheck)
+ (names test_catcheck test_partitioned_sets)
  (deps
-  (source_tree test-libdir) (source_tree libdir))
+  (source_tree test-libdir)
+  (source_tree libdir))
  (libraries catcheck))

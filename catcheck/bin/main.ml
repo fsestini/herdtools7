@@ -46,10 +46,10 @@ let parse_options () =
 open Catcheck
 module E = TxtLoc.Extract ()
 
-let pp_txtloc fmt (p : TxtLoc.t) =
-  let open TxtLoc in
-  Format.fprintf fmt "File %s, line %d" p.loc_start.Lexing.pos_fname
-    p.loc_start.Lexing.pos_lnum
+(* let pp_txtloc fmt (p : TxtLoc.t) = *)
+(*   let open TxtLoc in *)
+(*   Format.fprintf fmt "File %s, line %d" p.loc_start.Lexing.pos_fname *)
+(*     p.loc_start.Lexing.pos_lnum *)
 
 let () =
   let opts, fname = parse_options () in
@@ -73,11 +73,11 @@ let () =
   in
   let bs = P.read_bindings fname in
   let bs = prims @ bs in
-  let () =
-    bs
-    |> List.iter (fun b ->
-        Logs.app (fun m -> m "%a: %s" pp_txtloc b.Cat.location b.Cat.name))
-  in
+  (* let () = *)
+  (*   bs *)
+  (*   |> List.iter (fun b -> *)
+  (*       Logs.app (fun m -> m "%a: %s" pp_txtloc b.Cat.location b.Cat.name)) *)
+  (* in *)
   let module D = AbstractDomain.FromTyped (DRDomain) in
   let module A = Analysis.Make (D) in
   let results = A.solve_all bs in

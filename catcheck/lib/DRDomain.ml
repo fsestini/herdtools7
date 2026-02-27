@@ -7,7 +7,11 @@ module Set = struct
   let join = CatSet.union
   let meet = CatSet.inter
   let equal = CatSet.equal
-  let builtin = CatSet.of_primitive_set
+
+  let builtin = function
+    | "emptyset" -> Some CatSet.empty
+    | s -> CatSet.of_primitive_set s
+
   let pp = CatSet.pp
 
   module Forward = struct
@@ -15,6 +19,7 @@ module Set = struct
     let inter es = List.fold_left CatSet.inter CatSet.universe es
     let diff = CatSet.diff
     let comp x = CatSet.diff CatSet.universe x
+    let try_ a b = join a b
   end
 
   module Backward = struct
@@ -27,6 +32,9 @@ module Set = struct
       (cx, cy)
 
     let comp ~parent ~child_fw = meet parent child_fw
+
+    let try_ ~parent ~lchild_fw ~rchild_fw =
+      (meet parent lchild_fw, meet parent rchild_fw)
   end
 end
 
@@ -92,6 +100,7 @@ module Rel = struct
     let plus t = t
     let star _ = top
     let opt t = join id_rel t
+    let try_ a b = join a b
   end
 
   module Backward = struct
@@ -117,6 +126,9 @@ module Rel = struct
       let cx = meet parent lchild_fw in
       let cy = meet cx rchild_fw in
       (cx, cy)
+
+    let try_ ~parent ~lchild_fw ~rchild_fw =
+      (meet parent lchild_fw, meet parent rchild_fw)
 
     let seq ~parent ~children_fw =
       let xs =

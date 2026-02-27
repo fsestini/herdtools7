@@ -38,12 +38,13 @@ module Node = struct
     | Base of string (* other builtins / primitives *)
     | Op1 of TxtLoc.t * AST.op1 * node_id
     | Op of TxtLoc.t * AST.op2 * node_id list
-    | Unsupported
+    | Try of TxtLoc.t * node_id * node_id
+    | Unsupported of TxtLoc.t
 
   let pp_node fmt =
     let open Format in
     function
-    | Unsupported -> fprintf fmt "Unsupported"
+    | Unsupported loc -> fprintf fmt "Unsupported (%s)" (E.extract loc)
     | Ref id -> fprintf fmt "Ref %a" DefId.pp id
     | Base s -> fprintf fmt "Base %s" s
     | Op1 (loc, _op, n) ->
@@ -54,6 +55,7 @@ module Node = struct
              ~pp_sep:(fun fmt () -> pp_print_string fmt ", ")
              NodeId.pp)
           n
+    | Try (loc, _, _) -> fprintf fmt "Try (%s)" (E.extract loc)
 end
 
 type node = Node.t
@@ -82,6 +84,13 @@ let rec compile_exp ~(env : def_id StringMap.t)
     ((next, nm) : node_id * node_map) :
     AST.exp -> (node_id * node_map) * node_id =
   let open AST in
+  let of_unsupported loc =
+    (* Log.warn (fun m -> m "compile_exp: unsupported expression@."); *)
+    let ident_id = next in
+    let node = Node.Unsupported loc in
+    let nm = NodeMap.add next node nm in
+    ((NodeId.succ next, nm), ident_id)
+  in
   function
   | Op (loc, op, exps) ->
       let (next, nm), ids =
@@ -106,12 +115,23 @@ let rec compile_exp ~(env : def_id StringMap.t)
       in
       let nm = NodeMap.add next node nm in
       ((NodeId.succ next, nm), ident_id)
-  | _ ->
-      Log.warn (fun m -> m "compile_exp: unsupported expression@.");
-      let ident_id = next in
-      let node = Node.Unsupported in
-      let nm = NodeMap.add next node nm in
-      ((NodeId.succ next, nm), ident_id)
+  | Konst (loc, _) -> of_unsupported loc
+  | Tag (loc, _) -> of_unsupported loc
+  | App (loc, _, _) -> of_unsupported loc
+  | Bind (loc, _, _) -> of_unsupported loc
+  | BindRec (loc, _, _) -> of_unsupported loc
+  | Fun (loc, _, _, _, _) -> of_unsupported loc
+  | ExplicitSet (loc, _) -> of_unsupported loc
+  | Match (loc, _, _, _) -> of_unsupported loc
+  | MatchSet (loc, _, _, _) -> of_unsupported loc
+  | Try (loc, a, b) ->
+      let (next, nm), id_a = compile_exp ~env (next, nm) a in
+      let (next, nm), id_b = compile_exp ~env (next, nm) b in
+      let op_id = next in
+      let node = Node.Try (loc, id_a, id_b) in
+      let nm = NodeMap.add op_id node nm in
+      ((NodeId.succ next, nm), op_id)
+  | If (loc, _, _, _) -> of_unsupported loc
 
 let compile_binding
     ((next_did, dm, next_nid, nm, env) :
@@ -193,9 +213,13 @@ module Make (D : AbstractDomain.S) = struct
         (fun n_id n acc ->
           let node_v = VNode n_id in
           match n with
-          | Node.Unsupported -> acc
+          | Node.Unsupported _ -> acc
           | Node.Base _ -> acc
           | Node.Ref d -> add_edge acc ~from_:(VDef d) ~to_:node_v
+          | Node.Try (_, c1, c2) ->
+              List.fold_left
+                (fun acc c -> add_edge acc ~from_:(VNode c) ~to_:node_v)
+                acc [ c1; c2 ]
           | Node.Op1 (_, _, c) -> add_edge acc ~from_:(VNode c) ~to_:node_v
           | Node.Op (_, _, cs) ->
               List.fold_left
@@ -221,13 +245,14 @@ module Make (D : AbstractDomain.S) = struct
         | Node.Base s -> begin
             match D.builtin s with Some x -> x | None -> D.top
           end
-        | Node.Unsupported -> D.top
+        | Node.Unsupported _ -> D.top
         | Node.Ref did -> sol (VDef did)
+        | Node.Try (_, c1, c2) -> D.try_f (sol (VNode c1)) (sol (VNode c2))
         | Node.Op1 (_loc, op, c) ->
             (* Format.printf "doing op1_f of %s@." (E.extract loc); *)
             D.op1_f op (sol (VNode c))
-        | Node.Op (loc, op, cs) ->
-            Format.printf "doing op2_f of %s@." (E.extract loc);
+        | Node.Op (_loc, op, cs) ->
+            (* Format.printf "doing op2_f of %s@." (E.extract loc); *)
             let args = List.map (fun c -> sol (VNode c)) cs in
             D.op2_f op args)
 
@@ -259,8 +284,14 @@ module Make (D : AbstractDomain.S) = struct
         [ (VNode root, c (VDef did)) ]
     | VNode nid -> (
         match get_node env.nm nid with
-        | Node.(Base _ | Unsupported) -> []
+        | Node.(Base _ | Unsupported _) -> []
         | Node.Ref did -> [ (VDef did, c (VNode nid)) ]
+        | Node.Try (_, c1, c2) ->
+            let parent = c (VNode nid) in
+            let lchild_fw = env.v (VNode c1) in
+            let rchild_fw = env.v (VNode c2) in
+            let l_bw, r_bw = D.try_b ~parent ~lchild_fw ~rchild_fw in
+            [ (VNode c1, l_bw); (VNode c2, r_bw) ]
         | Node.Op1 (_, op, child) ->
             let parent_d = c (VNode nid) in
             let child_f = env.v (VNode child) in
@@ -317,7 +348,6 @@ module Make (D : AbstractDomain.S) = struct
     let fw_map = forward ~dm ~nm in
 
     debug_analysis ~name:"Forward analysis" ~vars ~dm ~nm fw_map;
-
     let roots =
       (* Treat all definitions as "publicly exported" *)
       vars |> List.filter_map (function VDef v -> Some v | VNode _ -> None)
@@ -327,7 +357,6 @@ module Make (D : AbstractDomain.S) = struct
     debug_analysis ~name:"Backward analysis" ~vars ~dm ~nm bw_map;
     debug_analysis ~name:"Full analysis" ~vars ~dm ~nm (fun v ->
         D.meet (fw_map v) (bw_map v));
-
     vars
     |> List.filter_map (function
       | VNode nid as v -> (

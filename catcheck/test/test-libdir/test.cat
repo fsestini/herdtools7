@@ -7,6 +7,16 @@ let RTag = Imp & Tag & R
 
 let iico_order = M * M
 
+let A = try A & (Exp & M) with emptyset
+and L = try L & (Exp & M | FAULT) with emptyset
+and Q = try Q & (Exp & M) with emptyset
+and NoRet = try NoRet with emptyset
+
+let L = qwerqewr
+
+let foo = iico_order; [Exp & W & L | FAULT]
+
 let bob =
    [(Exp & R & A) | (Exp & R & Q)]; po; [Exp & M | Imp & Tag & R | MMU & FAULT]
  | [(Exp & R & A) | (Exp & R & Q)]; iico_order; [Exp & M | Imp & Tag & R | MMU & FAULT]
+ | [Exp & M | Imp & Tag & R]; iico_order; [(Exp & W & L) | (FAULT & L)]
