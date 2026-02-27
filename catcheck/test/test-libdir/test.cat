@@ -14,7 +14,10 @@ and NoRet = try NoRet with emptyset
 
 let L = qwerqewr
 
-let foo = iico_order; [Exp & W & L | FAULT]
+let bar = iico_order; [Exp & W & L | FAULT]
+
+let qwe = Exp \ L
+let ewq = L \ Exp
 
 let bob =
    [(Exp & R & A) | (Exp & R & Q)]; po; [Exp & M | Imp & Tag & R | MMU & FAULT]
