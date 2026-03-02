@@ -254,17 +254,17 @@ module FromTyped (D : Typed) = struct
         else Top
     | Diff, [ a; b ] ->
         if List.for_all is_bottom args then Bottom
-        else if is_set a || is_set b then (
-          Log.app (fun m ->
-              m "op2_f: doing Diff on %a"
-                Format.(
-                  pp_print_list
-                    ~pp_sep:(fun fmt () -> pp_print_string fmt ",")
-                    pp)
-                args);
+        else if is_set a || is_set b then
+          (* Log.app (fun m -> *)
+          (*     m "op2_f: doing Diff on %a" *)
+          (*       Format.( *)
+          (*         pp_print_list *)
+          (*           ~pp_sep:(fun fmt () -> pp_print_string fmt ",") *)
+          (*           pp) *)
+          (*       args); *)
           let tnt = List.exists is_tainted args in
-          Format.printf "Diff tainted: %b@." tnt;
-          Set (tnt, SetFw.diff (as_set a) (as_set b)))
+          (* Format.printf "Diff tainted: %b@." tnt; *)
+          Set (tnt, SetFw.diff (as_set a) (as_set b))
         else if is_rel a || is_rel b then Rel (RelFw.diff (as_rel a) (as_rel b))
         else Top
     | Diff, _ -> failwith "malformed Diff"
@@ -280,10 +280,10 @@ module FromTyped (D : Typed) = struct
 
   let try_f a b =
     if is_bottom a && is_bottom b then Bottom
-    else if is_set a || is_set b then (
+    else if is_set a || is_set b then
       let tnt = List.exists is_tainted [ a; b ] in
-      Format.printf "try_f tainted: %b@." tnt;
-      Set (tnt, SetFw.try_ (as_set a) (as_set b)))
+      (* Format.printf "try_f tainted: %b@." tnt; *)
+      Set (tnt, SetFw.try_ (as_set a) (as_set b))
     else if is_rel a || is_rel b then Rel (RelFw.try_ (as_rel a) (as_rel b))
     else Top
 
