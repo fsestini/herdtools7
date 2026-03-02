@@ -359,9 +359,9 @@ module Make (D : AbstractDomain.S) = struct
         D.meet (fw_map v) (bw_map v));
     vars
     |> List.filter_map (function
-      | VNode nid as v -> (
+      | VNode nid -> (
           match get_node nm nid with
-          | Node.Op1 (loc, AST.ToId, _) -> Some (v, loc)
+          | Node.Op1 (loc, AST.ToId, ch) -> Some (VNode ch, loc)
           | _ -> None)
       | _ -> None)
     |> List.map (fun (v, loc) ->

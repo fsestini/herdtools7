@@ -86,15 +86,15 @@ let () =
       let fw = res.A.forward in
       let bw = res.A.backward in
       match (fw, bw) with
-      | D.Rel fw, D.Rel bw when not DRDomain.Rel.(equal fw top) ->
-          let combined = DRDomain.Rel.meet fw bw in
-          if not (DRDomain.Rel.equal combined fw) then (
-            let r = combined in
-            let expected = CatSet.inter r.DRDomain.domain r.DRDomain.range in
+      | D.Set ((_b as tnt), fw), D.Set (_, bw)
+        when not DRDomain.Set.(equal fw top) ->
+          let combined = DRDomain.Set.meet fw bw in
+          if not (DRDomain.Set.equal combined fw) then (
+            let expected = combined in
             Printf.printf "%a:\n" TxtLoc.pp loc;
             Format.printf
-              "  expression `%s` (fw: %a) could be simplified to `[%a]`@."
-              (E.extract loc) DRDomain.Rel.pp fw CatSet.pp expected)
+              "  expression `%s` (fw: %b %a) could be simplified to `[%a]`@."
+              (E.extract loc) tnt DRDomain.Set.pp fw CatSet.pp expected)
       | _ -> ())
 (* results *)
 (* |> List.iter (fun (loc, res) -> *)

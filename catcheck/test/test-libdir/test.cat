@@ -8,7 +8,7 @@ let RTag = Imp & Tag & R
 let iico_order = M * M
 
 let A = try A & (Exp & M) with emptyset
-and L = try L & (Exp & M | FAULT) with emptyset
+and L = try L & (Exp & M | FAULT) with qqqq
 and Q = try Q & (Exp & M) with emptyset
 and NoRet = try NoRet with emptyset
 
