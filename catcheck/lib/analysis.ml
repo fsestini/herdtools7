@@ -28,11 +28,11 @@ module Make (D : AbstractDomain.S) = struct
     | Var.VNode nid -> (
         let node = Graph.get_node g nid in
         match node with
-        | Node.Base s -> begin
+        | Node.Base (_, s) -> begin
             match D.builtin s with Some x -> x | None -> D.top
           end
         | Node.Unsupported _ -> D.top
-        | Node.Ref did -> sol (Var.VDef did)
+        | Node.Ref (_, did) -> sol (Var.VDef did)
         | Node.Try (_, c1, c2) ->
             D.try_f (sol (Var.VNode c1)) (sol (Var.VNode c2))
         | Node.Op1 (_loc, op, c) ->
@@ -67,7 +67,7 @@ module Make (D : AbstractDomain.S) = struct
     | VNode nid -> (
         match Graph.get_node g nid with
         | Node.(Base _ | Unsupported _) -> []
-        | Node.Ref did -> [ (VDef did, c (VNode nid)) ]
+        | Node.Ref (_, did) -> [ (VDef did, c (VNode nid)) ]
         | Node.Try (_, c1, c2) ->
             let parent = c (VNode nid) in
             let lchild_fw = fw_map (VNode c1) in

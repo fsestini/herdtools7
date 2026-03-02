@@ -32,19 +32,27 @@ type node_id = NodeId.t
 
 module Node = struct
   type t =
-    | Ref of def_id
-    | Base of string (* other builtins / primitives *)
+    | Ref of TxtLoc.t * def_id
+    | Base of TxtLoc.t * string (* other builtins / primitives *)
     | Op1 of TxtLoc.t * AST.op1 * node_id
     | Op of TxtLoc.t * AST.op2 * node_id list
     | Try of TxtLoc.t * node_id * node_id
     | Unsupported of TxtLoc.t
 
+  let location = function
+    | Ref (loc, _) -> loc
+    | Base (loc, _) -> loc
+    | Op1 (loc, _, _) -> loc
+    | Op (loc, _, _) -> loc
+    | Try (loc, _, _) -> loc
+    | Unsupported loc -> loc
+
   let pp_node fmt =
     let open Format in
     function
     | Unsupported loc -> fprintf fmt "Unsupported (%s)" (E.extract loc)
-    | Ref id -> fprintf fmt "Ref %a" DefId.pp id
-    | Base s -> fprintf fmt "Base %s" s
+    | Ref (_, id) -> fprintf fmt "Ref %a" DefId.pp id
+    | Base (_, s) -> fprintf fmt "Base %s" s
     | Op1 (loc, _op, n) ->
         fprintf fmt "Op1 (%s, %a)" (E.extract loc) NodeId.pp n
     | Op (loc, _op, n) ->
@@ -100,12 +108,12 @@ let rec compile_exp ~(env : def_id StringMap.t)
       let node = Node.Op1 (loc, op, n_id) in
       let nm = NodeMap.add op_id node nm in
       ((NodeId.succ next, nm), op_id)
-  | Var (_, s) ->
+  | Var (loc, s) ->
       let ident_id = next in
       let node =
         match StringMap.find_opt s env with
-        | Some x -> Node.Ref x
-        | None -> Node.Base s
+        | Some x -> Node.Ref (loc, x)
+        | None -> Node.Base (loc, s)
       in
       let nm = NodeMap.add next node nm in
       ((NodeId.succ next, nm), ident_id)
@@ -198,7 +206,7 @@ let build_revdeps ~(dm : def_map) ~(nm : node_map) : var -> var list =
         match n with
         | Node.Unsupported _ -> acc
         | Node.Base _ -> acc
-        | Node.Ref d -> add_edge acc ~from_:(Var.VDef d) ~to_:node_v
+        | Node.Ref (_, d) -> add_edge acc ~from_:(Var.VDef d) ~to_:node_v
         | Node.Try (_, c1, c2) ->
             List.fold_left
               (fun acc c -> add_edge acc ~from_:(Var.VNode c) ~to_:node_v)

@@ -22,12 +22,14 @@ end
 
 module Node : sig
   type t =
-    | Ref of def_id
-    | Base of string (* other builtins / primitives *)
+    | Ref of TxtLoc.t * def_id
+    | Base of TxtLoc.t * string (* other builtins / primitives *)
     | Op1 of TxtLoc.t * AST.op1 * node_id
     | Op of TxtLoc.t * AST.op2 * node_id list
     | Try of TxtLoc.t * node_id * node_id
     | Unsupported of TxtLoc.t
+
+  val location : t -> TxtLoc.t
 end
 
 type node = Node.t

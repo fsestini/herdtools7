@@ -51,6 +51,69 @@ module E = TxtLoc.Extract ()
 (*   Format.fprintf fmt "File %s, line %d" p.loc_start.Lexing.pos_fname *)
 (*     p.loc_start.Lexing.pos_lnum *)
 
+let run_analysis (bs : Cat.binding list) =
+  let module D = AbstractDomain.FromTyped (DRDomain) in
+  let module A = Analysis.Make (D) in
+  let module V = Graph.Var in
+  let module N = Graph.Node in
+  let module S = DRDomain.Set in
+  let g = Graph.build bs in
+  let vars = Graph.all_vars g in
+  let fw_map = A.forward g in
+  let roots =
+    vars |> List.filter_map (function V.VDef v -> Some v | V.VNode _ -> None)
+  in
+  let bw_map = A.backward ~g ~fw_map roots in
+  let selected_vars =
+    vars
+    |> List.concat_map (function
+      | V.VDef _ -> []
+      | V.VNode n_id -> (
+          let node = Graph.get_node g n_id in
+          match node with
+          | N.Op1 (_, AST.ToId, c) -> [ c ]
+          | N.Op (_, AST.Union, cs) -> cs
+          | _ -> []))
+  in
+  selected_vars
+  |> List.iter (fun n_id ->
+      let node = Graph.get_node g n_id in
+      let v = V.VNode n_id in
+      (* let is_emptyset = *)
+      (*   match node with Graph.Node.Base (_, "emptyset") -> true | _ -> false *)
+      (* in *)
+      let loc = Graph.Node.location node in
+      let fw = fw_map v in
+      let bw = bw_map v in
+      match (fw, bw) with
+      | D.Set (false, fw), D.Set (_, bw) when not (S.equal fw S.top) ->
+          let combined = DRDomain.Set.meet fw bw in
+          if CatSet.equal combined CatSet.empty then (
+            Printf.printf "%a:\n" TxtLoc.pp loc;
+            Format.printf "  set expression `%s` is empty@." (E.extract loc))
+          else if not (S.equal combined fw) then (
+            let expected = combined in
+            Printf.printf "%a:\n" TxtLoc.pp loc;
+            Format.printf "  expression `%s` could be simplified to `[%a]`@."
+              (E.extract loc) S.pp expected)
+      | _ -> Format.printf "Skipping %s@." (E.extract loc))
+(* let results = A.solve_all bs in *)
+(* results *)
+(* |> List.iter (fun (loc, res) -> *)
+(*     let fw = res.A.forward in *)
+(*     let bw = res.A.backward in *)
+(* match (fw, bw) with *)
+(* | D.Set ((_b as tnt), fw), D.Set (_, bw) *)
+(*   when not DRDomain.Set.(equal fw top) -> *)
+(*     let combined = DRDomain.Set.meet fw bw in *)
+(*     if not (DRDomain.Set.equal combined fw) then ( *)
+(*       let expected = combined in *)
+(*       Printf.printf "%a:\n" TxtLoc.pp loc; *)
+(*       Format.printf *)
+(*         "  expression `%s` (fw: %b %a) could be simplified to `[%a]`@." *)
+(*         (E.extract loc) tnt DRDomain.Set.pp fw CatSet.pp expected) *)
+(*     | _ -> ()) *)
+
 let () =
   let opts, fname = parse_options () in
   let log_level =
@@ -73,29 +136,31 @@ let () =
   in
   let bs = P.read_bindings fname in
   let bs = prims @ bs in
-  (* let () = *)
-  (*   bs *)
-  (*   |> List.iter (fun b -> *)
-  (*       Logs.app (fun m -> m "%a: %s" pp_txtloc b.Cat.location b.Cat.name)) *)
-  (* in *)
-  let module D = AbstractDomain.FromTyped (DRDomain) in
-  let module A = Analysis.Make (D) in
-  let results = A.solve_all bs in
-  results
-  |> List.iter (fun (loc, res) ->
-      let fw = res.A.forward in
-      let bw = res.A.backward in
-      match (fw, bw) with
-      | D.Set ((_b as tnt), fw), D.Set (_, bw)
-        when not DRDomain.Set.(equal fw top) ->
-          let combined = DRDomain.Set.meet fw bw in
-          if not (DRDomain.Set.equal combined fw) then (
-            let expected = combined in
-            Printf.printf "%a:\n" TxtLoc.pp loc;
-            Format.printf
-              "  expression `%s` (fw: %b %a) could be simplified to `[%a]`@."
-              (E.extract loc) tnt DRDomain.Set.pp fw CatSet.pp expected)
-      | _ -> ())
+  run_analysis bs
+(* let () = *)
+(*   bs *)
+(*   |> List.iter (fun b -> *)
+(*       Logs.app (fun m -> m "%a: %s" pp_txtloc b.Cat.location b.Cat.name)) *)
+(* in *)
+(* let module D = AbstractDomain.FromTyped (DRDomain) in *)
+(* let module A = Analysis.Make (D) in *)
+(* let results = A.solve_all bs in *)
+(* results *)
+(* |> List.iter (fun (loc, res) -> *)
+(*     let fw = res.A.forward in *)
+(*     let bw = res.A.backward in *)
+(*     match (fw, bw) with *)
+(*     | D.Set ((_b as tnt), fw), D.Set (_, bw) *)
+(*       when not DRDomain.Set.(equal fw top) -> *)
+(*         let combined = DRDomain.Set.meet fw bw in *)
+(*         if not (DRDomain.Set.equal combined fw) then ( *)
+(*           let expected = combined in *)
+(*           Printf.printf "%a:\n" TxtLoc.pp loc; *)
+(*           Format.printf *)
+(*             "  expression `%s` (fw: %b %a) could be simplified to `[%a]`@." *)
+(*             (E.extract loc) tnt DRDomain.Set.pp fw CatSet.pp expected) *)
+(*     | _ -> ()) *)
+
 (* results *)
 (* |> List.iter (fun (loc, res) -> *)
 (*     let combined = D.meet res.A.forward res.A.backward in *)
