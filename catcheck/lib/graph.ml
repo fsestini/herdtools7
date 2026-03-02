@@ -37,6 +37,7 @@ module Node = struct
     | Op1 of TxtLoc.t * AST.op1 * node_id
     | Op of TxtLoc.t * AST.op2 * node_id list
     | Try of TxtLoc.t * node_id * node_id
+    | If of TxtLoc.t * node_id * node_id
     | Unsupported of TxtLoc.t
 
   let location = function
@@ -45,6 +46,7 @@ module Node = struct
     | Op1 (loc, _, _) -> loc
     | Op (loc, _, _) -> loc
     | Try (loc, _, _) -> loc
+    | If (loc, _, _) -> loc
     | Unsupported loc -> loc
 
   let pp_node fmt =
@@ -62,6 +64,7 @@ module Node = struct
              NodeId.pp)
           n
     | Try (loc, _, _) -> fprintf fmt "Try (%s)" (E.extract loc)
+    | If (loc, _, _) -> fprintf fmt "If (%s)" (E.extract loc)
 end
 
 module Def = struct
@@ -133,7 +136,13 @@ let rec compile_exp ~(env : def_id StringMap.t)
       let node = Node.Try (loc, id_a, id_b) in
       let nm = NodeMap.add op_id node nm in
       ((NodeId.succ next, nm), op_id)
-  | If (loc, _, _, _) -> of_unsupported loc
+  | If (loc, _, a, b) ->
+      let (next, nm), id_a = compile_exp ~env (next, nm) a in
+      let (next, nm), id_b = compile_exp ~env (next, nm) b in
+      let op_id = next in
+      let node = Node.If (loc, id_a, id_b) in
+      let nm = NodeMap.add op_id node nm in
+      ((NodeId.succ next, nm), op_id)
 
 let compile_binding
     ((next_did, dm, next_nid, nm, env) :
@@ -208,6 +217,10 @@ let build_revdeps ~(dm : def_map) ~(nm : node_map) : var -> var list =
         | Node.Base _ -> acc
         | Node.Ref (_, d) -> add_edge acc ~from_:(Var.VDef d) ~to_:node_v
         | Node.Try (_, c1, c2) ->
+            List.fold_left
+              (fun acc c -> add_edge acc ~from_:(Var.VNode c) ~to_:node_v)
+              acc [ c1; c2 ]
+        | Node.If (_, c1, c2) ->
             List.fold_left
               (fun acc c -> add_edge acc ~from_:(Var.VNode c) ~to_:node_v)
               acc [ c1; c2 ]

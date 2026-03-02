@@ -22,6 +22,7 @@ module type Typed = sig
       val diff : set -> set -> set
       val comp : set -> set
       val try_ : set -> set -> set
+      val if_ : set -> set -> set
     end
 
     module Backward : sig
@@ -30,6 +31,7 @@ module type Typed = sig
       val diff : parent:set -> lchild_fw:set -> rchild_fw:set -> set * set
       val comp : parent:set -> child_fw:set -> set
       val try_ : parent:set -> lchild_fw:set -> rchild_fw:set -> set * set
+      val if_ : parent:set -> lchild_fw:set -> rchild_fw:set -> set * set
     end
   end
 
@@ -58,6 +60,7 @@ module type Typed = sig
       val star : rel -> rel
       val opt : rel -> rel
       val try_ : rel -> rel -> rel
+      val if_ : rel -> rel -> rel
     end
 
     module Backward : sig
@@ -73,6 +76,7 @@ module type Typed = sig
       val star : parent:rel -> child_fw:rel -> rel
       val opt : parent:rel -> child_fw:rel -> rel
       val try_ : parent:rel -> lchild_fw:rel -> rchild_fw:rel -> rel * rel
+      val if_ : parent:rel -> lchild_fw:rel -> rchild_fw:rel -> rel * rel
     end
   end
 end
@@ -93,6 +97,7 @@ module type S = sig
   val op1_f : AST.op1 -> t -> t
   val op2_f : AST.op2 -> t list -> t
   val try_f : t -> t -> t
+  val if_f : t -> t -> t
 
   (* Backward/demand transfer:
      Given parent demand and forward facts of children, produce demands for children
@@ -100,6 +105,7 @@ module type S = sig
   val op1_b : AST.op1 -> parent:t -> child_f:t -> t
   val op2_b : AST.op2 -> parent:t -> children_f:t list -> t list
   val try_b : parent:t -> lchild_fw:t -> rchild_fw:t -> t * t
+  val if_b : parent:t -> lchild_fw:t -> rchild_fw:t -> t * t
   val pp : Format.formatter -> t -> unit
 end
 
@@ -287,6 +293,15 @@ module FromTyped (D : Typed) = struct
     else if is_rel a || is_rel b then Rel (RelFw.try_ (as_rel a) (as_rel b))
     else Top
 
+  let if_f a b =
+    if is_bottom a && is_bottom b then Bottom
+    else if is_set a || is_set b then
+      let tnt = List.exists is_tainted [ a; b ] in
+      (* Format.printf "try_f tainted: %b@." tnt; *)
+      Set (tnt, SetFw.if_ (as_set a) (as_set b))
+    else if is_rel a || is_rel b then Rel (RelFw.if_ (as_rel a) (as_rel b))
+    else Top
+
   module SetBw = D.Set.Backward
   module RelBw = D.Rel.Backward
 
@@ -368,6 +383,23 @@ module FromTyped (D : Typed) = struct
     else if List.exists is_set [ parent; lchild_fw; rchild_fw ] then
       let l, r =
         SetBw.try_ ~parent:(as_set parent) ~lchild_fw:(as_set lchild_fw)
+          ~rchild_fw:(as_set rchild_fw)
+      in
+      (Set (false, l), Set (false, r))
+    else (Top, Top)
+
+  let if_b ~parent ~lchild_fw ~rchild_fw : t * t =
+    if List.for_all is_bottom [ parent; lchild_fw; rchild_fw ] then
+      (Bottom, Bottom)
+    else if List.exists is_rel [ parent; lchild_fw; rchild_fw ] then
+      let l, r =
+        RelBw.if_ ~parent:(as_rel parent) ~lchild_fw:(as_rel lchild_fw)
+          ~rchild_fw:(as_rel rchild_fw)
+      in
+      (Rel l, Rel r)
+    else if List.exists is_set [ parent; lchild_fw; rchild_fw ] then
+      let l, r =
+        SetBw.if_ ~parent:(as_set parent) ~lchild_fw:(as_set lchild_fw)
           ~rchild_fw:(as_set rchild_fw)
       in
       (Set (false, l), Set (false, r))

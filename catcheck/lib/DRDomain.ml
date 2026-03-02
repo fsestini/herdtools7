@@ -20,6 +20,7 @@ module Set = struct
     let diff = CatSet.diff
     let comp x = CatSet.diff CatSet.universe x
     let try_ a b = join a b
+    let if_ a b = join a b
   end
 
   module Backward = struct
@@ -34,6 +35,9 @@ module Set = struct
     let comp ~parent ~child_fw = meet parent child_fw
 
     let try_ ~parent ~lchild_fw ~rchild_fw =
+      (meet parent lchild_fw, meet parent rchild_fw)
+
+    let if_ ~parent ~lchild_fw ~rchild_fw =
       (meet parent lchild_fw, meet parent rchild_fw)
   end
 end
@@ -101,6 +105,7 @@ module Rel = struct
     let star _ = top
     let opt t = join id_rel t
     let try_ a b = join a b
+    let if_ a b = join a b
   end
 
   module Backward = struct
@@ -128,6 +133,9 @@ module Rel = struct
       (cx, cy)
 
     let try_ ~parent ~lchild_fw ~rchild_fw =
+      (meet parent lchild_fw, meet parent rchild_fw)
+
+    let if_ ~parent ~lchild_fw ~rchild_fw =
       (meet parent lchild_fw, meet parent rchild_fw)
 
     let seq ~parent ~children_fw =

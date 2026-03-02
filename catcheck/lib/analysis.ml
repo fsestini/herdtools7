@@ -35,6 +35,8 @@ module Make (D : AbstractDomain.S) = struct
         | Node.Ref (_, did) -> sol (Var.VDef did)
         | Node.Try (_, c1, c2) ->
             D.try_f (sol (Var.VNode c1)) (sol (Var.VNode c2))
+        | Node.If (_, c1, c2) ->
+            D.if_f (sol (Var.VNode c1)) (sol (Var.VNode c2))
         | Node.Op1 (_loc, op, c) ->
             (* Format.printf "doing op1_f of %s@." (E.extract loc); *)
             D.op1_f op (sol (Var.VNode c))
@@ -73,6 +75,12 @@ module Make (D : AbstractDomain.S) = struct
             let lchild_fw = fw_map (VNode c1) in
             let rchild_fw = fw_map (VNode c2) in
             let l_bw, r_bw = D.try_b ~parent ~lchild_fw ~rchild_fw in
+            [ (VNode c1, l_bw); (VNode c2, r_bw) ]
+        | Node.If (_, c1, c2) ->
+            let parent = c (VNode nid) in
+            let lchild_fw = fw_map (VNode c1) in
+            let rchild_fw = fw_map (VNode c2) in
+            let l_bw, r_bw = D.if_b ~parent ~lchild_fw ~rchild_fw in
             [ (VNode c1, l_bw); (VNode c2, r_bw) ]
         | Node.Op1 (_, op, child) ->
             let parent_d = c (VNode nid) in

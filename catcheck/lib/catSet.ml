@@ -46,6 +46,10 @@ let pp_intersection fmt sol =
 let predefined_sets =
   let of_prim x = of_primitive_set x |> Option.get in
   [
+    ( "Imp & TTD & W",
+      inter (of_prim "NExp") (inter (of_prim "PTE") (of_prim "W")) );
+    ( "Imp & TTD & R",
+      inter (of_prim "NExp") (inter (of_prim "PTE") (of_prim "R")) );
     ("Exp & R", inter (of_prim "Exp") (of_prim "R"));
     ("Exp & W", inter (of_prim "Exp") (of_prim "W"));
     ("Exp & M", inter (of_prim "Exp") (of_prim "M"));

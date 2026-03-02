@@ -90,13 +90,15 @@ let run_analysis (bs : Cat.binding list) =
           let combined = DRDomain.Set.meet fw bw in
           if CatSet.equal combined CatSet.empty then (
             Printf.printf "%a:\n" TxtLoc.pp loc;
-            Format.printf "  set expression `%s` is empty@." (E.extract loc))
+            Format.printf "  set expression `%s` is always empty@."
+              (E.extract loc))
           else if not (S.equal combined fw) then (
             let expected = combined in
             Printf.printf "%a:\n" TxtLoc.pp loc;
-            Format.printf "  expression `%s` could be simplified to `[%a]`@."
+            Format.printf "  expression `%s` may be strenghthened to `%a`@."
               (E.extract loc) S.pp expected)
-      | _ -> Format.printf "Skipping %s@." (E.extract loc))
+      | _ -> ())
+(* Format.printf "Skipping %s@." (E.extract loc)) *)
 (* let results = A.solve_all bs in *)
 (* results *)
 (* |> List.iter (fun (loc, res) -> *)

@@ -27,6 +27,7 @@ module Node : sig
     | Op1 of TxtLoc.t * AST.op1 * node_id
     | Op of TxtLoc.t * AST.op2 * node_id list
     | Try of TxtLoc.t * node_id * node_id
+    | If of TxtLoc.t * node_id * node_id
     | Unsupported of TxtLoc.t
 
   val location : t -> TxtLoc.t
