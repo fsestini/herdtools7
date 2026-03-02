@@ -3,7 +3,6 @@ module type Var = sig
 
   val compare : t -> t -> int
   val pp : Format.formatter -> t -> unit
-  val should_report : t -> bool
 end
 
 (** Bounded join semi-lattice, on a finite set with decidable equality. *)

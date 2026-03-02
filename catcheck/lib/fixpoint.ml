@@ -5,7 +5,6 @@ module type Var = sig
 
   val compare : t -> t -> int
   val pp : Format.formatter -> t -> unit
-  val should_report : t -> bool
 end
 
 module type Lattice = sig
@@ -86,10 +85,6 @@ module MakeForward (Var : Var) (Lat : Lattice) :
           let oldv = get store v in
           let desired = rhs (sol_of store) v in
           (* let newv = Lat.join oldv desired in *)
-          if Var.should_report v then
-            Log.app (fun m ->
-                m "Forward fixpoint step for var: %a. Old: %a; desired: %a"
-                  Var.pp v Lat.pp oldv Lat.pp desired);
           let newv =
             try Lat.join oldv desired
             with Invalid_argument msg ->
