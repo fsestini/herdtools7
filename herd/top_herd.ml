@@ -87,30 +87,37 @@ module Make(O:Config)(M:XXXMem.S) =
             if CM.check_prop_rlocs p (S.type_env test) st then n+1 else n)
           sts 0
 
-(* Test result *)
-    type count =
-        { states : A.StateSet.t;
-          cfail : int ;
-          cands : int ;
+    type execution = (S.concrete, S.set_pp Lazy.t, S.rel_pp Lazy.t) TestResult.execution
+
+    (* Test result accumulator *)
+    module Count = struct
+      type t =
+          { states : A.StateSet.t;
+            cfail : int ;
+            cands : int ;
 (* NB: pos and neg are w.r.t. proposition *)
-          pos : int ;
-          neg : int ;
+            pos : int ;
+            neg : int ;
 (* flagged executions *)
-          flagged : int list Flag.Map.t ;
-(* shown executions *)
-          shown : int;
+            flagged : int list Flag.Map.t ;
+(* execution count *)
+            exec_count : int;
 (* registers that read memory *)
-          reads : S.loc_set;
+            reads : S.loc_set;
 (* Too much loop unrolling *)
-          cutoff : string option;
-        }
+            cutoff : string option;
+            execs_rev : execution list;
+          }
+    end
+
+    type count = Count.t
 
     let start =
-      { states = A.StateSet.empty; cfail=0; cands=0; pos=0; neg=0;
-        flagged=Flag.Map.empty; shown=0;
-        reads = A.LocSet.empty; cutoff=None; }
+      Count.{ states = A.StateSet.empty; cfail=0; cands=0; pos=0; neg=0;
+        flagged=Flag.Map.empty; exec_count=0;
+        reads = A.LocSet.empty; cutoff=None; execs_rev = []; }
 
-    let kfail c = { c with cfail=c.cfail+1; }
+    let kfail c = Count.{ c with cfail=c.cfail+1; }
 
     let bad_flag = match O.badflag with
     | None ->
@@ -125,6 +132,7 @@ module Make(O:Config)(M:XXXMem.S) =
     let is_bad flags = Flag.Set.exists bad_flag flags
 
     let has_bad_execs c =
+      let open TestResult in
       Flag.Map.mem Flag.Undef c.flagged ||
       (match O.badflag with
       | None -> false
@@ -134,6 +142,7 @@ module Make(O:Config)(M:XXXMem.S) =
     open ConstrGen
 
     let check_cond test c =
+      let open TestResult in
       let cstr = T.find_our_constraint test in
       match cstr with
       | ExistsState _ -> c.pos > 0
@@ -142,6 +151,7 @@ module Make(O:Config)(M:XXXMem.S) =
 
 
     let check_wit test c =
+      let open TestResult in
       let cstr = T.find_our_constraint test in
       match cstr with
       | ForallStates _
@@ -229,7 +239,8 @@ module Make(O:Config)(M:XXXMem.S) =
       S.E.EventSet.subset loads obs
 
 (* Called by model simulator in case of success *)
-    let model_kont ochan test do_restrict cstr =
+    let model_kont test do_restrict cstr =
+      let open ConstrGen in
 
       let check = check_prop test in
 
@@ -251,7 +262,7 @@ module Make(O:Config)(M:XXXMem.S) =
           let st = A.map_state A.V.printable st in
           let fsc = st,flts in
           let ok = check fsc in
-          let show_exec =
+          let should_show =
             let open PrettyConf in
             match O.show with
             | ShowProp -> ok
@@ -271,52 +282,16 @@ module Make(O:Config)(M:XXXMem.S) =
             | ShowAll -> true
             | ShowNone -> false
             | ShowFlag f -> Flag.Set.mem (Flag.Flag f) flags in
-
-          begin match ochan with
-          | Some (chan,_) when show_exec ->
-              let legend =
-                let pp_flag = match O.show with
-                | PrettyConf.ShowFlag f -> sprintf ", flag %s" f
-                | _ -> "" in
-                let name = Test_herd.readable_name test in
-                let pp_model = sprintf "%s" (Model.pp M.model) in
-                if O.shortlegend then name
-                else if O.showkind then
-                  if PC.texmacros then
-                    sprintf
-                      "\\mylegendkind{%s}{%s}{%s}"
-                      name
-                      (C.dump_as_kind cstr)
-                      pp_model
-                  else
-                    sprintf "Test %s%s%s%s"
-                      name
-                      (sprintf ": %s" (C.dump_as_kind cstr))
-                      (match pp_model with
-                      | "" -> ""
-                      | _ -> sprintf " (%s)" pp_model)
-                      pp_flag
-                else begin
-                  if PC.texmacros then
-                    sprintf
-                      "\\mylegend{%s}{%s}"
-                      name
-                      pp_model
-                  else
-                    sprintf "Test %s%s%s" name
-                      (match pp_model with
-                      | "" -> ""
-                      | _ -> sprintf ", %s" pp_model)
-                      pp_flag
-                end in
-              let module PP = Pretty.Make(S) in
-              PP.dump_legend chan test legend conc
-                ~sets:(Lazy.force set_pp) (Lazy.force vbpp)
-          | _ -> ()
-          end ;
+          let execs_rev =
+            if should_show then
+              let exec = TestResult.{ concrete = conc; sets = set_pp; rels = vbpp; } in
+              exec :: c.Count.execs_rev
+            else c.Count.execs_rev
+          in
           let fsc = do_restrict test fsc in
           let r =
-            { cands = c.cands+1;
+            Count.{
+              cands = c.cands+1;
               cfail = c.cfail;
               states = A.StateSet.add fsc c.states;
               pos = if ok then c.pos+1 else c.pos;
@@ -327,18 +302,20 @@ module Make(O:Config)(M:XXXMem.S) =
                   Flag.Map.add flag (c.cands::old) k in
                 Flag.Set.fold add flags c.flagged;
               end;
-              shown = if show_exec then c.shown+1 else c.shown;
               reads =
                 if O.outcomereads then
                   A.LocSet.union (PU.all_regs_that_read conc.S.str) c.reads
                 else c.reads;
-              cutoff =  c.cutoff;
-            } in
+              cutoff = c.cutoff;
+              exec_count = if should_show then c.exec_count+1 else c.exec_count;
+              execs_rev;
+            }
+          in
           if not O.badexecs && is_bad flags then raise (Over r) ;
           let r = match O.nshow with
           | None -> r
           | Some m ->
-              if r.shown >= m then raise (Over r)
+              if r.Count.exec_count >= m then raise (Over r)
               else r in
           let stop_now =
             match O.speedcheck  with
@@ -353,7 +330,7 @@ module Make(O:Config)(M:XXXMem.S) =
     (* Performed delayed checks and warnings *)
     let check_failed_model_kont
           cutoff cs
-          ochan test do_restrict cstr
+          test do_restrict cstr
           conc (st,flts) (set_pp,vbpp) flags c  =
 
       let open S.M.VC in
@@ -362,7 +339,7 @@ module Make(O:Config)(M:XXXMem.S) =
          (* Perform error *)
           if O.debug.Debug_herd.top then
             model_kont
-              ochan test do_restrict cstr
+              test do_restrict cstr
               conc (st,flts) (set_pp,vbpp) flags c
           else raise e
       | Some (Warn msg) ->
@@ -373,11 +350,13 @@ module Make(O:Config)(M:XXXMem.S) =
           if not showcutoff && Misc.is_some cutoff then c
           else
             model_kont
-              ochan test do_restrict cstr
+              test do_restrict cstr
               conc (st,flts) (set_pp,vbpp) flags c
 
-    (* Driver *)
-    let run start_time test =
+    type stats = M.S.A.StateSet.t TestResult.stats
+    type test_results = (execution, S.event_structure, stats) TestResult.t
+
+    let run_pure test : test_results =
 
       let { MC.event_structures=rfms; MC.overwritable_labels=owls; },test =
         MC.glommed_event_structures ~is_pgm:true test in
@@ -402,8 +381,71 @@ module Make(O:Config)(M:XXXMem.S) =
         and senv = S.size_env test
         and tenv = S.type_env test in
         let fsc,flts = fsc in
-        AM.state_restrict_locs O.outcomereads dlocs tenv senv fsc,
-        restrict_faults flts in
+        AM.state_restrict_locs O.outcomereads dlocs tenv senv fsc, restrict_faults flts in
+
+      let event_structures = List.map (fun (_, _, es) -> es) rfms in
+
+      (* Thanks to the existence of check_test, XXMem modules
+         apply their internal functors once *)
+      let call_model conc ofail c =
+        let check_test = M.check_event_structure test in
+        (* Checked pruned executions before even calling model *)
+        let cutoff =  S.find_cutoff conc.S.str.S.E.events in
+        let c =
+          if Misc.is_some cutoff then Count.{ c with cutoff = cutoff }
+          else c
+        in
+        (* Discard pruned executions if not explicitely required *)
+        check_test
+          conc kfail
+          (check_failed_model_kont cutoff
+             ofail test final_state_restrict_locs cstr) c
+      in
+      let c =
+        if O.statelessrc11
+        then
+          let module SL = Slrc11.Make(struct include MC let skipchecks = O.skipchecks end) in
+             SL.check_event_structure test rfms kfail (fun _ c -> c)
+          (model_kont test final_state_restrict_locs cstr) start
+        else
+          try iter_rfms test rfms owls call_model start
+          with Over c -> c
+      in
+      (* Reduce final states, so as to show relevant locations only *)
+      let finals =
+        if O.outcomereads then
+          let do_restrict (st,flts) =
+            let st =
+              A.rstate_filter
+                (fun rloc ->
+                  let loc = ConstrGen.loc_of_rloc rloc in
+                  match loc with
+                  | A.Location_global _ -> true
+                  | A.Location_reg _ -> A.LocSet.mem loc c.Count.reads)
+                st in
+                st,flts in
+          A.StateSet.map do_restrict c.Count.states
+        else c.Count.states
+      in
+      let stats =
+        TestResult.{
+          states = finals;
+          cfail = c.Count.cfail;
+          cands = c.Count.cands;
+          pos = c.Count.pos;
+          neg = c.Count.neg;
+          flagged = c.Count.flagged;
+          cutoff = c.Count.cutoff;
+        }
+      in
+      let execs = List.rev c.Count.execs_rev in
+      TestResult.{ execs; event_structures; stats; }
+
+    let dump_results ~start_time test (res : test_results) =
+      let open ConstrGen in
+      let open TestResult in
+      let c = res.stats in
+      let cstr = T.find_our_constraint test in
 
       let observation =
         match O.speedcheck with
@@ -436,54 +478,32 @@ module Make(O:Config)(M:XXXMem.S) =
 (* So small a race condition... *)
       Handler.push (fun () -> erase_dot ochan) ;
 (* Dump event structures ... *)
-      if O.dumpes then begin
-        match ochan with
-        | None -> ()
-        | Some (chan,fname) ->
-            let module PP = Pretty.Make(S) in
-            List.iter
-              (fun (_i,_cs,es) -> PP.dump_es chan test es)
-              rfms ;
-            close_dot ochan ;
-            if Misc.is_some S.O.PC.view then begin
-              let module SH = Show.Make(S.O.PC) in
-              SH.show_file fname
-            end ;
-            erase_dot ochan ;
-            Handler.pop ()
-      end else
-        (* Thanks to the existence of check_test, XXMem modules
-           apply their internal functors once *)
-        let call_model conc ofail c =
-        let check_test = M.check_event_structure test in
-        (* Checked pruned executions before even calling model *)
-        let cutoff =  S.find_cutoff conc.S.str.S.E.events in
-        let c =
-          if Misc.is_some cutoff then { c with cutoff = cutoff; }
-          else c in
-        (* Discard pruned executions if not explicitely required *)
-        check_test
-          conc kfail
-          (check_failed_model_kont cutoff
-             ofail ochan test final_state_restrict_locs cstr) c in
-      let c =
-        if O.statelessrc11
-        then let module SL = Slrc11.Make(struct include MC let skipchecks = O.skipchecks end) in
-             SL.check_event_structure test rfms kfail (fun _ c -> c)
-          (model_kont ochan test final_state_restrict_locs cstr) start
-        else
-        try iter_rfms test rfms owls call_model start
-        with
-        | Over c -> c
-        | e ->
-            close_dot ochan  ; (* Close *)
-            raise e in
+      begin match ochan with
+      | Some ((chan, fname)) ->
+        if O.dumpes then begin
+              let module PP = Pretty.Make(S) in
+              List.iter
+                (fun es -> PP.dump_es chan test es)
+                res.event_structures ;
+              close_dot ochan ;
+              if Misc.is_some S.O.PC.view then begin
+                let module SH = Show.Make(S.O.PC) in
+                SH.show_file fname
+              end ;
+              erase_dot ochan ;
+              Handler.pop ()
+        end else
+          ();
 (* Close *)
-      close_dot ochan ;
+        close_dot ochan ;
+      | None -> ()
+      end;
+
+      let exec_count = List.length res.execs in
       let do_show () =
 (* Show if something to show *)
         begin match ochan with
-        | Some (_,fname) when c.shown > 0 ->
+        | Some (_,fname) when exec_count > 0 ->
             let module SH = Show.Make(S.O.PC) in
             if S.O.PC.debug then eprintf "show %s file\n" fname ;
             SH.show_file fname
@@ -491,22 +511,9 @@ module Make(O:Config)(M:XXXMem.S) =
         end ;
 (* Erase *)
         erase_dot ochan ;
-        Handler.pop () in
-(* Reduce final states, so as to show relevant locations only *)
-      let finals =
-        if O.outcomereads then
-          let do_restrict (st,flts) =
-            let st =
-              A.rstate_filter
-                (fun rloc ->
-                  let loc = ConstrGen.loc_of_rloc rloc in
-                  match loc with
-                  | A.Location_global _ -> true
-                  | A.Location_reg _ -> A.LocSet.mem loc c.reads)
-                st in
-                st,flts in
-          A.StateSet.map do_restrict c.states
-        else c.states in
+        Handler.pop ()
+      in
+      let finals = c.states in
       let nfinals = A.StateSet.cardinal finals in
       match O.restrict with
       | Observed when c.cands = 0 -> do_show ()
