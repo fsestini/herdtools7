@@ -19,5 +19,6 @@
 module Top :
   functor (C : RunTest.Config) ->
   sig
-    val from_file : string -> TestHash.env -> TestHash.env
+    val from_string : string -> TestHash.env -> TestHash.env * (module RunTest.Outcome) option
+    val from_file : string -> TestHash.env -> TestHash.env * (module RunTest.Outcome) option
   end

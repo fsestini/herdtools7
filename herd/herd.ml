@@ -755,10 +755,11 @@ let () =
 
   let from_file f =
     let module T =
-      ParseTest.Top
+      Cli.Make
         (struct
           include GenParser.DefaultConfig
           let bell_model_info = bi
+          let verbose_flags = Config.verbose > 0
           include Config end) in
     SymbValue.reset_gensym () ;
     T.from_file f in
