@@ -89,7 +89,7 @@ module Make
               let byte = sz
               let dirty = dirty
             end)(M) in
-        T.run start_time test ;
+        T.dump_results ~start_time test (T.run_pure test) ;
         env
       with TestHash.Seen -> env
   end
