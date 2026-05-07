@@ -62,55 +62,6 @@ module TestResult = struct
       rels : 'rels Lazy.t;
     }
 
-  let concrete exec = exec.concrete
-  let relations exec = Lazy.force exec.rels
-  let passes_check exec = exec.passes_check
-  let is_bad ~badflag =
-    let bad_flag = match badflag with
-      | None ->
-          (function
-            | Flag.Undef -> true
-            | Flag.Flag _ -> false)
-      | Some fbad ->
-           (function
-            | Flag.Undef -> true
-            | Flag.Flag f -> String.compare f fbad = 0)
-    in
-    fun exec -> Flag.Set.exists bad_flag exec.flags
-
-
-  let should_show ~show cstr exec =
-    let open PrettyConf in
-    let open ConstrGen in
-    let ok = exec.passes_check in
-    let flags = exec.flags in
-    match show with
-    | ShowProp -> ok
-    | ShowNeg -> not ok
-    | ShowCond ->
-        begin
-          match cstr with
-          | ExistsState _|ForallStates _-> ok
-          | NotExistsState _ -> not ok
-        end
-    | ShowWit ->
-        begin
-          match cstr with
-          | ExistsState _|NotExistsState _ -> ok
-          | ForallStates _  -> not ok
-        end
-    | ShowAll -> true
-    | ShowNone -> false
-    | ShowFlag f -> Flag.Set.mem (Flag.Flag f) flags
-
-  let passes_speedcheck cstr exec =
-    let open ConstrGen in
-    let ok = exec.passes_check in
-    begin match cstr with
-    | ExistsState _|NotExistsState _ -> ok
-    | ForallStates _ -> not ok
-    end
-
   type ('exec, 'stats) exec_iter = ('exec -> bool) -> 'stats
 
   let fold_execs f init i =
@@ -403,8 +354,10 @@ module type PrinterConfig = sig
   val shortlegend : bool
   val verbose_flags : bool
   val show : PrettyConf.show
+  val nshow : int option
   val speedcheck : Speed.t
   val badflag : string option
+  val badexecs : bool
 end
 
 module Printer (O : PrinterConfig) (S : SemExtra.S) = struct
@@ -561,5 +514,67 @@ module Printer (O : PrinterConfig) (S : SemExtra.S) = struct
     TestResult.(
       PP.dump_legend chan test legend exec.concrete
         ~sets:(Lazy.force exec.sets) (Lazy.force exec.rels))
+
+  let is_bad =
+    let bad_flag = match O.badflag with
+      | None ->
+          (function
+            | Flag.Undef -> true
+            | Flag.Flag _ -> false)
+      | Some fbad ->
+           (function
+            | Flag.Undef -> true
+            | Flag.Flag f -> String.compare f fbad = 0)
+    in
+    fun exec -> Flag.Set.exists bad_flag exec.TestResult.flags
+
+  let should_show cstr exec =
+    let open PrettyConf in
+    let open ConstrGen in
+    let ok = exec.TestResult.passes_check in
+    let flags = exec.TestResult.flags in
+    match O.show with
+    | ShowProp -> ok
+    | ShowNeg -> not ok
+    | ShowCond ->
+        begin
+          match cstr with
+          | ExistsState _|ForallStates _-> ok
+          | NotExistsState _ -> not ok
+        end
+    | ShowWit ->
+        begin
+          match cstr with
+          | ExistsState _|NotExistsState _ -> ok
+          | ForallStates _  -> not ok
+        end
+    | ShowAll -> true
+    | ShowNone -> false
+    | ShowFlag f -> Flag.Set.mem (Flag.Flag f) flags
+
+  let iter_showable cstr f i =
+    i |> TestResult.fold_execs (fun exec shown ->
+      let show_exec = should_show cstr exec in
+      if show_exec then f exec;
+      let shown = if show_exec then shown + 1 else shown in
+      let too_many =
+        match O.nshow with
+        | None -> false
+        | Some m -> shown >= m
+      in
+      let badexec = not O.badexecs && is_bad exec in
+      let speed_checked =
+        match O.speedcheck  with
+        | Speed.True|Speed.False -> false
+        | Speed.Fast ->
+          let ok = exec.TestResult.passes_check in
+          begin match cstr with
+          | ConstrGen.ExistsState _| ConstrGen.NotExistsState _ -> ok
+          | ConstrGen.ForallStates _ -> not ok
+          end
+      in
+      let stop_now = too_many || badexec || speed_checked in
+      shown, stop_now) 0
+
 
 end

@@ -48,14 +48,13 @@ module TestResult : sig
 
   val has_bad_execs : badflag:string option -> 'stset stats -> bool
 
-  type ('conc, 'sets, 'rels) execution
-
-  val concrete : ('conc, 's, 'r) execution -> 'conc
-  val relations : ('c, 's, 'rels) execution -> 'rels
-  val passes_check : ('c, 's, 'r) execution -> bool
-  val is_bad : badflag:string option -> ('c, 's, 'r) execution -> bool
-  val should_show : show:PrettyConf.show -> 'p ConstrGen.constr -> ('c, 's, 'r) execution -> bool
-  val passes_speedcheck : 'p ConstrGen.constr -> ('c, 's, 'r) execution -> bool
+  type ('conc, 'sets, 'rels) execution =
+    { concrete : 'conc;
+      passes_check : bool;
+      flags : Flag.Set.t;
+      sets : 'sets Lazy.t;
+      rels : 'rels Lazy.t;
+    }
 
   type ('exec, 'stats) exec_iter
 
@@ -83,13 +82,18 @@ module type PrinterConfig = sig
   val shortlegend : bool
   val verbose_flags : bool
   val show : PrettyConf.show
+  val nshow : int option
   val speedcheck : Speed.t
   val badflag : string option
+  val badexecs : bool
 end
 
 module Printer (O : PrinterConfig) (S : SemExtra.S) : sig
   type stats := TestResult.Make(S).stats
   type execution := TestResult.Make(S).execution
+
+  val iter_showable : 'p ConstrGen.constr -> (execution -> unit)
+                    -> (execution, stats) TestResult.exec_iter -> int * stats
 
   val pp_stats : time:float -> S.test -> stats -> Format.formatter -> unit
   val dump_exec_graph : Model.t -> S.test -> execution -> out_channel -> unit

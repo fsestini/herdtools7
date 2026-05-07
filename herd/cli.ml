@@ -91,30 +91,13 @@ end) = struct
           erase_dot ochan ;
           Handler.pop ()
     end else
+    let dump_graph =
+      match ochan with
+        | Some (chan, _) -> fun exec -> PP.dump_exec_graph M.model test exec chan
+        | None -> fun _ -> ()
+    in
     let shown, c =
-      try
-        i |> TR.fold_execs (fun exec shown ->
-          let show_exec = TR.should_show ~show:O.show cstr exec in
-          begin
-            match ochan with
-            | Some (chan, _) when show_exec ->
-                PP.dump_exec_graph M.model test exec chan
-            | _ -> ()
-          end;
-          let shown = if show_exec then shown + 1 else shown in
-          let too_many =
-            match O.nshow with
-            | None -> false
-            | Some m -> shown >= m
-          in
-          let badexec = not O.badexecs && TR.is_bad ~badflag:O.badflag exec in
-          let speed_checked =
-            match O.speedcheck  with
-            | Speed.True|Speed.False -> false
-            | Speed.Fast -> TR.passes_speedcheck cstr exec
-          in
-          let stop_now = too_many || badexec || speed_checked in
-          shown, stop_now) 0
+      try PP.iter_showable cstr dump_graph i
       with e -> close_dot ochan; raise e
     in
 (* Close *)
