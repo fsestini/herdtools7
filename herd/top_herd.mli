@@ -51,7 +51,6 @@ module TestResult : sig
   type ('conc, 'sets, 'rels) execution
 
   val relations : ('c, 's, 'rels) execution -> 'rels
-  (* val flags : ('c, 's, 'r) execution -> Flag.Set.t *)
   val passes_check : ('c, 's, 'r) execution -> bool
   val is_bad : badflag:string option -> ('c, 's, 'r) execution -> bool
   val should_show : show:PrettyConf.show -> 'p ConstrGen.constr -> ('c, 's, 'r) execution -> bool
