@@ -1,4 +1,4 @@
-  $ herd7 -set-libdir ../libdir MP.litmus -show prop -o - -debug pretty
+  $ herd7 -set-libdir ../libdir MP.litmus -show prop -o - -debug pretty 2>&1 | sed '/^Time/d'
   
   DOTBEGIN MP
   DOTCOM dot
@@ -54,12 +54,11 @@
   Positive: 1 Negative: 3
   Condition exists (1:X0=1 /\ 1:X2=0)
   Observation MP Sometimes 1 3
-  Time MP 0.01
   Hash=211d5b298572012a0869d4ded6a40b7f
   
   show MP file
 
-  $ herd7 -set-libdir ../libdir MP.litmus -show neg -o - -debug pretty
+  $ herd7 -set-libdir ../libdir MP.litmus -show neg -o - -debug pretty 2>&1 | sed '/^Time/d'
   
   DOTBEGIN MP
   DOTCOM dot
@@ -193,11 +192,10 @@
   Positive: 1 Negative: 3
   Condition exists (1:X0=1 /\ 1:X2=0)
   Observation MP Sometimes 1 3
-  Time MP 0.01
   Hash=211d5b298572012a0869d4ded6a40b7f
   
   show MP file
-  $ herd7 -set-libdir ../libdir MP.litmus -dumpes true -show all -o -
+  $ herd7 -set-libdir ../libdir MP.litmus -dumpes true -show all -o - | sed '/^Time/d'
   
   DOTBEGIN MP
   DOTCOM dot
@@ -234,7 +232,7 @@
   }
   
   DOTEND MP
-  $ herd7 -set-libdir ../libdir MP+CAS-rfi-ctrl+acq.litmus -outcomereads false -debug pretty
+  $ herd7 -set-libdir ../libdir MP+CAS-rfi-ctrl+acq.litmus -outcomereads false -debug pretty | sed '/^Time/d'
   Test MP+CAS-rfi-ctrl+acq Allowed
   States 4
   1:X0=0; 1:X2=0; [x]=1;
@@ -246,10 +244,9 @@
   Positive: 2 Negative: 6
   Condition exists ([x]=1 /\ 1:X0=1 /\ 1:X2=0)
   Observation MP+CAS-rfi-ctrl+acq Sometimes 2 6
-  Time MP+CAS-rfi-ctrl+acq 0.01
   Hash=62c8603fff543d64f663988ed4b06cd9
   
-  $ herd7 -set-libdir ../libdir MP+CAS-rfi-ctrl+acq.litmus -outcomereads true -debug pretty
+  $ herd7 -set-libdir ../libdir MP+CAS-rfi-ctrl+acq.litmus -outcomereads true -debug pretty | sed '/^Time/d'
   Test MP+CAS-rfi-ctrl+acq Allowed
   States 4
   0:X1=0; 1:X0=0; 1:X2=0; [x]=1;
@@ -261,6 +258,5 @@
   Positive: 2 Negative: 6
   Condition exists ([x]=1 /\ 1:X0=1 /\ 1:X2=0)
   Observation MP+CAS-rfi-ctrl+acq Sometimes 2 6
-  Time MP+CAS-rfi-ctrl+acq 0.01
   Hash=62c8603fff543d64f663988ed4b06cd9
   
