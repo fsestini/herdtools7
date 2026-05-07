@@ -50,6 +50,7 @@ module TestResult : sig
 
   type ('conc, 'sets, 'rels) execution
 
+  val concrete : ('conc, 's, 'r) execution -> 'conc
   val relations : ('c, 's, 'rels) execution -> 'rels
   val passes_check : ('c, 's, 'r) execution -> bool
   val is_bad : badflag:string option -> ('c, 's, 'r) execution -> bool

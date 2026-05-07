@@ -62,6 +62,7 @@ module TestResult = struct
       rels : 'rels Lazy.t;
     }
 
+  let concrete exec = exec.concrete
   let relations exec = Lazy.force exec.rels
   let passes_check exec = exec.passes_check
   let is_bad ~badflag =
