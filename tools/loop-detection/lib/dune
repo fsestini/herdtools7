@@ -1,0 +1,5 @@
+(library
+ (name loop_detection)
+ (flags
+  (:standard -w -40-42))
+ (libraries herdtools herdlib unix logs))

@@ -1,0 +1,17 @@
+AArch64 spinloop
+
+(*
+  Source: termination-examples/spinloop.c
+  Test case: a store is continuously missed by a spin loop.
+  Expected termination result: FAIL under all memory models.
+*)
+{
+0:X1=x;
+1:X1=x;
+}
+P0          | P1           ;
+MOV W0,#1   | L0:          ;
+STR W0,[X1] | LDR W0,[X1]  ;
+            | SUB W4,W0,#1 ;
+            | CBNZ W4,L0   ;
+exists (1:X0=0)

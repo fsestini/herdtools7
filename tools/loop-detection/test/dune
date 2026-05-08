@@ -1,0 +1,6 @@
+(cram
+ (package herdtools7)
+ (deps
+  (source_tree data)
+  (source_tree libdir)
+  %{bin:loop_detection}))
