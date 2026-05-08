@@ -1,0 +1,73 @@
+(* Properties of single-copy atomic accesses *)
+let sca-class = [M & Exp]; sm; [M & Exp]
+
+(* Same Location *)
+let same-loc = [M]; loc; [M]
+
+(* Same General Purpose Register *)
+let same-gpr = [Rreg|Wreg]; loc; [Rreg|Wreg]
+
+(* Intervening Effect *)
+let intervening(S,r) = r; [S]; r
+
+(* Local register read successor *)
+let lrrs = [Wreg]; (po & same-gpr & ~(intervening(Wreg,(po & same-gpr)))); [Rreg]
+
+(* Local memory write successor *)
+let lmws = [Exp & M]; (po & same-loc); [Exp & W]
+
+(* Local memory read successor *)
+let lmrs = [W]; ((po & same-loc) & ~(intervening(W,(po & same-loc)))); [R]
+
+(* Dependency through registers and memory *)
+let rec dtrm =
+  lrrs
+  | lmrs
+  | iico_data
+  | dtrm; dtrm
+
+let ctrl = [Exp & R]; dtrm & po; [Rreg]; iico_data; [BCC]; po
+
+(* Dependency-ordered-before *)
+let dob = ctrl; [Exp & W]
+
+let rec lob =
+  dob
+ | lmws
+ | lob; lob
+
+let rec local-hw-reqs =
+ lob
+ | local-hw-reqs; local-hw-reqs
+
+(** Explicitly-hazard-ordered-before **)
+let Exp-haz-ob =
+  [Exp & R]; (po & same-loc); [Exp & R]; sca-class?; [Exp & R]; (ca & ext); [Exp & W]; sca-class?; [Exp & W]
+
+(* Hazard-ordered-before *)
+let haz-ob = Exp-haz-ob
+
+(*** Hardware-required-ordered-before ***)
+let hw-reqs = local-hw-reqs | haz-ob
+
+(** Explicitly-observed-by **)
+let Exp-obs =
+  [Exp & M]; rf & ext; [Exp & M]
+  | [Exp & M]; ca & ext; [Exp & M]
+
+(** Observed-by **)
+let obs = Exp-obs; sca-class?
+
+(*** Ordered-before ***)
+let rec ob =
+    hw-reqs
+    | obs
+    | ob; ob
+
+(*** External visibility requirement ***)
+irreflexive ob as external
+
+(*** Internal visibility requirements ***)
+irreflexive [Exp & R]; ((po & same-loc) | rmw); [Exp & W]; rfi; [Exp & R] as coRW1-Exp
+irreflexive [Exp & W]; (po & same-loc); [Exp & W]; (ca & int); [Exp & W] as coWW-Exp
+irreflexive [Exp & W]; (po & same-loc); [Exp & R]; (ca & int); [Exp & W] as coWR-Exp

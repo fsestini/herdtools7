@@ -1,0 +1,4 @@
+lasso-sequence
+
+let finite_to_finite = fl ; lf
+let lasso_to_finite = ll ; lf

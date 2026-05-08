@@ -1,0 +1,12 @@
+AArch64 three-writes
+{
+0:X1=x;
+1:X1=x;
+}
+P0          | P1           ;
+L0:         | MOV W6,#1    ;
+LDR W2,[X1] | STR W6,[X1]  ;
+MOV W4,#0   | MOV W6,#1    ;
+STR W4,[X1] | STR W6,[X1]  ;
+CBNZ W2,L0  | MOV W6,#2    ;
+            | STR W6,[X1]  ;
