@@ -64,6 +64,7 @@ module type S = sig
  (* As above, but sprintf style instead of fprintf style *)
   val pp_str : string -> (elt -> string) -> t -> string
 
+  val to_list : t -> elt list
 end
 
 module Make(O:OrderedType) : S with type elt = O.t =
@@ -167,4 +168,6 @@ module Make(O:OrderedType) : S with type elt = O.t =
             k ^ (Printf.sprintf "%s%s" delim (pp_elt elt)))
           s fst_str
       with Not_found -> ""
+
+    let to_list s = fold List.cons s []
   end

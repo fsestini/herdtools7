@@ -68,6 +68,7 @@ module type S = sig
  (* As above, but sprintf style instead of fprintf style *)
   val pp_str : string -> (elt -> string) -> t -> string
 
+  val to_list : t -> elt list
 end
 
 module Make: functor (Ord:OrderedType) -> S with type elt = Ord.t
