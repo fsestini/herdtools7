@@ -46,7 +46,7 @@ module Rel = struct
   let pp fmt t = Format.fprintf fmt "%a  x  %a" Set.pp t.domain Set.pp t.range
 
   let equal t1 t2 =
-    Pair.equal CatSet.equal CatSet.equal (t1.domain, t1.range)
+    Misc.pair_eq CatSet.equal CatSet.equal (t1.domain, t1.range)
       (t2.domain, t2.range)
 
   let bottom = { domain = CatSet.empty; range = CatSet.empty }
