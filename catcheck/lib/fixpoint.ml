@@ -27,7 +27,7 @@ end) : sig
   val push : t -> T.t -> t
   val pop : t -> (T.t * t) option
 end = struct
-  module S = Set.Make (T)
+  module S = MySet.Make (T)
 
   type t = S.t
 

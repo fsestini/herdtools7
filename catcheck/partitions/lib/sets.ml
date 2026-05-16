@@ -5,7 +5,7 @@ module Partition = struct
   let compare = Int.compare
 end
 
-module PSet = Set.Make (Partition)
+module PSet = MySet.Make (Partition)
 
 type partitioned = PSet.t
 type conj_map = bool StringMap.t
