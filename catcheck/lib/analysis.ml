@@ -9,7 +9,7 @@ let find_id (g : Graph.t) (v : Graph.var) :
     (Graph.node_id, Graph.node * AST.exp) Either.t =
   match Graph.get_node_opt g v with
   | Some (Graph.Node.Def { rhs; _ }) -> Either.Left rhs
-  | Some (Graph.Node.Expr _ as node) -> Either.Right (node, Graph.get_expr g v)
+  | Some (Graph.Node.Expr { expr; _ } as node) -> Either.Right (node, expr)
   | None -> raise Not_found
 
 let invalid_graph_node () = invalid_arg "malformed graph expression node"

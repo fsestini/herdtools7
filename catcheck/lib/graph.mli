@@ -17,7 +17,9 @@ module Var : sig
 end
 
 module Node : sig
-  type t = Def of { name : string; rhs : node_id } | Expr of Id.t list
+  type t =
+    | Def of { name : string; rhs : node_id }
+    | Expr of { expr : AST.exp; children : Id.t list }
 
   val children : t -> Id.t list
 end
@@ -47,8 +49,7 @@ val get_expr : t -> node_id -> AST.exp
 
 val get_node_expr : t -> node_id -> node * AST.exp
 (** [get_node_expr t nid] raises [Not_found] when [nid] is not an expression
-    node ID, or when graph storage is inconsistent and only the topology or
-    expression entry is present. *)
+    node ID. *)
 
 val get_expr_location : t -> node_id -> TxtLoc.t
 val all_vars : t -> var list

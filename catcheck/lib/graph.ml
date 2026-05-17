@@ -19,19 +19,23 @@ type node_id = Id.t
 type var = Id.t
 
 module Node = struct
-  type t = Def of { name : string; rhs : node_id } | Expr of Id.t list
+  type t =
+    | Def of { name : string; rhs : node_id }
+    | Expr of { expr : AST.exp; children : Id.t list }
 
-  let children = function Def { rhs; _ } -> [ rhs ] | Expr ids -> ids
+  let children = function
+    | Def { rhs; _ } -> [ rhs ]
+    | Expr { children; _ } -> children
 
   let pp_node fmt =
     let open Format in
     function
     | Def { name; rhs } ->
         fprintf fmt "Def { name = %s; rhs = %a }" name Id.pp rhs
-    | Expr ids ->
+    | Expr { children; _ } ->
         fprintf fmt "Expr (%a)"
           (pp_print_list ~pp_sep:(fun fmt () -> pp_print_string fmt ", ") Id.pp)
-          ids
+          children
 end
 
 type node = Node.t
@@ -39,7 +43,6 @@ type node = Node.t
 module NodeMap = Map.Make (Id)
 
 type node_map = node NodeMap.t
-type expr_map = AST.exp NodeMap.t
 type env = def_id StringMap.t
 
 module Build : sig
@@ -50,7 +53,6 @@ module Build : sig
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
   val run : 'a t -> state * 'a
   val nodes : state -> node_map
-  val exprs : state -> expr_map
   val ask : env t
   val local : (env -> env) -> 'a t -> 'a t
   val fresh_id : Id.t t
@@ -58,7 +60,7 @@ module Build : sig
   val emit_expr : AST.exp -> Id.t list -> node_id t
   val traverse : ('a -> 'b t) -> 'a list -> 'b list t
 end = struct
-  type state = { next : Id.t; nodes : node_map; exprs : expr_map }
+  type state = { next : Id.t; nodes : node_map }
   type 'a t = env -> state -> state * 'a
 
   let return x _env st = (st, x)
@@ -68,10 +70,9 @@ end = struct
     f x env st
 
   let ( let* ) = bind
-  let init = { next = Id.zero; nodes = NodeMap.empty; exprs = NodeMap.empty }
+  let init = { next = Id.zero; nodes = NodeMap.empty }
   let run m = m StringMap.empty init
   let nodes st = st.nodes
-  let exprs st = st.exprs
   let ask env st = (st, env)
   let local f m env st = m (f env) st
 
@@ -82,19 +83,11 @@ end = struct
   let add_node node_id node _env st =
     ({ st with nodes = NodeMap.add node_id node st.nodes }, ())
 
-  let add_expr node_id expr children _env st =
-    ( {
-        st with
-        nodes = NodeMap.add node_id (Node.Expr children) st.nodes;
-        exprs = NodeMap.add node_id expr st.exprs;
-      },
-      () )
-
   let emit_def def_id ~name ~rhs = add_node def_id (Node.Def { name; rhs })
 
   let emit_expr expr children =
     let* node_id = fresh_id in
-    let* () = add_expr node_id expr children in
+    let* () = add_node node_id (Node.Expr { expr; children }) in
     return node_id
 
   let rec traverse f = function
@@ -149,7 +142,7 @@ let compile_binding Cat.{ name; exp; is_recursive; location = _ } =
   let* () = emit_def def_id ~name ~rhs in
   return extend
 
-let compile_bindings (l : Cat.binding list) : node_map * expr_map =
+let compile_bindings (l : Cat.binding list) : node_map =
   let rec compile_all = function
     | [] -> Build.return ()
     | binding :: rest ->
@@ -158,7 +151,7 @@ let compile_bindings (l : Cat.binding list) : node_map * expr_map =
         local extend (compile_all rest)
   in
   let st, () = Build.run (compile_all l) in
-  (Build.nodes st, Build.exprs st)
+  Build.nodes st
 
 module Var = struct
   type t = var
@@ -167,11 +160,7 @@ module Var = struct
   let pp = Id.pp
 end
 
-type t = {
-  node_map : node_map;
-  expr_map : expr_map;
-  deps_map : var -> var list;
-}
+type t = { node_map : node_map; deps_map : var -> var list }
 
 (* let missing_node nid = *)
 (*   failwith (Format.asprintf "Missing node: %a" Id.pp nid) *)
@@ -181,14 +170,18 @@ type t = {
 let get_node_opt (t : t) (nid : node_id) : node option =
   NodeMap.find_opt nid t.node_map
 
-let get_expr_opt (t : t) (nid : node_id) : AST.exp option =
-  NodeMap.find_opt nid t.expr_map
-
 let get_def_node_opt (t : t) (did : def_id) : node option =
   match get_node_opt t did with Some (Node.Def _ as n) -> Some n | _ -> None
 
 let get_expr_node_opt (t : t) (nid : node_id) : node option =
-  match get_node_opt t nid with Some (Node.Expr _ as n) -> Some n | _ -> None
+  match get_node_opt t nid with
+  | Some (Node.Expr { expr = _; children = _ } as n) -> Some n
+  | _ -> None
+
+let get_expr_opt (t : t) (nid : node_id) : AST.exp option =
+  match get_expr_node_opt t nid with
+  | Some (Node.Expr { expr; _ }) -> Some expr
+  | _ -> None
 
 (* [get_node] raises [Not_found] when [nid] is not present in the graph. *)
 let get_node (t : t) (nid : node_id) : node =
@@ -208,12 +201,10 @@ let get_expr_node (t : t) (nid : node_id) : node =
 let get_expr (t : t) (nid : node_id) : AST.exp =
   match get_expr_opt t nid with Some e -> e | None -> raise Not_found
 
-(* [get_node_expr] raises [Not_found] when [nid] is not an expression node ID,
-   or when graph storage is inconsistent and only the topology or expression
-   entry is present. *)
+(* [get_node_expr] raises [Not_found] when [nid] is not an expression node ID. *)
 let get_node_expr (t : t) (nid : node_id) : node * AST.exp =
-  match (get_expr_node_opt t nid, get_expr_opt t nid) with
-  | Some node, Some expr -> (node, expr)
+  match get_expr_node_opt t nid with
+  | Some (Node.Expr { expr; _ } as node) -> (node, expr)
   | _ -> raise Not_found
 
 let get_expr_location t nid = ASTUtils.exp2loc (get_expr t nid)
@@ -235,20 +226,20 @@ let build_revdeps ~(nm : node_map) : var -> var list =
   fun v -> Option.value ~default:[] (VarMap.find_opt v rev_map)
 
 let build (l : Cat.binding list) : t =
-  let node_map, expr_map = compile_bindings l in
+  let node_map = compile_bindings l in
   let deps_map = build_revdeps ~nm:node_map in
-  { node_map; expr_map; deps_map }
+  { node_map; deps_map }
 
 let all_defs (t : t) : def_id list =
   NodeMap.bindings t.node_map
   |> List.filter_map (function
     | id, Node.Def _ -> Some id
-    | _, Node.Expr _ -> None)
+    | _, Node.Expr { expr = _; children = _ } -> None)
 
 let all_expr_nodes (t : t) : node_id list =
   NodeMap.bindings t.node_map
   |> List.filter_map (function
-    | id, Node.Expr _ -> Some id
+    | id, Node.Expr { expr = _; children = _ } -> Some id
     | _, Node.Def _ -> None)
 
 let all_vars (t : t) : var list = NodeMap.bindings t.node_map |> List.map fst
