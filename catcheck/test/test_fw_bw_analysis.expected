@@ -1,0 +1,16 @@
+File "libdir/aarch64fences.cat", line 25, characters 27-32:
+and L = try L & (Exp & M | FAULT) with emptyset
+                           ^^^^^
+  this set expression is always empty in its context
+File "libdir/aarch64hwreqs.cat", line 129, characters 21-30:
+ | [(Exp & W & L) | (FAULT & L)]; po; [Exp & R & A]
+                     ^^^^^^^^^
+  this set expression is always empty in its context
+File "libdir/aarch64hwreqs.cat", line 132, characters 52-61:
+ | [Exp & M | Imp & Tag & R]; po; [(Exp & W & L) | (FAULT & L)]
+                                                    ^^^^^^^^^
+  this set expression is always empty in its context
+File "libdir/aarch64hwreqs.cat", line 133, characters 60-69:
+ | [Exp & M | Imp & Tag & R]; iico_order; [(Exp & W & L) | (FAULT & L)]
+                                                            ^^^^^^^^^
+  this set expression is always empty in its context
