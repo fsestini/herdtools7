@@ -45,9 +45,7 @@ module Node = struct
     | Op1 (loc, _op, n) -> fprintf fmt "Op1 (%s, %a)" (E.extract loc) Id.pp n
     | Op (loc, _op, n) ->
         fprintf fmt "Op (%s, %a)" (E.extract loc)
-          (pp_print_list
-             ~pp_sep:(fun fmt () -> pp_print_string fmt ", ")
-             Id.pp)
+          (pp_print_list ~pp_sep:(fun fmt () -> pp_print_string fmt ", ") Id.pp)
           n
     | Try (loc, _, _) -> fprintf fmt "Try (%s)" (E.extract loc)
     | If (loc, _, _) -> fprintf fmt "If (%s)" (E.extract loc)
@@ -71,91 +69,137 @@ type node_map = node NodeMap.t
 type def_map = def DefMap.t
 type env = def_id StringMap.t
 
-let rec compile_exp ~(env : def_id StringMap.t)
-    ((next, nm) : node_id * node_map) :
-    AST.exp -> (node_id * node_map) * node_id =
+module Build : sig
+  type state
+  type 'a t = state -> state * 'a
+
+  val return : 'a -> 'a t
+  val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
+  val run : 'a t -> state * 'a
+  val defs : state -> def_map
+  val nodes : state -> node_map
+  val get_env : env t
+  val add_env : string -> def_id -> unit t
+  val fresh_def : def_id t
+  val add_def : def_id -> def -> unit t
+  val emit_node : node -> node_id t
+  val traverse : ('a -> 'b t) -> 'a list -> 'b list t
+end = struct
+  type state = {
+    next_def : def_id;
+    next_node : node_id;
+    defs : def_map;
+    nodes : node_map;
+    env : env;
+  }
+
+  type 'a t = state -> state * 'a
+
+  let return x st = (st, x)
+
+  let bind m f st =
+    let st, x = m st in
+    f x st
+
+  let ( let* ) = bind
+
+  let init =
+    {
+      next_def = Id.zero;
+      next_node = Id.zero;
+      defs = DefMap.empty;
+      nodes = NodeMap.empty;
+      env = StringMap.empty;
+    }
+
+  let run m = m init
+  let defs st = st.defs
+  let nodes st = st.nodes
+  let get_env st = (st, st.env)
+
+  let add_env name def_id st =
+    ({ st with env = StringMap.add name def_id st.env }, ())
+
+  let fresh_def st =
+    let def_id = st.next_def in
+    ({ st with next_def = Id.succ def_id }, def_id)
+
+  let add_def def_id def st =
+    ({ st with defs = DefMap.add def_id def st.defs }, ())
+
+  let fresh_node st =
+    let node_id = st.next_node in
+    ({ st with next_node = Id.succ node_id }, node_id)
+
+  let add_node node_id node st =
+    ({ st with nodes = NodeMap.add node_id node st.nodes }, ())
+
+  let emit_node node =
+    let* node_id = fresh_node in
+    let* () = add_node node_id node in
+    return node_id
+
+  let rec traverse f = function
+    | [] -> return []
+    | x :: xs ->
+        let* y = f x in
+        let* ys = traverse f xs in
+        return (y :: ys)
+end
+
+let rec compile_exp : AST.exp -> node_id Build.t =
+ fun exp ->
+  let open Build in
   let open AST in
-  let of_unsupported loc =
+  let unsupported loc =
     (* Log.warn (fun m -> m "compile_exp: unsupported expression@."); *)
-    let ident_id = next in
-    let node = Node.Unsupported loc in
-    let nm = NodeMap.add next node nm in
-    ((Id.succ next, nm), ident_id)
+    emit_node (Node.Unsupported loc)
   in
-  function
+  match exp with
   | Op (loc, op, exps) ->
-      let (next, nm), ids =
-        List.fold_left_map (compile_exp ~env) (next, nm) exps
-      in
-      let op_id = next in
-      let node = Node.Op (loc, op, ids) in
-      let nm = NodeMap.add op_id node nm in
-      ((Id.succ next, nm), op_id)
+      let* ids = traverse compile_exp exps in
+      emit_node (Node.Op (loc, op, ids))
   | Op1 (loc, op, exp) ->
-      let (next, nm), n_id = compile_exp ~env (next, nm) exp in
-      let op_id = next in
-      let node = Node.Op1 (loc, op, n_id) in
-      let nm = NodeMap.add op_id node nm in
-      ((Id.succ next, nm), op_id)
+      let* n_id = compile_exp exp in
+      emit_node (Node.Op1 (loc, op, n_id))
   | Var (loc, s) ->
-      let ident_id = next in
+      let* env = get_env in
       let node =
         match StringMap.find_opt s env with
         | Some x -> Node.Ref (loc, x)
         | None -> Node.Base (loc, s)
       in
-      let nm = NodeMap.add next node nm in
-      ((Id.succ next, nm), ident_id)
-  | Konst (loc, _) -> of_unsupported loc
-  | Tag (loc, _) -> of_unsupported loc
-  | App (loc, _, _) -> of_unsupported loc
-  | Bind (loc, _, _) -> of_unsupported loc
-  | BindRec (loc, _, _) -> of_unsupported loc
-  | Fun (loc, _, _, _, _) -> of_unsupported loc
-  | ExplicitSet (loc, _) -> of_unsupported loc
-  | Match (loc, _, _, _) -> of_unsupported loc
-  | MatchSet (loc, _, _, _) -> of_unsupported loc
+      emit_node node
+  | Konst (loc, _) -> unsupported loc
+  | Tag (loc, _) -> unsupported loc
+  | App (loc, _, _) -> unsupported loc
+  | Bind (loc, _, _) -> unsupported loc
+  | BindRec (loc, _, _) -> unsupported loc
+  | Fun (loc, _, _, _, _) -> unsupported loc
+  | ExplicitSet (loc, _) -> unsupported loc
+  | Match (loc, _, _, _) -> unsupported loc
+  | MatchSet (loc, _, _, _) -> unsupported loc
   | Try (loc, a, b) ->
-      let (next, nm), id_a = compile_exp ~env (next, nm) a in
-      let (next, nm), id_b = compile_exp ~env (next, nm) b in
-      let op_id = next in
-      let node = Node.Try (loc, id_a, id_b) in
-      let nm = NodeMap.add op_id node nm in
-      ((Id.succ next, nm), op_id)
+      let* id_a = compile_exp a in
+      let* id_b = compile_exp b in
+      emit_node (Node.Try (loc, id_a, id_b))
   | If (loc, _, a, b) ->
-      let (next, nm), id_a = compile_exp ~env (next, nm) a in
-      let (next, nm), id_b = compile_exp ~env (next, nm) b in
-      let op_id = next in
-      let node = Node.If (loc, id_a, id_b) in
-      let nm = NodeMap.add op_id node nm in
-      ((Id.succ next, nm), op_id)
+      let* id_a = compile_exp a in
+      let* id_b = compile_exp b in
+      emit_node (Node.If (loc, id_a, id_b))
 
-let compile_binding
-    ((next_did, dm, next_nid, nm, env) :
-      def_id * def_map * node_id * node_map * env) :
-    Cat.binding -> def_id * def_map * node_id * node_map * env = function
-  | Cat.{ name; exp; is_recursive = false; location = _ } ->
-      let def_id = next_did in
-      let (next_nid, nm), n_id = compile_exp ~env (next_nid, nm) exp in
-      let def = Def.{ name; rhs = n_id } in
-      let dm = DefMap.add def_id def dm in
-      let env = StringMap.add name def_id env in
-      (Id.succ next_did, dm, next_nid, nm, env)
-  | Cat.{ name; exp; is_recursive = true; location = _ } ->
-      let def_id = next_did in
-      let env = StringMap.add name def_id env in
-      let (next_nid, nm), n_id = compile_exp ~env (next_nid, nm) exp in
-      let def = Def.{ name; rhs = n_id } in
-      let dm = DefMap.add def_id def dm in
-      (Id.succ next_did, dm, next_nid, nm, env)
+let compile_binding Cat.{ name; exp; is_recursive; location = _ } =
+  let open Build in
+  let* def_id = fresh_def in
+  let* () = if is_recursive then add_env name def_id else return () in
+  let* rhs = compile_exp exp in
+  let* () = add_def def_id Def.{ name; rhs } in
+  let* () = if is_recursive then return () else add_env name def_id in
+  return ()
 
 let compile_bindings (l : Cat.binding list) : def_map * node_map =
-  let _, dm, _, nm, _ =
-    List.fold_left compile_binding
-      (Id.zero, DefMap.empty, Id.zero, NodeMap.empty, StringMap.empty)
-      l
-  in
-  (dm, nm)
+  let st, _ = Build.run (Build.traverse compile_binding l) in
+  (Build.defs st, Build.nodes st)
 
 module Var = struct
   type t = VNode of node_id | VDef of def_id
