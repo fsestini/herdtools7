@@ -222,7 +222,11 @@ module FromTyped (D : Typed) = struct
             Log.warn (fun m -> m "Unknown builtin symbol: %s" s);
             None)
 
-  let konst_f _ = Top
+  let konst_f = function
+    | AST.Empty AST.SET -> Set (false, D.Set.bottom)
+    | AST.Universe AST.SET -> Set (false, D.Set.top)
+    | AST.Empty AST.RLN -> Rel D.Rel.bottom
+    | AST.Universe AST.RLN -> Rel D.Rel.top
 
   let op1_f (op : AST.op1) (x : t) : t =
     let open AST in
