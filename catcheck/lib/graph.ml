@@ -203,17 +203,11 @@ let build (l : Cat.binding list) : t =
   let deps_map = build_revdeps ~nm:node_map in
   { node_map; deps_map }
 
-let all_defs (t : t) : def_id list =
+let all_toplevel_defs (t : t) : def_id list =
   NodeMap.bindings t.node_map
   |> List.filter_map (function
     | id, Node.Def _ -> Some id
     | _, Node.Expr { expr = _; children = _ } -> None)
-
-let all_expr_nodes (t : t) : node_id list =
-  NodeMap.bindings t.node_map
-  |> List.filter_map (function
-    | id, Node.Expr { expr = _; children = _ } -> Some id
-    | _, Node.Def _ -> None)
 
 let all_vars (t : t) : var list = NodeMap.bindings t.node_map |> List.map fst
 let depends_on t = t.deps_map
@@ -225,5 +219,3 @@ let pp fmt (t : t) =
     (fun nid node -> fprintf fmt "  %a: %a@," Id.pp nid Node.pp_node node)
     t.node_map;
   fprintf fmt "@]"
-
-(* let pp fmt t =  *)

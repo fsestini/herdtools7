@@ -120,7 +120,7 @@ module Make (D : AbstractDomain.S) = struct
     let fw_map = forward g in
 
     (* debug_analysis ~name:"Forward analysis" ~vars ~dm ~nm fw_map; *)
-    let roots = Graph.all_defs g in
+    let roots = Graph.all_toplevel_defs g in
     let bw_map = backward ~g ~fw_map roots in
 
     (* debug_analysis ~name:"Backward analysis" ~vars ~dm ~nm bw_map; *)

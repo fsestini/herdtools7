@@ -34,7 +34,6 @@ val get_node : t -> Id.t -> node
 (** [get_node t id] raises [Not_found] when [id] is not present in the graph. *)
 
 val all_vars : t -> var list
-val all_defs : t -> def_id list
-val all_expr_nodes : t -> node_id list
+val all_toplevel_defs : t -> def_id list
 val depends_on : t -> var -> var list
 val pp : Format.formatter -> t -> unit
