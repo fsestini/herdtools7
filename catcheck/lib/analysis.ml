@@ -150,10 +150,13 @@ module Make (D : AbstractDomain.S) = struct
     (*     D.meet (fw_map v) (bw_map v)); *)
     vars
     |> List.filter_map (function
-      | Var.VNode nid -> (
-          match Graph.get_node g nid with
-          | Node.Op1 (loc, AST.ToId, ch) -> Some (Var.VNode ch, loc)
-          | _ -> None)
+      | Var.VNode nid as v ->
+          let n = Graph.get_node g nid in
+          let loc = Graph.Node.location n in
+          Some (v, loc)
+          (* match Graph.get_node g nid with *)
+          (* | Node.Op1 (loc, AST.ToId, ch) -> Some (Var.VNode ch, loc) *)
+          (* | _ -> None *)
       | _ -> None)
     |> List.map (fun (v, loc) ->
         let fw = fw_map v in
