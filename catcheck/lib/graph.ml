@@ -71,15 +71,15 @@ type env = def_id StringMap.t
 
 module Build : sig
   type state
-  type 'a t = state -> state * 'a
+  type 'a t = env -> state -> state * 'a
 
   val return : 'a -> 'a t
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
   val run : 'a t -> state * 'a
   val defs : state -> def_map
   val nodes : state -> node_map
-  val get_env : env t
-  val add_env : string -> def_id -> unit t
+  val ask : env t
+  val local : (env -> env) -> 'a t -> 'a t
   val fresh_def : def_id t
   val add_def : def_id -> def -> unit t
   val emit_node : node -> node_id t
@@ -90,16 +90,15 @@ end = struct
     next_node : node_id;
     defs : def_map;
     nodes : node_map;
-    env : env;
   }
 
-  type 'a t = state -> state * 'a
+  type 'a t = env -> state -> state * 'a
 
-  let return x st = (st, x)
+  let return x _env st = (st, x)
 
-  let bind m f st =
-    let st, x = m st in
-    f x st
+  let bind m f env st =
+    let st, x = m env st in
+    f x env st
 
   let ( let* ) = bind
 
@@ -109,29 +108,26 @@ end = struct
       next_node = Id.zero;
       defs = DefMap.empty;
       nodes = NodeMap.empty;
-      env = StringMap.empty;
     }
 
-  let run m = m init
+  let run m = m StringMap.empty init
   let defs st = st.defs
   let nodes st = st.nodes
-  let get_env st = (st, st.env)
+  let ask env st = (st, env)
+  let local f m env st = m (f env) st
 
-  let add_env name def_id st =
-    ({ st with env = StringMap.add name def_id st.env }, ())
-
-  let fresh_def st =
+  let fresh_def _env st =
     let def_id = st.next_def in
     ({ st with next_def = Id.succ def_id }, def_id)
 
-  let add_def def_id def st =
+  let add_def def_id def _env st =
     ({ st with defs = DefMap.add def_id def st.defs }, ())
 
-  let fresh_node st =
+  let fresh_node _env st =
     let node_id = st.next_node in
     ({ st with next_node = Id.succ node_id }, node_id)
 
-  let add_node node_id node st =
+  let add_node node_id node _env st =
     ({ st with nodes = NodeMap.add node_id node st.nodes }, ())
 
   let emit_node node =
@@ -163,7 +159,7 @@ let rec compile_exp : AST.exp -> node_id Build.t =
       let* n_id = compile_exp exp in
       emit_node (Node.Op1 (loc, op, n_id))
   | Var (loc, s) ->
-      let* env = get_env in
+      let* env = ask in
       let node =
         match StringMap.find_opt s env with
         | Some x -> Node.Ref (loc, x)
@@ -191,14 +187,22 @@ let rec compile_exp : AST.exp -> node_id Build.t =
 let compile_binding Cat.{ name; exp; is_recursive; location = _ } =
   let open Build in
   let* def_id = fresh_def in
-  let* () = if is_recursive then add_env name def_id else return () in
-  let* rhs = compile_exp exp in
+  let extend = StringMap.add name def_id in
+  let* rhs =
+    if is_recursive then local extend (compile_exp exp) else compile_exp exp
+  in
   let* () = add_def def_id Def.{ name; rhs } in
-  let* () = if is_recursive then return () else add_env name def_id in
-  return ()
+  return extend
 
 let compile_bindings (l : Cat.binding list) : def_map * node_map =
-  let st, _ = Build.run (Build.traverse compile_binding l) in
+  let rec compile_all = function
+    | [] -> Build.return ()
+    | binding :: rest ->
+        let open Build in
+        let* extend = compile_binding binding in
+        local extend (compile_all rest)
+  in
+  let st, () = Build.run (compile_all l) in
   (Build.defs st, Build.nodes st)
 
 module Var = struct
