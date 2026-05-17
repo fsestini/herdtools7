@@ -216,9 +216,6 @@ let get_def_opt (t : t) (did : def_id) : def option =
 let get_node (t : t) (nid : node_id) : node =
   match get_node_opt t nid with Some n -> n | None -> raise Not_found
 
-let get_def_root (g : t) (did : def_id) : node_id =
-  match get_def_opt g did with Some r -> r.Def.rhs | None -> raise Not_found
-
 module VarMap = Map.Make (Var)
 
 let build_revdeps ~(dm : def_map) ~(nm : node_map) : var -> var list =

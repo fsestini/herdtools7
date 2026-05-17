@@ -29,8 +29,14 @@ module Node : sig
   val location : t -> TxtLoc.t
 end
 
+module Def : sig
+  type t = { name : string; rhs : node_id }
+
+  val pp : Format.formatter -> t -> unit
+end
+
 type node = Node.t
-type def
+type def = Def.t
 type t
 
 val build : Cat.binding list -> t
@@ -42,7 +48,6 @@ val get_node : t -> node_id -> node
     This includes IDs that are valid definition IDs and IDs that are not present
     in the graph at all. *)
 
-val get_def_root : t -> def_id -> node_id
 val all_vars : t -> var list
 val all_defs : t -> def_id list
 val all_nodes : t -> node_id list
