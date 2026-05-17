@@ -7,9 +7,10 @@ end
 
 type def_id = Id.t
 type node_id = Id.t
+type var = Id.t
 
 module Var : sig
-  type t = VNode of node_id | VDef of def_id
+  type t = var
 
   val compare : t -> t -> int
   val pp : Format.formatter -> t -> unit
@@ -29,12 +30,21 @@ module Node : sig
 end
 
 type node = Node.t
-type var = Var.t
+type def
 type t
 
 val build : Cat.binding list -> t
+val get_node_opt : t -> node_id -> node option
+val get_def_opt : t -> def_id -> def option
+
 val get_node : t -> node_id -> node
+(** [get_node t nid] raises [Not_found] when [nid] is not an expression node ID.
+    This includes IDs that are valid definition IDs and IDs that are not present
+    in the graph at all. *)
+
 val get_def_root : t -> def_id -> node_id
 val all_vars : t -> var list
+val all_defs : t -> def_id list
+val all_nodes : t -> node_id list
 val depends_on : t -> var -> var list
 val pp : Format.formatter -> t -> unit

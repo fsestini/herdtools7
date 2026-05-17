@@ -36,30 +36,24 @@ let pp_loc fmt (loc : TxtLoc.t) =
 let run (bs : Cat.binding list) : unit =
   let module D = AbstractDomain.FromTyped (DRDomain) in
   let module A = Analysis.Make (D) in
-  let module V = Graph.Var in
   let module N = Graph.Node in
   let g = Graph.build bs in
-  let vars = Graph.all_vars g in
   let fw_map = A.forward g in
-  let roots =
-    vars |> List.filter_map (function V.VDef v -> Some v | V.VNode _ -> None)
-  in
+  let roots = Graph.all_defs g in
   let bw_map = A.backward ~g ~fw_map roots in
   let selected_vars =
-    vars
-    |> List.concat_map (function
-      | V.VDef _ -> []
-      | V.VNode n_id -> (
-          let node = Graph.get_node g n_id in
-          match node with
-          | N.Op1 (_, AST.ToId, c) -> [ c ]
-          | N.Op (_, AST.Union, cs) -> cs
-          | _ -> []))
+    Graph.all_nodes g
+    |> List.concat_map (fun n_id ->
+        let node = Graph.get_node g n_id in
+        match node with
+        | N.Op1 (_, AST.ToId, c) -> [ c ]
+        | N.Op (_, AST.Union, cs) -> cs
+        | _ -> [])
   in
   selected_vars
   |> List.iter (fun n_id ->
       let node = Graph.get_node g n_id in
-      let v = V.VNode n_id in
+      let v = n_id in
       let loc = Graph.Node.location node in
       let fw = fw_map v in
       let bw = bw_map v in

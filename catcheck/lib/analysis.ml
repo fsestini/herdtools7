@@ -22,27 +22,27 @@ module Make (D : AbstractDomain.S) = struct
 
   (* let fw_rhs (env : fw_env) (sol : var -> D.t) (v : var) : D.t = *)
   let fw_rhs (g : Graph.t) (sol : Graph.var -> D.t) (v : Graph.var) : D.t =
-    match v with
-    | Var.VDef did -> sol (Var.VNode (Graph.get_def_root g did))
-    | Var.VNode nid -> (
-        let node = Graph.get_node g nid in
-        match node with
-        | Node.Base (_, s) -> begin
-            match D.builtin s with Some x -> x | None -> D.top
-          end
-        | Node.Unsupported _ -> D.top
-        | Node.Ref (_, did) -> sol (Var.VDef did)
-        | Node.Try (_, c1, c2) ->
-            D.try_f (sol (Var.VNode c1)) (sol (Var.VNode c2))
-        | Node.If (_, c1, c2) ->
-            D.if_f (sol (Var.VNode c1)) (sol (Var.VNode c2))
-        | Node.Op1 (_loc, op, c) ->
-            (* Format.printf "doing op1_f of %s@." (E.extract loc); *)
-            D.op1_f op (sol (Var.VNode c))
-        | Node.Op (_loc, op, cs) ->
-            (* Format.printf "doing op2_f of %s@." (E.extract loc); *)
-            let args = List.map (fun c -> sol (Var.VNode c)) cs in
-            D.op2_f op args)
+    match Graph.get_def_opt g v with
+    | Some _ -> sol (Graph.get_def_root g v)
+    | None -> (
+        match Graph.get_node_opt g v with
+        | None -> raise Not_found
+        | Some node -> (
+            match node with
+            | Node.Base (_, s) -> begin
+                match D.builtin s with Some x -> x | None -> D.top
+              end
+            | Node.Unsupported _ -> D.top
+            | Node.Ref (_, did) -> sol did
+            | Node.Try (_, c1, c2) -> D.try_f (sol c1) (sol c2)
+            | Node.If (_, c1, c2) -> D.if_f (sol c1) (sol c2)
+            | Node.Op1 (_loc, op, c) ->
+                (* Format.printf "doing op1_f of %s@." (E.extract loc); *)
+                D.op1_f op (sol c)
+            | Node.Op (_loc, op, cs) ->
+                (* Format.printf "doing op2_f of %s@." (E.extract loc); *)
+                let args = List.map sol cs in
+                D.op2_f op args))
 
   let forward (g : Graph.t) : Graph.var -> D.t =
     let vars = Graph.all_vars g in
@@ -60,36 +60,38 @@ module Make (D : AbstractDomain.S) = struct
   (* Propagate demand "downward" (from parent to children) in the syntax tree. *)
   let bw_step ~(g : Graph.t) ~(fw_map : var -> D.t) (c : var -> D.t) (v : var) :
       (var * D.t) list =
-    let open Var in
-    match v with
-    | VDef did ->
-        let root = Graph.get_def_root g did in
-        [ (VNode root, c (VDef did)) ]
-    | VNode nid -> (
-        match Graph.get_node g nid with
-        | Node.(Base _ | Unsupported _) -> []
-        | Node.Ref (_, did) -> [ (VDef did, c (VNode nid)) ]
-        | Node.Try (_, c1, c2) ->
-            let parent = c (VNode nid) in
-            let lchild_fw = fw_map (VNode c1) in
-            let rchild_fw = fw_map (VNode c2) in
-            let l_bw, r_bw = D.try_b ~parent ~lchild_fw ~rchild_fw in
-            [ (VNode c1, l_bw); (VNode c2, r_bw) ]
-        | Node.If (_, c1, c2) ->
-            let parent = c (VNode nid) in
-            let lchild_fw = fw_map (VNode c1) in
-            let rchild_fw = fw_map (VNode c2) in
-            let l_bw, r_bw = D.if_b ~parent ~lchild_fw ~rchild_fw in
-            [ (VNode c1, l_bw); (VNode c2, r_bw) ]
-        | Node.Op1 (_, op, child) ->
-            let parent_d = c (VNode nid) in
-            let child_f = fw_map (VNode child) in
-            [ (VNode child, D.op1_b op ~parent:parent_d ~child_f) ]
-        | Node.Op (_, op, children) ->
-            let parent_d = c (VNode nid) in
-            let children_f = List.map (fun ch -> fw_map (VNode ch)) children in
-            let ds = D.op2_b op ~parent:parent_d ~children_f in
-            List.map2 (fun ch d -> (VNode ch, d)) children ds)
+    match Graph.get_def_opt g v with
+    | Some _ ->
+        let root = Graph.get_def_root g v in
+        [ (root, c v) ]
+    | None -> (
+        match Graph.get_node_opt g v with
+        | None -> raise Not_found
+        | Some node -> (
+            match node with
+            | Node.(Base _ | Unsupported _) -> []
+            | Node.Ref (_, did) -> [ (did, c v) ]
+            | Node.Try (_, c1, c2) ->
+                let parent = c v in
+                let lchild_fw = fw_map c1 in
+                let rchild_fw = fw_map c2 in
+                let l_bw, r_bw = D.try_b ~parent ~lchild_fw ~rchild_fw in
+                [ (c1, l_bw); (c2, r_bw) ]
+            | Node.If (_, c1, c2) ->
+                let parent = c v in
+                let lchild_fw = fw_map c1 in
+                let rchild_fw = fw_map c2 in
+                let l_bw, r_bw = D.if_b ~parent ~lchild_fw ~rchild_fw in
+                [ (c1, l_bw); (c2, r_bw) ]
+            | Node.Op1 (_, op, child) ->
+                let parent_d = c v in
+                let child_f = fw_map child in
+                [ (child, D.op1_b op ~parent:parent_d ~child_f) ]
+            | Node.Op (_, op, children) ->
+                let parent_d = c v in
+                let children_f = List.map fw_map children in
+                let ds = D.op2_b op ~parent:parent_d ~children_f in
+                List.map2 (fun ch d -> (ch, d)) children ds))
 
   (* Backward roots: definitions that should be treated as "publicly exported". *)
   let backward ~(g : Graph.t) ~(fw_map : var -> D.t) (roots : def_id list) :
@@ -99,64 +101,33 @@ module Make (D : AbstractDomain.S) = struct
     let seeds =
       List.map
         (fun did ->
-          let vd = fw_map (Var.VDef did) in
-          (Var.VDef did, vd))
+          let vd = fw_map did in
+          (did, vd))
         roots
     in
     Bw.solve ~vars ~step:(bw_step ~g ~fw_map) ~seeds
 
   type analysis_result = { forward : D.t; backward : D.t }
 
-  (* let debug_analysis ~name ~vars ~(g : Graph.t) f = *)
-  (*   Log.debug (fun m -> *)
-  (*       m "%s:@.%a" name *)
-  (*         Format.( *)
-  (*           pp_print_list *)
-  (*             ~pp_sep:(fun fmt () -> pp_print_string fmt "@.") *)
-  (*             (fun fmt v -> *)
-  (*               let var_str = *)
-  (*                 match v with *)
-  (*                 | Var.VDef did -> *)
-  (*                     let nid = DefMap.find did dm in *)
-  (*                     let node = NodeMap.find nid nm in *)
-  (*                     Format.asprintf "def %a" Node.pp_node node *)
-  (*                 | Var.VNode nid -> *)
-  (*                     let node = NodeMap.find nid nm in *)
-  (*                     Format.asprintf "%a" Node.pp_node node *)
-  (*               in *)
-  (*               let value = f v in *)
-  (*               fprintf fmt "%a (%s) -> %a@." Var.pp v var_str D.pp value)) *)
-  (*         vars) *)
-
   let solve_all (stmts : Cat.binding list) : (TxtLoc.t * analysis_result) list =
     Log.debug (fun m -> m "solve_all");
 
     let g = Graph.build stmts in
     (* Log.debug (fun m -> m "%a" pp_graph (dm, nm)); *)
-    let vars = Graph.all_vars g in
     let fw_map = forward g in
 
     (* debug_analysis ~name:"Forward analysis" ~vars ~dm ~nm fw_map; *)
-    let roots =
-      (* Treat all definitions as "publicly exported" *)
-      vars
-      |> List.filter_map Var.(function VDef v -> Some v | VNode _ -> None)
-    in
+    let roots = Graph.all_defs g in
     let bw_map = backward ~g ~fw_map roots in
 
     (* debug_analysis ~name:"Backward analysis" ~vars ~dm ~nm bw_map; *)
     (* debug_analysis ~name:"Full analysis" ~vars ~dm ~nm (fun v -> *)
     (*     D.meet (fw_map v) (bw_map v)); *)
-    vars
-    |> List.filter_map (function
-      | Var.VNode nid as v ->
-          let n = Graph.get_node g nid in
-          let loc = Graph.Node.location n in
-          Some (v, loc)
-          (* match Graph.get_node g nid with *)
-          (* | Node.Op1 (loc, AST.ToId, ch) -> Some (Var.VNode ch, loc) *)
-          (* | _ -> None *)
-      | _ -> None)
+    Graph.all_nodes g
+    |> List.map (fun nid ->
+        let n = Graph.get_node g nid in
+        let loc = Graph.Node.location n in
+        (nid, loc))
     |> List.map (fun (v, loc) ->
         let fw = fw_map v in
         let bw = bw_map v in

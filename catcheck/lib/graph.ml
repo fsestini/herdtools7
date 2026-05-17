@@ -16,6 +16,7 @@ end
 
 type def_id = Id.t
 type node_id = Id.t
+type var = Id.t
 
 module Node = struct
   type t =
@@ -85,13 +86,7 @@ module Build : sig
   val emit_node : node -> node_id t
   val traverse : ('a -> 'b t) -> 'a list -> 'b list t
 end = struct
-  type state = {
-    next_def : def_id;
-    next_node : node_id;
-    defs : def_map;
-    nodes : node_map;
-  }
-
+  type state = { next : Id.t; defs : def_map; nodes : node_map }
   type 'a t = env -> state -> state * 'a
 
   let return x _env st = (st, x)
@@ -101,37 +96,27 @@ end = struct
     f x env st
 
   let ( let* ) = bind
-
-  let init =
-    {
-      next_def = Id.zero;
-      next_node = Id.zero;
-      defs = DefMap.empty;
-      nodes = NodeMap.empty;
-    }
-
+  let init = { next = Id.zero; defs = DefMap.empty; nodes = NodeMap.empty }
   let run m = m StringMap.empty init
   let defs st = st.defs
   let nodes st = st.nodes
   let ask env st = (st, env)
   let local f m env st = m (f env) st
 
-  let fresh_def _env st =
-    let def_id = st.next_def in
-    ({ st with next_def = Id.succ def_id }, def_id)
+  let fresh_id _env st =
+    let id = st.next in
+    ({ st with next = Id.succ id }, id)
+
+  let fresh_def = fresh_id
 
   let add_def def_id def _env st =
     ({ st with defs = DefMap.add def_id def st.defs }, ())
-
-  let fresh_node _env st =
-    let node_id = st.next_node in
-    ({ st with next_node = Id.succ node_id }, node_id)
 
   let add_node node_id node _env st =
     ({ st with nodes = NodeMap.add node_id node st.nodes }, ())
 
   let emit_node node =
-    let* node_id = fresh_node in
+    let* node_id = fresh_id in
     let* () = add_node node_id node in
     return node_id
 
@@ -206,18 +191,12 @@ let compile_bindings (l : Cat.binding list) : def_map * node_map =
   (Build.defs st, Build.nodes st)
 
 module Var = struct
-  type t = VNode of node_id | VDef of def_id
+  type t = var
 
-  let compare = Stdlib.compare
-
-  let pp fmt =
-    let open Format in
-    function
-    | VNode id -> fprintf fmt "VNode(%a)" Id.pp id
-    | VDef id -> fprintf fmt "VDef(%a)" Id.pp id
+  let compare = Id.compare
+  let pp = Id.pp
 end
 
-type var = Var.t
 type t = { def_map : def_map; node_map : node_map; deps_map : var -> var list }
 
 (* let missing_node nid = *)
@@ -225,15 +204,20 @@ type t = { def_map : def_map; node_map : node_map; deps_map : var -> var list }
 
 (* let missing_def did = failwith (Format.asprintf "Missing node: %a" Id.pp did) *)
 
+let get_node_opt (t : t) (nid : node_id) : node option =
+  NodeMap.find_opt nid t.node_map
+
+let get_def_opt (t : t) (did : def_id) : def option =
+  DefMap.find_opt did t.def_map
+
+(* [get_node] raises [Not_found] when [nid] is not an expression node ID.
+   This includes IDs that are valid definition IDs and IDs that are not present
+   in the graph at all. *)
 let get_node (t : t) (nid : node_id) : node =
-  match NodeMap.find_opt nid t.node_map with
-  | Some n -> n
-  | None -> raise Not_found
+  match get_node_opt t nid with Some n -> n | None -> raise Not_found
 
 let get_def_root (g : t) (did : def_id) : node_id =
-  match DefMap.find_opt did g.def_map with
-  | Some r -> r.Def.rhs
-  | None -> raise Not_found
+  match get_def_opt g did with Some r -> r.Def.rhs | None -> raise Not_found
 
 module VarMap = Map.Make (Var)
 
@@ -245,30 +229,26 @@ let build_revdeps ~(dm : def_map) ~(nm : node_map) : var -> var list =
   let rev_map =
     NodeMap.fold
       (fun n_id n acc ->
-        let node_v = Var.VNode n_id in
         match n with
         | Node.Unsupported _ -> acc
         | Node.Base _ -> acc
-        | Node.Ref (_, d) -> add_edge acc ~from_:(Var.VDef d) ~to_:node_v
+        | Node.Ref (_, d) -> add_edge acc ~from_:d ~to_:n_id
         | Node.Try (_, c1, c2) ->
             List.fold_left
-              (fun acc c -> add_edge acc ~from_:(Var.VNode c) ~to_:node_v)
+              (fun acc c -> add_edge acc ~from_:c ~to_:n_id)
               acc [ c1; c2 ]
         | Node.If (_, c1, c2) ->
             List.fold_left
-              (fun acc c -> add_edge acc ~from_:(Var.VNode c) ~to_:node_v)
+              (fun acc c -> add_edge acc ~from_:c ~to_:n_id)
               acc [ c1; c2 ]
-        | Node.Op1 (_, _, c) -> add_edge acc ~from_:(Var.VNode c) ~to_:node_v
+        | Node.Op1 (_, _, c) -> add_edge acc ~from_:c ~to_:n_id
         | Node.Op (_, _, cs) ->
-            List.fold_left
-              (fun acc c -> add_edge acc ~from_:(Var.VNode c) ~to_:node_v)
-              acc cs)
+            List.fold_left (fun acc c -> add_edge acc ~from_:c ~to_:n_id) acc cs)
       nm VarMap.empty
   in
   let rev_map =
     DefMap.fold
-      (fun did def acc ->
-        add_edge acc ~from_:(Var.VNode def.Def.rhs) ~to_:(Var.VDef did))
+      (fun did def acc -> add_edge acc ~from_:def.Def.rhs ~to_:did)
       dm rev_map
   in
   fun v -> Option.value ~default:[] (VarMap.find_opt v rev_map)
@@ -278,13 +258,12 @@ let build (l : Cat.binding list) : t =
   let deps_map = build_revdeps ~dm:def_map ~nm:node_map in
   { def_map; node_map; deps_map }
 
-let all_vars (t : t) : var list =
-  let defs = DefMap.bindings t.def_map |> List.map (fun (d, _) -> Var.VDef d) in
-  let nodes =
-    NodeMap.bindings t.node_map |> List.map (fun (n, _) -> Var.VNode n)
-  in
-  defs @ nodes
+let all_defs (t : t) : def_id list = DefMap.bindings t.def_map |> List.map fst
 
+let all_nodes (t : t) : node_id list =
+  NodeMap.bindings t.node_map |> List.map fst
+
+let all_vars (t : t) : var list = all_defs t @ all_nodes t
 let depends_on t = t.deps_map
 
 let pp fmt (t : t) =
