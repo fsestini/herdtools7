@@ -17,7 +17,7 @@ module Var : sig
 end
 
 module Node : sig
-  type t = Node of Id.t list
+  type t
 
   val children : t -> Id.t list
 end
