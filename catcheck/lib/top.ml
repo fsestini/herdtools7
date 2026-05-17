@@ -64,16 +64,16 @@ let run (bs : Cat.binding list) : unit =
       let fw = fw_map v in
       let bw = bw_map v in
       match (fw, bw) with
-      | D.Set (tainted, fw), D.Set (_, bw) ->
+      | D.Set (_, fw), D.Set (_, bw) ->
           let combined = DRDomain.Set.meet fw bw in
           if CatSet.equal combined CatSet.empty then (
             Printf.printf "%a:\n" TxtLoc.pp loc;
             Format.printf "%a@." pp_loc loc;
             Printf.printf
               "  this set expression is always empty in its context\n")
-          else if (not tainted) && not (CatSet.equal combined fw) then (
-            Printf.printf "%a:\n" TxtLoc.pp loc;
-            Format.printf "%a@." pp_loc loc;
-            Format.printf "  this expression may be strenghthened to `%a`@."
-              CatSet.pp combined)
+          (* else if (not tainted) && not (CatSet.equal combined fw) then ( *)
+          (*   Printf.printf "%a:\n" TxtLoc.pp loc; *)
+          (*   Format.printf "%a@." pp_loc loc; *)
+          (*   Format.printf "  this expression may be strenghthened to `%a`@." *)
+          (*     CatSet.pp combined) *)
       | _ -> ())
