@@ -20,17 +20,21 @@ type var = Id.t
 
 module Node = struct
   type t =
-    | Def of { name : string; rhs : node_id }
+    | Def of { name : string; location : TxtLoc.t; rhs : node_id }
     | Expr of { expr : AST.exp; children : Id.t list }
 
   let children = function
     | Def { rhs; _ } -> [ rhs ]
     | Expr { children; _ } -> children
 
+  let location = function
+    | Def { location; _ } -> location
+    | Expr { expr; _ } -> ASTUtils.exp2loc expr
+
   let pp_node fmt =
     let open Format in
     function
-    | Def { name; rhs } ->
+    | Def { name; rhs; _ } ->
         fprintf fmt "Def { name = %s; rhs = %a }" name Id.pp rhs
     | Expr { children; _ } ->
         fprintf fmt "Expr (%a)"
@@ -56,7 +60,10 @@ module Build : sig
   val ask : env t
   val local : (env -> env) -> 'a t -> 'a t
   val fresh_id : Id.t t
-  val emit_def : def_id -> name:string -> rhs:node_id -> unit t
+
+  val emit_def :
+    def_id -> name:string -> location:TxtLoc.t -> rhs:node_id -> unit t
+
   val emit_expr : AST.exp -> Id.t list -> node_id t
   val traverse : ('a -> 'b t) -> 'a list -> 'b list t
 end = struct
@@ -83,7 +90,8 @@ end = struct
   let add_node node_id node _env st =
     ({ st with nodes = NodeMap.add node_id node st.nodes }, ())
 
-  let emit_def def_id ~name ~rhs = add_node def_id (Node.Def { name; rhs })
+  let emit_def def_id ~name ~location ~rhs =
+    add_node def_id (Node.Def { name; location; rhs })
 
   let emit_expr expr children =
     let* node_id = fresh_id in
@@ -132,14 +140,14 @@ let rec compile_exp : AST.exp -> node_id Build.t =
       let* id_b = compile_exp b in
       emit_expr exp [ id_a; id_b ]
 
-let compile_binding Cat.{ name; exp; is_recursive; location = _ } =
+let compile_binding Cat.{ name; exp; is_recursive; location } =
   let open Build in
   let* def_id = fresh_id in
   let extend = StringMap.add name def_id in
   let* rhs =
     if is_recursive then local extend (compile_exp exp) else compile_exp exp
   in
-  let* () = emit_def def_id ~name ~rhs in
+  let* () = emit_def def_id ~name ~location ~rhs in
   return extend
 
 let compile_bindings (l : Cat.binding list) : node_map =
@@ -170,44 +178,9 @@ type t = { node_map : node_map; deps_map : var -> var list }
 let get_node_opt (t : t) (nid : node_id) : node option =
   NodeMap.find_opt nid t.node_map
 
-let get_def_node_opt (t : t) (did : def_id) : node option =
-  match get_node_opt t did with Some (Node.Def _ as n) -> Some n | _ -> None
-
-let get_expr_node_opt (t : t) (nid : node_id) : node option =
-  match get_node_opt t nid with
-  | Some (Node.Expr { expr = _; children = _ } as n) -> Some n
-  | _ -> None
-
-let get_expr_opt (t : t) (nid : node_id) : AST.exp option =
-  match get_expr_node_opt t nid with
-  | Some (Node.Expr { expr; _ }) -> Some expr
-  | _ -> None
-
 (* [get_node] raises [Not_found] when [nid] is not present in the graph. *)
 let get_node (t : t) (nid : node_id) : node =
   match get_node_opt t nid with Some n -> n | None -> raise Not_found
-
-let get_def_rhs (t : t) (did : def_id) : node_id =
-  match get_def_node_opt t did with
-  | Some (Node.Def { rhs; _ }) -> rhs
-  | _ -> raise Not_found
-
-let get_expr_node (t : t) (nid : node_id) : node =
-  match get_expr_node_opt t nid with Some n -> n | None -> raise Not_found
-
-(* [get_expr] raises [Not_found] when [nid] is not an expression node ID. This
-   includes IDs that are valid definition IDs and IDs that are not present in
-   the graph at all. *)
-let get_expr (t : t) (nid : node_id) : AST.exp =
-  match get_expr_opt t nid with Some e -> e | None -> raise Not_found
-
-(* [get_node_expr] raises [Not_found] when [nid] is not an expression node ID. *)
-let get_node_expr (t : t) (nid : node_id) : node * AST.exp =
-  match get_expr_node_opt t nid with
-  | Some (Node.Expr { expr; _ } as node) -> (node, expr)
-  | _ -> raise Not_found
-
-let get_expr_location t nid = ASTUtils.exp2loc (get_expr t nid)
 
 module VarMap = Map.Make (Var)
 

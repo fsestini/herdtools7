@@ -105,9 +105,14 @@ module Make (D : AbstractDomain.S) = struct
     in
     Bw.solve ~vars ~step:(bw_step ~g ~fw_map) ~seeds
 
-  type analysis_result = { forward : D.t; backward : D.t }
+  (* type analysis_result = { forward : D.t; backward : D.t } *)
+  type analysis_result = {
+    graph : Graph.t;
+    fw_map : var -> D.t;
+    bw_map : var -> D.t;
+  }
 
-  let solve_all (stmts : Cat.binding list) : (TxtLoc.t * analysis_result) list =
+  let solve_all (stmts : Cat.binding list) : analysis_result =
     Log.debug (fun m -> m "solve_all");
 
     let g = Graph.build stmts in
@@ -121,12 +126,5 @@ module Make (D : AbstractDomain.S) = struct
     (* debug_analysis ~name:"Backward analysis" ~vars ~dm ~nm bw_map; *)
     (* debug_analysis ~name:"Full analysis" ~vars ~dm ~nm (fun v -> *)
     (*     D.meet (fw_map v) (bw_map v)); *)
-    Graph.all_expr_nodes g
-    |> List.map (fun nid ->
-        let loc = Graph.get_expr_location g nid in
-        (nid, loc))
-    |> List.map (fun (v, loc) ->
-        let fw = fw_map v in
-        let bw = bw_map v in
-        (loc, { forward = fw; backward = bw }))
+    { graph = g; fw_map; bw_map }
 end

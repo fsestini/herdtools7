@@ -1,3 +1,4 @@
+module Node = Graph.Node
 module E = TxtLoc.Extract ()
 
 let read_chan chan =
@@ -36,23 +37,23 @@ let pp_loc fmt (loc : TxtLoc.t) =
 let run (bs : Cat.binding list) : unit =
   let module D = AbstractDomain.FromTyped (DRDomain) in
   let module A = Analysis.Make (D) in
-  let g = Graph.build bs in
-  let fw_map = A.forward g in
-  let roots = Graph.all_defs g in
-  let bw_map = A.backward ~g ~fw_map roots in
+  let A.{ graph = g; fw_map; bw_map } = A.solve_all bs in
   let selected_vars =
-    Graph.all_expr_nodes g
+    Graph.all_vars g
     |> List.concat_map (fun n_id ->
-        let node = Graph.get_expr_node g n_id in
-        match (Graph.get_expr g n_id, Graph.Node.children node) with
-        | AST.Op1 (_, AST.ToId, _), [ c ] -> [ c ]
-        | AST.Op (_, AST.Union, _), cs -> cs
+        match Graph.get_node g n_id with
+        | Node.Expr
+            {
+              expr = AST.Op1 (_, AST.ToId, _) | AST.Op (_, AST.Union, _);
+              children;
+            } ->
+            children
         | _ -> [])
   in
   selected_vars
-  |> List.iter (fun n_id ->
-      let v = n_id in
-      let loc = Graph.get_expr_location g n_id in
+  |> List.iter (fun v ->
+      let node = Graph.get_node g v in
+      let loc = Node.location node in
       let fw = fw_map v in
       let bw = bw_map v in
       match (fw, bw) with
