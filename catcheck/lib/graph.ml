@@ -152,14 +152,9 @@ let rec compile_exp : AST.exp -> node_id Build.t =
       in
       emit_node (Var (loc, s)) children
   | Konst _ -> unsupported exp
-  | Tag _ -> unsupported exp
-  | App _ -> unsupported exp
-  | Bind _ -> unsupported exp
-  | BindRec _ -> unsupported exp
-  | Fun _ -> unsupported exp
-  | ExplicitSet _ -> unsupported exp
-  | Match _ -> unsupported exp
-  | MatchSet _ -> unsupported exp
+  | Tag _ | App _ | Bind _ | BindRec _ | Fun _ | ExplicitSet _ | Match _
+  | MatchSet _ ->
+      unsupported exp
   | Try (_, a, b) ->
       let* id_a = compile_exp a in
       let* id_b = compile_exp b in

@@ -33,27 +33,21 @@ module Make (D : AbstractDomain.S) = struct
     match find_id g v with
     | Either.Left def -> sol def.rhs
     | Either.Right (node, expr) -> (
+        let open AST in
         match (expr, Node.children node) with
-        | AST.Var (_, s), [] -> begin
+        | Var (_, s), [] -> begin
             match D.builtin s with Some x -> x | None -> D.top
           end
-        | AST.Var _, [ did ] -> sol did
-        | AST.Var _, _ -> invalid_graph_node ()
-        | AST.Try _, [ c1; c2 ] -> D.try_f (sol c1) (sol c2)
-        | AST.Try _, _ -> invalid_graph_node ()
-        | AST.If _, [ c1; c2 ] -> D.if_f (sol c1) (sol c2)
-        | AST.If _, _ -> invalid_graph_node ()
-        | AST.Op1 (_loc, op, _), [ c ] ->
-            (* Format.printf "doing op1_f of %s@." (E.extract loc); *)
-            D.op1_f op (sol c)
-        | AST.Op1 _, _ -> invalid_graph_node ()
-        | AST.Op (_loc, op, _), cs ->
-            (* Format.printf "doing op2_f of %s@." (E.extract loc); *)
-            let args = List.map sol cs in
-            D.op2_f op args
-        | AST.(Konst _ | Tag _ | App _ | Bind _ | BindRec _ | Fun _), _
-        | AST.(ExplicitSet _ | Match _ | MatchSet _), _ ->
-            D.top)
+        | Var _, [ did ] -> sol did
+        | Try _, [ c1; c2 ] -> D.try_f (sol c1) (sol c2)
+        | If _, [ c1; c2 ] -> D.if_f (sol c1) (sol c2)
+        | Op1 (_loc, op, _), [ c ] -> D.op1_f op (sol c)
+        | Op (_loc, op, _), cs -> D.op2_f op (List.map sol cs)
+        | ( ( Konst _ | Tag _ | App _ | Bind _ | BindRec _ | Fun _
+            | ExplicitSet _ | Match _ | MatchSet _ ),
+            _ ) ->
+            D.top
+        | _ -> invalid_arg "malformed graph expression node")
 
   let forward (g : Graph.t) : Graph.var -> D.t =
     let vars = Graph.all_vars g in
@@ -74,37 +68,36 @@ module Make (D : AbstractDomain.S) = struct
     match find_id g v with
     | Either.Left def -> [ (def.rhs, c v) ]
     | Either.Right (node, expr) -> (
+        let open AST in
         match (expr, Node.children node) with
-        | AST.Var _, [] -> []
-        | AST.Var _, [ did ] -> [ (did, c v) ]
-        | AST.Var _, _ -> invalid_graph_node ()
-        | AST.Try _, [ c1; c2 ] ->
+        | Var _, [] -> []
+        | Var _, [ did ] -> [ (did, c v) ]
+        | Try _, [ c1; c2 ] ->
             let parent = c v in
             let lchild_fw = fw_map c1 in
             let rchild_fw = fw_map c2 in
             let l_bw, r_bw = D.try_b ~parent ~lchild_fw ~rchild_fw in
             [ (c1, l_bw); (c2, r_bw) ]
-        | AST.Try _, _ -> invalid_graph_node ()
-        | AST.If _, [ c1; c2 ] ->
+        | If _, [ c1; c2 ] ->
             let parent = c v in
             let lchild_fw = fw_map c1 in
             let rchild_fw = fw_map c2 in
             let l_bw, r_bw = D.if_b ~parent ~lchild_fw ~rchild_fw in
             [ (c1, l_bw); (c2, r_bw) ]
-        | AST.If _, _ -> invalid_graph_node ()
-        | AST.Op1 (_, op, _), [ child ] ->
+        | Op1 (_, op, _), [ child ] ->
             let parent_d = c v in
             let child_f = fw_map child in
             [ (child, D.op1_b op ~parent:parent_d ~child_f) ]
-        | AST.Op1 _, _ -> invalid_graph_node ()
-        | AST.Op (_, op, _), children ->
+        | Op (_, op, _), children ->
             let parent_d = c v in
             let children_f = List.map fw_map children in
             let ds = D.op2_b op ~parent:parent_d ~children_f in
             List.map2 (fun ch d -> (ch, d)) children ds
-        | AST.(Konst _ | Tag _ | App _ | Bind _ | BindRec _ | Fun _), _
-        | AST.(ExplicitSet _ | Match _ | MatchSet _), _ ->
-            [])
+        | ( ( Konst _ | Tag _ | App _ | Bind _ | BindRec _ | Fun _
+            | ExplicitSet _ | Match _ | MatchSet _ ),
+            _ ) ->
+            []
+        | _ -> invalid_arg "malformed graph expression node")
 
   (* Backward roots: definitions that should be treated as "publicly exported". *)
   let backward ~(g : Graph.t) ~(fw_map : var -> D.t) (roots : def_id list) :
