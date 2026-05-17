@@ -34,6 +34,18 @@ let pp_loc fmt (loc : TxtLoc.t) =
       Format.fprintf fmt "%s@.%s" line marker
     with Invalid_argument _ -> assert false
 
+let infer_types (bs : Cat.binding list) =
+  let module A = Analysis.MakeForward (TypeDomain) in
+  let g = Graph.build bs in
+  let ty_map = A.forward g in
+  Graph.nodes g
+  |> List.iter (function
+    | v, Node.Def { name; location; _ } ->
+        let ty = ty_map v in
+        let ty_str = Format.asprintf "%a" TypeDomain.pp ty in
+        Printf.printf "%a: %s : %s\n" TxtLoc.pp location name ty_str
+    | _, Node.Expr _ -> ())
+
 let run (bs : Cat.binding list) : unit =
   let module D = AbstractDomain.FromTyped (DRDomain) in
   let module A = Analysis.Make (D) in

@@ -81,23 +81,31 @@ module type Typed = sig
   end
 end
 
-module type S = sig
+module type Forward = sig
   type t
 
   val top : t
   val bottom : t
   val join : t -> t -> t
-  val meet : t -> t -> t
   val equal : t -> t -> bool
 
   val builtin :
     string -> t option (* meaning of primitive/builtin named relation *)
+
+  val konst_f : AST.konst -> t
 
   (* Forward transfer *)
   val op1_f : AST.op1 -> t -> t
   val op2_f : AST.op2 -> t list -> t
   val try_f : t -> t -> t
   val if_f : t -> t -> t
+  val pp : Format.formatter -> t -> unit
+end
+
+module type S = sig
+  include Forward
+
+  val meet : t -> t -> t
 
   (* Backward/demand transfer:
      Given parent demand and forward facts of children, produce demands for children
@@ -106,7 +114,6 @@ module type S = sig
   val op2_b : AST.op2 -> parent:t -> children_f:t list -> t list
   val try_b : parent:t -> lchild_fw:t -> rchild_fw:t -> t * t
   val if_b : parent:t -> lchild_fw:t -> rchild_fw:t -> t * t
-  val pp : Format.formatter -> t -> unit
 end
 
 module FromTyped (D : Typed) = struct
@@ -214,6 +221,8 @@ module FromTyped (D : Typed) = struct
         | None ->
             Log.warn (fun m -> m "Unknown builtin symbol: %s" s);
             None)
+
+  let konst_f _ = Top
 
   let op1_f (op : AST.op1) (x : t) : t =
     let open AST in

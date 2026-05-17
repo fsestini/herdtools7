@@ -29,6 +29,7 @@ type node = Node.t
 type t
 
 val build : Cat.binding list -> t
+val nodes : t -> (Id.t * node) list
 
 val get_node : t -> Id.t -> node
 (** [get_node t id] raises [Not_found] when [id] is not present in the graph. *)

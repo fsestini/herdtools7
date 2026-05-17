@@ -170,6 +170,8 @@ end
 
 type t = { node_map : node_map; dependents_map : var -> var list }
 
+let nodes t = NodeMap.fold (fun k v l -> (k, v) :: l) t.node_map []
+
 (* let missing_node nid = *)
 (*   failwith (Format.asprintf "Missing node: %a" Id.pp nid) *)
 

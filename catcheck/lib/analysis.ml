@@ -5,7 +5,7 @@ module Node = Graph.Node
 type var = Graph.var
 type def_id = Graph.def_id
 
-module Make (D : AbstractDomain.S) = struct
+module MakeForward (D : AbstractDomain.Forward) = struct
   module Lat = struct
     type t = D.t
 
@@ -16,7 +16,6 @@ module Make (D : AbstractDomain.S) = struct
   end
 
   module Fw = Fixpoint.MakeForward (Var) (Lat)
-  module Bw = Fixpoint.MakeBackward (Var) (Lat)
 
   (* type fw_env = { dm : def_map; nm : node_map; deps : var -> var list } *)
 
@@ -35,6 +34,7 @@ module Make (D : AbstractDomain.S) = struct
         | If _, [ c1; c2 ] -> D.if_f (sol c1) (sol c2)
         | Op1 (_loc, op, _), [ c ] -> D.op1_f op (sol c)
         | Op (_loc, op, _), cs -> D.op2_f op (List.map sol cs)
+        | Konst (_, k), [] -> D.konst_f k
         | ( ( Konst _ | Tag _ | App _ | Bind _ | BindRec _ | Fun _
             | ExplicitSet _ | Match _ | MatchSet _ ),
             _ ) ->
@@ -45,6 +45,11 @@ module Make (D : AbstractDomain.S) = struct
     let vars = Graph.all_vars g in
     let deps = Graph.dependents g in
     Fw.solve ~vars ~deps ~rhs:(fw_rhs g) ~init:(fun _ -> D.bottom)
+end
+
+module Make (D : AbstractDomain.S) = struct
+  include MakeForward (D)
+  module Bw = Fixpoint.MakeBackward (Var) (Lat)
 
   (* ---------------- Backward (demand) analysis ---------------- *)
 
