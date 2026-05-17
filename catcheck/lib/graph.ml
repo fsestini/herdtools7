@@ -182,6 +182,15 @@ let get_node_opt (t : t) (nid : node_id) : node option =
 let get_node (t : t) (nid : node_id) : node =
   match get_node_opt t nid with Some n -> n | None -> raise Not_found
 
+let get_parent (t : t) (nid : node_id) : node_id =
+  match get_node t nid with
+  | Node.Def _ -> invalid_arg "Graph.get_parent: expected expression node"
+  | Node.Expr _ -> (
+      match t.dependents_map nid with
+      | [ parent ] -> parent
+      | [] -> failwith "Graph.get_parent: expression node has no parent"
+      | _ -> failwith "Graph.get_parent: expression node has multiple parents")
+
 module VarMap = Map.Make (Var)
 
 let build_dependents ~(nm : node_map) : var -> var list =
