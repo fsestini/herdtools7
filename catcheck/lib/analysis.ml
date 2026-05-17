@@ -6,10 +6,11 @@ type var = Graph.var
 type def_id = Graph.def_id
 
 let find_id (g : Graph.t) (v : Graph.var) :
-    (Graph.def, Graph.node * AST.exp) Either.t =
-  match Graph.get_def_opt g v with
-  | Some def -> Either.Left def
-  | None -> Either.Right (Graph.get_node_expr g v)
+    (Graph.node_id, Graph.node * AST.exp) Either.t =
+  match Graph.get_node_opt g v with
+  | Some (Graph.Node.Def { rhs; _ }) -> Either.Left rhs
+  | Some (Graph.Node.Expr _ as node) -> Either.Right (node, Graph.get_expr g v)
+  | None -> raise Not_found
 
 let invalid_graph_node () = invalid_arg "malformed graph expression node"
 
@@ -31,7 +32,7 @@ module Make (D : AbstractDomain.S) = struct
   (* let fw_rhs (env : fw_env) (sol : var -> D.t) (v : var) : D.t = *)
   let fw_rhs (g : Graph.t) (sol : Graph.var -> D.t) (v : Graph.var) : D.t =
     match find_id g v with
-    | Either.Left def -> sol def.rhs
+    | Either.Left rhs -> sol rhs
     | Either.Right (node, expr) -> (
         let open AST in
         match (expr, Node.children node) with
@@ -66,7 +67,7 @@ module Make (D : AbstractDomain.S) = struct
   let bw_step ~(g : Graph.t) ~(fw_map : var -> D.t) (c : var -> D.t) (v : var) :
       (var * D.t) list =
     match find_id g v with
-    | Either.Left def -> [ (def.rhs, c v) ]
+    | Either.Left rhs -> [ (rhs, c v) ]
     | Either.Right (node, expr) -> (
         let open AST in
         match (expr, Node.children node) with
@@ -129,7 +130,7 @@ module Make (D : AbstractDomain.S) = struct
     (* debug_analysis ~name:"Backward analysis" ~vars ~dm ~nm bw_map; *)
     (* debug_analysis ~name:"Full analysis" ~vars ~dm ~nm (fun v -> *)
     (*     D.meet (fw_map v) (bw_map v)); *)
-    Graph.all_nodes g
+    Graph.all_expr_nodes g
     |> List.map (fun nid ->
         let loc = Graph.get_expr_location g nid in
         (nid, loc))

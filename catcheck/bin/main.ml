@@ -60,9 +60,9 @@ let run_analysis (bs : Cat.binding list) =
   let roots = Graph.all_defs g in
   let bw_map = A.backward ~g ~fw_map roots in
   let selected_vars =
-    Graph.all_nodes g
+    Graph.all_expr_nodes g
     |> List.concat_map (fun n_id ->
-        let node = Graph.get_node g n_id in
+        let node = Graph.get_expr_node g n_id in
         match (Graph.get_expr g n_id, Graph.Node.children node) with
         | AST.Op1 (_, AST.ToId, _), [ c ] -> [ c ]
         | AST.Op (_, AST.Union, _), cs -> cs
