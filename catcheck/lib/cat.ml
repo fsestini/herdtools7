@@ -32,19 +32,28 @@ struct
         | _ -> [])
     in
     fun ~seen fname ->
-      if StringSet.mem fname seen then []
+      if StringSet.mem fname seen then (seen, [])
       else
+        let seen = StringSet.add fname seen in
         let _, (_, _, ast) = Parser.find_parse fname in
-        ast
-        |> List.concat_map (function
-          | AST.Include (_, included_fname) ->
-              let seen = StringSet.add fname seen in
-              read_bindings_ ~seen included_fname
-          | AST.Let (loc, bs) -> of_bindings false loc bs
-          | AST.Rec (loc, bs, _) -> of_bindings true loc bs
-          | _ -> [])
+        let seen, bindings =
+          List.fold_left
+            (fun (seen, bindings) -> function
+              | AST.Include (_, included_fname) ->
+                  let seen, included_bindings =
+                    read_bindings_ ~seen included_fname
+                  in
+                  (seen, List.rev_append included_bindings bindings)
+              | AST.Let (loc, bs) ->
+                  (seen, List.rev_append (of_bindings false loc bs) bindings)
+              | AST.Rec (loc, bs, _) ->
+                  (seen, List.rev_append (of_bindings true loc bs) bindings)
+              | _ -> (seen, bindings))
+            (seen, []) ast
+        in
+        (seen, List.rev bindings)
 
-  let read_bindings = read_bindings_ ~seen:StringSet.empty
+  let read_bindings fname = snd (read_bindings_ ~seen:StringSet.empty fname)
 end
 
 (* let ident s = Ident s *)
