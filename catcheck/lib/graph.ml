@@ -168,7 +168,7 @@ module Var = struct
   let pp = Id.pp
 end
 
-type t = { node_map : node_map; deps_map : var -> var list }
+type t = { node_map : node_map; dependents_map : var -> var list }
 
 (* let missing_node nid = *)
 (*   failwith (Format.asprintf "Missing node: %a" Id.pp nid) *)
@@ -184,7 +184,7 @@ let get_node (t : t) (nid : node_id) : node =
 
 module VarMap = Map.Make (Var)
 
-let build_revdeps ~(nm : node_map) : var -> var list =
+let build_dependents ~(nm : node_map) : var -> var list =
   let add_edge m ~from_ ~to_ =
     let old = Option.value ~default:[] (VarMap.find_opt from_ m) in
     VarMap.add from_ (to_ :: old) m
@@ -200,8 +200,8 @@ let build_revdeps ~(nm : node_map) : var -> var list =
 
 let build (l : Cat.binding list) : t =
   let node_map = compile_bindings l in
-  let deps_map = build_revdeps ~nm:node_map in
-  { node_map; deps_map }
+  let dependents_map = build_dependents ~nm:node_map in
+  { node_map; dependents_map }
 
 let all_toplevel_defs (t : t) : def_id list =
   NodeMap.bindings t.node_map
@@ -210,7 +210,7 @@ let all_toplevel_defs (t : t) : def_id list =
     | _, Node.Expr { expr = _; children = _ } -> None)
 
 let all_vars (t : t) : var list = NodeMap.bindings t.node_map |> List.map fst
-let depends_on t = t.deps_map
+let dependents t = t.dependents_map
 
 let pp fmt (t : t) =
   let open Format in

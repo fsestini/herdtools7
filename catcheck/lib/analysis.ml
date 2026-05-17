@@ -43,7 +43,7 @@ module Make (D : AbstractDomain.S) = struct
 
   let forward (g : Graph.t) : Graph.var -> D.t =
     let vars = Graph.all_vars g in
-    let deps = Graph.depends_on g in
+    let deps = Graph.dependents g in
     Fw.solve ~vars ~deps ~rhs:(fw_rhs g) ~init:(fun _ -> D.bottom)
 
   (* ---------------- Backward (demand) analysis ---------------- *)

@@ -58,7 +58,7 @@ let run_analysis (bs : Cat.binding list) =
   let module S = DRDomain.Set in
   let g = Graph.build bs in
   let fw_map = A.forward g in
-  let roots = Graph.all_defs g in
+  let roots = Graph.all_toplevel_defs g in
   let bw_map = A.backward ~g ~fw_map roots in
   let selected_vars =
     Graph.all_vars g

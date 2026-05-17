@@ -35,5 +35,9 @@ val get_node : t -> Id.t -> node
 
 val all_vars : t -> var list
 val all_toplevel_defs : t -> def_id list
-val depends_on : t -> var -> var list
+
+val dependents : t -> var -> var list
+(** [dependents t v] returns the immediate reverse dependencies of [v]: graph
+    nodes whose [Node.children] contain [v]. *)
+
 val pp : Format.formatter -> t -> unit
