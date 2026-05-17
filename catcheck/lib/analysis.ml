@@ -5,13 +5,6 @@ module Node = Graph.Node
 type var = Graph.var
 type def_id = Graph.def_id
 
-let find_id (g : Graph.t) (v : Graph.var) :
-    (Graph.node_id, Graph.node * AST.exp) Either.t =
-  match Graph.get_node_opt g v with
-  | Some (Graph.Node.Def { rhs; _ }) -> Either.Left rhs
-  | Some (Graph.Node.Expr { expr; _ } as node) -> Either.Right (node, expr)
-  | None -> raise Not_found
-
 let invalid_graph_node () = invalid_arg "malformed graph expression node"
 
 module Make (D : AbstractDomain.S) = struct
@@ -31,11 +24,11 @@ module Make (D : AbstractDomain.S) = struct
 
   (* let fw_rhs (env : fw_env) (sol : var -> D.t) (v : var) : D.t = *)
   let fw_rhs (g : Graph.t) (sol : Graph.var -> D.t) (v : Graph.var) : D.t =
-    match find_id g v with
-    | Either.Left rhs -> sol rhs
-    | Either.Right (node, expr) -> (
+    match Graph.get_node g v with
+    | Node.Def { rhs; _ } -> sol rhs
+    | Node.Expr { expr; children } -> (
         let open AST in
-        match (expr, Node.children node) with
+        match (expr, children) with
         | Var (_, s), [] -> begin
             match D.builtin s with Some x -> x | None -> D.top
           end
@@ -66,11 +59,11 @@ module Make (D : AbstractDomain.S) = struct
   (* Propagate demand "downward" (from parent to children) in the syntax tree. *)
   let bw_step ~(g : Graph.t) ~(fw_map : var -> D.t) (c : var -> D.t) (v : var) :
       (var * D.t) list =
-    match find_id g v with
-    | Either.Left rhs -> [ (rhs, c v) ]
-    | Either.Right (node, expr) -> (
+    match Graph.get_node g v with
+    | Node.Def { rhs; _ } -> [ (rhs, c v) ]
+    | Node.Expr { expr; children } -> (
         let open AST in
-        match (expr, Node.children node) with
+        match (expr, children) with
         | Var _, [] -> []
         | Var _, [ did ] -> [ (did, c v) ]
         | Try _, [ c1; c2 ] ->
