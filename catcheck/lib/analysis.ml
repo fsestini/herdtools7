@@ -1,18 +1,17 @@
 module Log = (val Logs.src_log (Logs.Src.create "analysis") : Logs.LOG)
 module Var = Graph.Var
-module Id = Graph.Id
 module Node = Graph.Node
 
 type var = Graph.var
 type def_id = Graph.def_id
 
-let find_id (g : Graph.t) (v : Id.t) : (Graph.def, Graph.node) Either.t =
+let find_id (g : Graph.t) (v : Graph.var) :
+    (Graph.def, Graph.node * AST.exp) Either.t =
   match Graph.get_def_opt g v with
   | Some def -> Either.Left def
-  | None -> (
-      match Graph.get_node_opt g v with
-      | Some node -> Either.Right node
-      | None -> raise Not_found)
+  | None -> Either.Right (Graph.get_node_expr g v)
+
+let invalid_graph_node () = invalid_arg "malformed graph expression node"
 
 module Make (D : AbstractDomain.S) = struct
   module Lat = struct
@@ -33,22 +32,28 @@ module Make (D : AbstractDomain.S) = struct
   let fw_rhs (g : Graph.t) (sol : Graph.var -> D.t) (v : Graph.var) : D.t =
     match find_id g v with
     | Either.Left def -> sol def.rhs
-    | Either.Right node -> (
-        match node with
-        | Node.Base (_, s) -> begin
+    | Either.Right (node, expr) -> (
+        match (expr, Node.children node) with
+        | AST.Var (_, s), [] -> begin
             match D.builtin s with Some x -> x | None -> D.top
           end
-        | Node.Unsupported _ -> D.top
-        | Node.Ref (_, did) -> sol did
-        | Node.Try (_, c1, c2) -> D.try_f (sol c1) (sol c2)
-        | Node.If (_, c1, c2) -> D.if_f (sol c1) (sol c2)
-        | Node.Op1 (_loc, op, c) ->
+        | AST.Var _, [ did ] -> sol did
+        | AST.Var _, _ -> invalid_graph_node ()
+        | AST.Try _, [ c1; c2 ] -> D.try_f (sol c1) (sol c2)
+        | AST.Try _, _ -> invalid_graph_node ()
+        | AST.If _, [ c1; c2 ] -> D.if_f (sol c1) (sol c2)
+        | AST.If _, _ -> invalid_graph_node ()
+        | AST.Op1 (_loc, op, _), [ c ] ->
             (* Format.printf "doing op1_f of %s@." (E.extract loc); *)
             D.op1_f op (sol c)
-        | Node.Op (_loc, op, cs) ->
+        | AST.Op1 _, _ -> invalid_graph_node ()
+        | AST.Op (_loc, op, _), cs ->
             (* Format.printf "doing op2_f of %s@." (E.extract loc); *)
             let args = List.map sol cs in
-            D.op2_f op args)
+            D.op2_f op args
+        | AST.(Konst _ | Tag _ | App _ | Bind _ | BindRec _ | Fun _), _
+        | AST.(ExplicitSet _ | Match _ | MatchSet _), _ ->
+            D.top)
 
   let forward (g : Graph.t) : Graph.var -> D.t =
     let vars = Graph.all_vars g in
@@ -68,31 +73,38 @@ module Make (D : AbstractDomain.S) = struct
       (var * D.t) list =
     match find_id g v with
     | Either.Left def -> [ (def.rhs, c v) ]
-    | Either.Right node -> (
-        match node with
-        | Node.(Base _ | Unsupported _) -> []
-        | Node.Ref (_, did) -> [ (did, c v) ]
-        | Node.Try (_, c1, c2) ->
+    | Either.Right (node, expr) -> (
+        match (expr, Node.children node) with
+        | AST.Var _, [] -> []
+        | AST.Var _, [ did ] -> [ (did, c v) ]
+        | AST.Var _, _ -> invalid_graph_node ()
+        | AST.Try _, [ c1; c2 ] ->
             let parent = c v in
             let lchild_fw = fw_map c1 in
             let rchild_fw = fw_map c2 in
             let l_bw, r_bw = D.try_b ~parent ~lchild_fw ~rchild_fw in
             [ (c1, l_bw); (c2, r_bw) ]
-        | Node.If (_, c1, c2) ->
+        | AST.Try _, _ -> invalid_graph_node ()
+        | AST.If _, [ c1; c2 ] ->
             let parent = c v in
             let lchild_fw = fw_map c1 in
             let rchild_fw = fw_map c2 in
             let l_bw, r_bw = D.if_b ~parent ~lchild_fw ~rchild_fw in
             [ (c1, l_bw); (c2, r_bw) ]
-        | Node.Op1 (_, op, child) ->
+        | AST.If _, _ -> invalid_graph_node ()
+        | AST.Op1 (_, op, _), [ child ] ->
             let parent_d = c v in
             let child_f = fw_map child in
             [ (child, D.op1_b op ~parent:parent_d ~child_f) ]
-        | Node.Op (_, op, children) ->
+        | AST.Op1 _, _ -> invalid_graph_node ()
+        | AST.Op (_, op, _), children ->
             let parent_d = c v in
             let children_f = List.map fw_map children in
             let ds = D.op2_b op ~parent:parent_d ~children_f in
-            List.map2 (fun ch d -> (ch, d)) children ds)
+            List.map2 (fun ch d -> (ch, d)) children ds
+        | AST.(Konst _ | Tag _ | App _ | Bind _ | BindRec _ | Fun _), _
+        | AST.(ExplicitSet _ | Match _ | MatchSet _), _ ->
+            [])
 
   (* Backward roots: definitions that should be treated as "publicly exported". *)
   let backward ~(g : Graph.t) ~(fw_map : var -> D.t) (roots : def_id list) :
@@ -126,8 +138,7 @@ module Make (D : AbstractDomain.S) = struct
     (*     D.meet (fw_map v) (bw_map v)); *)
     Graph.all_nodes g
     |> List.map (fun nid ->
-        let n = Graph.get_node g nid in
-        let loc = Graph.Node.location n in
+        let loc = Graph.get_expr_location g nid in
         (nid, loc))
     |> List.map (fun (v, loc) ->
         let fw = fw_map v in

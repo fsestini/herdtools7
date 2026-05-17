@@ -54,7 +54,6 @@ module E = TxtLoc.Extract ()
 let run_analysis (bs : Cat.binding list) =
   let module D = AbstractDomain.FromTyped (DRDomain) in
   let module A = Analysis.Make (D) in
-  let module N = Graph.Node in
   let module S = DRDomain.Set in
   let g = Graph.build bs in
   let fw_map = A.forward g in
@@ -64,19 +63,15 @@ let run_analysis (bs : Cat.binding list) =
     Graph.all_nodes g
     |> List.concat_map (fun n_id ->
         let node = Graph.get_node g n_id in
-        match node with
-        | N.Op1 (_, AST.ToId, c) -> [ c ]
-        | N.Op (_, AST.Union, cs) -> cs
+        match (Graph.get_expr g n_id, Graph.Node.children node) with
+        | AST.Op1 (_, AST.ToId, _), [ c ] -> [ c ]
+        | AST.Op (_, AST.Union, _), cs -> cs
         | _ -> [])
   in
   selected_vars
   |> List.iter (fun n_id ->
-      let node = Graph.get_node g n_id in
       let v = n_id in
-      (* let is_emptyset = *)
-      (*   match node with Graph.Node.Base (_, "emptyset") -> true | _ -> false *)
-      (* in *)
-      let loc = Graph.Node.location node in
+      let loc = Graph.get_expr_location g n_id in
       let fw = fw_map v in
       let bw = bw_map v in
       match (fw, bw) with

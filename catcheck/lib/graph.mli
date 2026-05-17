@@ -17,16 +17,9 @@ module Var : sig
 end
 
 module Node : sig
-  type t =
-    | Ref of TxtLoc.t * def_id
-    | Base of TxtLoc.t * string (* other builtins / primitives *)
-    | Op1 of TxtLoc.t * AST.op1 * node_id
-    | Op of TxtLoc.t * AST.op2 * node_id list
-    | Try of TxtLoc.t * node_id * node_id
-    | If of TxtLoc.t * node_id * node_id
-    | Unsupported of TxtLoc.t
+  type t = Node of Id.t list
 
-  val location : t -> TxtLoc.t
+  val children : t -> Id.t list
 end
 
 module Def : sig
@@ -42,12 +35,24 @@ type t
 val build : Cat.binding list -> t
 val get_node_opt : t -> node_id -> node option
 val get_def_opt : t -> def_id -> def option
+val get_expr_opt : t -> node_id -> AST.exp option
 
 val get_node : t -> node_id -> node
 (** [get_node t nid] raises [Not_found] when [nid] is not an expression node ID.
     This includes IDs that are valid definition IDs and IDs that are not present
     in the graph at all. *)
 
+val get_expr : t -> node_id -> AST.exp
+(** [get_expr t nid] raises [Not_found] when [nid] is not an expression node ID.
+    This includes IDs that are valid definition IDs and IDs that are not present
+    in the graph at all. *)
+
+val get_node_expr : t -> node_id -> node * AST.exp
+(** [get_node_expr t nid] raises [Not_found] when [nid] is not an expression
+    node ID, or when graph storage is inconsistent and only the topology or
+    expression entry is present. *)
+
+val get_expr_location : t -> node_id -> TxtLoc.t
 val all_vars : t -> var list
 val all_defs : t -> def_id list
 val all_nodes : t -> node_id list

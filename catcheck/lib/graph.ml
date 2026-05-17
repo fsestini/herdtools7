@@ -19,37 +19,17 @@ type node_id = Id.t
 type var = Id.t
 
 module Node = struct
-  type t =
-    | Ref of TxtLoc.t * def_id
-    | Base of TxtLoc.t * string (* other builtins / primitives *)
-    | Op1 of TxtLoc.t * AST.op1 * node_id
-    | Op of TxtLoc.t * AST.op2 * node_id list
-    | Try of TxtLoc.t * node_id * node_id
-    | If of TxtLoc.t * node_id * node_id
-    | Unsupported of TxtLoc.t
+  type t = Node of Id.t list
 
-  let location = function
-    | Ref (loc, _) -> loc
-    | Base (loc, _) -> loc
-    | Op1 (loc, _, _) -> loc
-    | Op (loc, _, _) -> loc
-    | Try (loc, _, _) -> loc
-    | If (loc, _, _) -> loc
-    | Unsupported loc -> loc
+  let children (Node ids) = ids
 
   let pp_node fmt =
     let open Format in
     function
-    | Unsupported loc -> fprintf fmt "Unsupported (%s)" (E.extract loc)
-    | Ref (_, id) -> fprintf fmt "Ref %a" Id.pp id
-    | Base (_, s) -> fprintf fmt "Base %s" s
-    | Op1 (loc, _op, n) -> fprintf fmt "Op1 (%s, %a)" (E.extract loc) Id.pp n
-    | Op (loc, _op, n) ->
-        fprintf fmt "Op (%s, %a)" (E.extract loc)
+    | Node ids ->
+        fprintf fmt "Node (%a)"
           (pp_print_list ~pp_sep:(fun fmt () -> pp_print_string fmt ", ") Id.pp)
-          n
-    | Try (loc, _, _) -> fprintf fmt "Try (%s)" (E.extract loc)
-    | If (loc, _, _) -> fprintf fmt "If (%s)" (E.extract loc)
+          ids
 end
 
 module Def = struct
@@ -67,6 +47,7 @@ module NodeMap = Map.Make (Id)
 module DefMap = Map.Make (Id)
 
 type node_map = node NodeMap.t
+type expr_map = AST.exp NodeMap.t
 type def_map = def DefMap.t
 type env = def_id StringMap.t
 
@@ -79,14 +60,21 @@ module Build : sig
   val run : 'a t -> state * 'a
   val defs : state -> def_map
   val nodes : state -> node_map
+  val exprs : state -> expr_map
   val ask : env t
   val local : (env -> env) -> 'a t -> 'a t
   val fresh_def : def_id t
   val add_def : def_id -> def -> unit t
-  val emit_node : node -> node_id t
+  val emit_node : AST.exp -> Id.t list -> node_id t
   val traverse : ('a -> 'b t) -> 'a list -> 'b list t
 end = struct
-  type state = { next : Id.t; defs : def_map; nodes : node_map }
+  type state = {
+    next : Id.t;
+    defs : def_map;
+    nodes : node_map;
+    exprs : expr_map;
+  }
+
   type 'a t = env -> state -> state * 'a
 
   let return x _env st = (st, x)
@@ -96,10 +84,19 @@ end = struct
     f x env st
 
   let ( let* ) = bind
-  let init = { next = Id.zero; defs = DefMap.empty; nodes = NodeMap.empty }
+
+  let init =
+    {
+      next = Id.zero;
+      defs = DefMap.empty;
+      nodes = NodeMap.empty;
+      exprs = NodeMap.empty;
+    }
+
   let run m = m StringMap.empty init
   let defs st = st.defs
   let nodes st = st.nodes
+  let exprs st = st.exprs
   let ask env st = (st, env)
   let local f m env st = m (f env) st
 
@@ -112,12 +109,17 @@ end = struct
   let add_def def_id def _env st =
     ({ st with defs = DefMap.add def_id def st.defs }, ())
 
-  let add_node node_id node _env st =
-    ({ st with nodes = NodeMap.add node_id node st.nodes }, ())
+  let add_node node_id expr children _env st =
+    ( {
+        st with
+        nodes = NodeMap.add node_id (Node.Node children) st.nodes;
+        exprs = NodeMap.add node_id expr st.exprs;
+      },
+      () )
 
-  let emit_node node =
+  let emit_node expr children =
     let* node_id = fresh_id in
-    let* () = add_node node_id node in
+    let* () = add_node node_id expr children in
     return node_id
 
   let rec traverse f = function
@@ -132,42 +134,40 @@ let rec compile_exp : AST.exp -> node_id Build.t =
  fun exp ->
   let open Build in
   let open AST in
-  let unsupported loc =
+  let unsupported exp =
     (* Log.warn (fun m -> m "compile_exp: unsupported expression@."); *)
-    emit_node (Node.Unsupported loc)
+    emit_node exp []
   in
   match exp with
-  | Op (loc, op, exps) ->
+  | Op (_, _, exps) ->
       let* ids = traverse compile_exp exps in
-      emit_node (Node.Op (loc, op, ids))
-  | Op1 (loc, op, exp) ->
-      let* n_id = compile_exp exp in
-      emit_node (Node.Op1 (loc, op, n_id))
+      emit_node exp ids
+  | Op1 (_, _, child) ->
+      let* n_id = compile_exp child in
+      emit_node exp [ n_id ]
   | Var (loc, s) ->
       let* env = ask in
-      let node =
-        match StringMap.find_opt s env with
-        | Some x -> Node.Ref (loc, x)
-        | None -> Node.Base (loc, s)
+      let children =
+        match StringMap.find_opt s env with Some x -> [ x ] | None -> []
       in
-      emit_node node
-  | Konst (loc, _) -> unsupported loc
-  | Tag (loc, _) -> unsupported loc
-  | App (loc, _, _) -> unsupported loc
-  | Bind (loc, _, _) -> unsupported loc
-  | BindRec (loc, _, _) -> unsupported loc
-  | Fun (loc, _, _, _, _) -> unsupported loc
-  | ExplicitSet (loc, _) -> unsupported loc
-  | Match (loc, _, _, _) -> unsupported loc
-  | MatchSet (loc, _, _, _) -> unsupported loc
-  | Try (loc, a, b) ->
+      emit_node (Var (loc, s)) children
+  | Konst _ -> unsupported exp
+  | Tag _ -> unsupported exp
+  | App _ -> unsupported exp
+  | Bind _ -> unsupported exp
+  | BindRec _ -> unsupported exp
+  | Fun _ -> unsupported exp
+  | ExplicitSet _ -> unsupported exp
+  | Match _ -> unsupported exp
+  | MatchSet _ -> unsupported exp
+  | Try (_, a, b) ->
       let* id_a = compile_exp a in
       let* id_b = compile_exp b in
-      emit_node (Node.Try (loc, id_a, id_b))
-  | If (loc, _, a, b) ->
+      emit_node exp [ id_a; id_b ]
+  | If (_, _, a, b) ->
       let* id_a = compile_exp a in
       let* id_b = compile_exp b in
-      emit_node (Node.If (loc, id_a, id_b))
+      emit_node exp [ id_a; id_b ]
 
 let compile_binding Cat.{ name; exp; is_recursive; location = _ } =
   let open Build in
@@ -179,7 +179,7 @@ let compile_binding Cat.{ name; exp; is_recursive; location = _ } =
   let* () = add_def def_id Def.{ name; rhs } in
   return extend
 
-let compile_bindings (l : Cat.binding list) : def_map * node_map =
+let compile_bindings (l : Cat.binding list) : def_map * node_map * expr_map =
   let rec compile_all = function
     | [] -> Build.return ()
     | binding :: rest ->
@@ -188,7 +188,7 @@ let compile_bindings (l : Cat.binding list) : def_map * node_map =
         local extend (compile_all rest)
   in
   let st, () = Build.run (compile_all l) in
-  (Build.defs st, Build.nodes st)
+  (Build.defs st, Build.nodes st, Build.exprs st)
 
 module Var = struct
   type t = var
@@ -197,7 +197,12 @@ module Var = struct
   let pp = Id.pp
 end
 
-type t = { def_map : def_map; node_map : node_map; deps_map : var -> var list }
+type t = {
+  def_map : def_map;
+  node_map : node_map;
+  expr_map : expr_map;
+  deps_map : var -> var list;
+}
 
 (* let missing_node nid = *)
 (*   failwith (Format.asprintf "Missing node: %a" Id.pp nid) *)
@@ -210,11 +215,30 @@ let get_node_opt (t : t) (nid : node_id) : node option =
 let get_def_opt (t : t) (did : def_id) : def option =
   DefMap.find_opt did t.def_map
 
-(* [get_node] raises [Not_found] when [nid] is not an expression node ID.
-   This includes IDs that are valid definition IDs and IDs that are not present
-   in the graph at all. *)
+let get_expr_opt (t : t) (nid : node_id) : AST.exp option =
+  NodeMap.find_opt nid t.expr_map
+
+(* [get_node] raises [Not_found] when [nid] is not an expression node ID. This
+   includes IDs that are valid definition IDs and IDs that are not present in
+   the graph at all. *)
 let get_node (t : t) (nid : node_id) : node =
   match get_node_opt t nid with Some n -> n | None -> raise Not_found
+
+(* [get_expr] raises [Not_found] when [nid] is not an expression node ID. This
+   includes IDs that are valid definition IDs and IDs that are not present in
+   the graph at all. *)
+let get_expr (t : t) (nid : node_id) : AST.exp =
+  match get_expr_opt t nid with Some e -> e | None -> raise Not_found
+
+(* [get_node_expr] raises [Not_found] when [nid] is not an expression node ID,
+   or when graph storage is inconsistent and only the topology or expression
+   entry is present. *)
+let get_node_expr (t : t) (nid : node_id) : node * AST.exp =
+  match (get_node_opt t nid, get_expr_opt t nid) with
+  | Some node, Some expr -> (node, expr)
+  | _ -> raise Not_found
+
+let get_expr_location t nid = ASTUtils.exp2loc (get_expr t nid)
 
 module VarMap = Map.Make (Var)
 
@@ -226,21 +250,8 @@ let build_revdeps ~(dm : def_map) ~(nm : node_map) : var -> var list =
   let rev_map =
     NodeMap.fold
       (fun n_id n acc ->
-        match n with
-        | Node.Unsupported _ -> acc
-        | Node.Base _ -> acc
-        | Node.Ref (_, d) -> add_edge acc ~from_:d ~to_:n_id
-        | Node.Try (_, c1, c2) ->
-            List.fold_left
-              (fun acc c -> add_edge acc ~from_:c ~to_:n_id)
-              acc [ c1; c2 ]
-        | Node.If (_, c1, c2) ->
-            List.fold_left
-              (fun acc c -> add_edge acc ~from_:c ~to_:n_id)
-              acc [ c1; c2 ]
-        | Node.Op1 (_, _, c) -> add_edge acc ~from_:c ~to_:n_id
-        | Node.Op (_, _, cs) ->
-            List.fold_left (fun acc c -> add_edge acc ~from_:c ~to_:n_id) acc cs)
+        Node.children n
+        |> List.fold_left (fun acc c -> add_edge acc ~from_:c ~to_:n_id) acc)
       nm VarMap.empty
   in
   let rev_map =
@@ -251,9 +262,9 @@ let build_revdeps ~(dm : def_map) ~(nm : node_map) : var -> var list =
   fun v -> Option.value ~default:[] (VarMap.find_opt v rev_map)
 
 let build (l : Cat.binding list) : t =
-  let def_map, node_map = compile_bindings l in
+  let def_map, node_map, expr_map = compile_bindings l in
   let deps_map = build_revdeps ~dm:def_map ~nm:node_map in
-  { def_map; node_map; deps_map }
+  { def_map; node_map; expr_map; deps_map }
 
 let all_defs (t : t) : def_id list = DefMap.bindings t.def_map |> List.map fst
 
