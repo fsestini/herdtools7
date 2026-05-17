@@ -1,7 +1,7 @@
 module Log = (val Logs.src_log (Logs.Src.create "graph") : Logs.LOG)
 module E = TxtLoc.Extract ()
 
-module DefId : sig
+module Id : sig
   type t
 
   val zero : t
@@ -14,21 +14,8 @@ end = struct
   let pp = Format.pp_print_int
 end
 
-module NodeId : sig
-  type t
-
-  val zero : t
-  val succ : t -> t
-  val compare : t -> t -> int
-  val pp : Format.formatter -> t -> unit
-end = struct
-  include Int
-
-  let pp = Format.pp_print_int
-end
-
-type def_id = DefId.t
-type node_id = NodeId.t
+type def_id = Id.t
+type node_id = Id.t
 
 module Node = struct
   type t =
@@ -53,15 +40,14 @@ module Node = struct
     let open Format in
     function
     | Unsupported loc -> fprintf fmt "Unsupported (%s)" (E.extract loc)
-    | Ref (_, id) -> fprintf fmt "Ref %a" DefId.pp id
+    | Ref (_, id) -> fprintf fmt "Ref %a" Id.pp id
     | Base (_, s) -> fprintf fmt "Base %s" s
-    | Op1 (loc, _op, n) ->
-        fprintf fmt "Op1 (%s, %a)" (E.extract loc) NodeId.pp n
+    | Op1 (loc, _op, n) -> fprintf fmt "Op1 (%s, %a)" (E.extract loc) Id.pp n
     | Op (loc, _op, n) ->
         fprintf fmt "Op (%s, %a)" (E.extract loc)
           (pp_print_list
              ~pp_sep:(fun fmt () -> pp_print_string fmt ", ")
-             NodeId.pp)
+             Id.pp)
           n
     | Try (loc, _, _) -> fprintf fmt "Try (%s)" (E.extract loc)
     | If (loc, _, _) -> fprintf fmt "If (%s)" (E.extract loc)
@@ -72,14 +58,14 @@ module Def = struct
 
   let pp fmt t =
     let open Format in
-    Format.fprintf fmt "{ name = %s; rhs = %a }" t.name NodeId.pp t.rhs
+    Format.fprintf fmt "{ name = %s; rhs = %a }" t.name Id.pp t.rhs
 end
 
 type node = Node.t
 type def = Def.t
 
-module NodeMap = Map.Make (NodeId)
-module DefMap = Map.Make (DefId)
+module NodeMap = Map.Make (Id)
+module DefMap = Map.Make (Id)
 
 type node_map = node NodeMap.t
 type def_map = def DefMap.t
@@ -94,7 +80,7 @@ let rec compile_exp ~(env : def_id StringMap.t)
     let ident_id = next in
     let node = Node.Unsupported loc in
     let nm = NodeMap.add next node nm in
-    ((NodeId.succ next, nm), ident_id)
+    ((Id.succ next, nm), ident_id)
   in
   function
   | Op (loc, op, exps) ->
@@ -104,13 +90,13 @@ let rec compile_exp ~(env : def_id StringMap.t)
       let op_id = next in
       let node = Node.Op (loc, op, ids) in
       let nm = NodeMap.add op_id node nm in
-      ((NodeId.succ next, nm), op_id)
+      ((Id.succ next, nm), op_id)
   | Op1 (loc, op, exp) ->
       let (next, nm), n_id = compile_exp ~env (next, nm) exp in
       let op_id = next in
       let node = Node.Op1 (loc, op, n_id) in
       let nm = NodeMap.add op_id node nm in
-      ((NodeId.succ next, nm), op_id)
+      ((Id.succ next, nm), op_id)
   | Var (loc, s) ->
       let ident_id = next in
       let node =
@@ -119,7 +105,7 @@ let rec compile_exp ~(env : def_id StringMap.t)
         | None -> Node.Base (loc, s)
       in
       let nm = NodeMap.add next node nm in
-      ((NodeId.succ next, nm), ident_id)
+      ((Id.succ next, nm), ident_id)
   | Konst (loc, _) -> of_unsupported loc
   | Tag (loc, _) -> of_unsupported loc
   | App (loc, _, _) -> of_unsupported loc
@@ -135,14 +121,14 @@ let rec compile_exp ~(env : def_id StringMap.t)
       let op_id = next in
       let node = Node.Try (loc, id_a, id_b) in
       let nm = NodeMap.add op_id node nm in
-      ((NodeId.succ next, nm), op_id)
+      ((Id.succ next, nm), op_id)
   | If (loc, _, a, b) ->
       let (next, nm), id_a = compile_exp ~env (next, nm) a in
       let (next, nm), id_b = compile_exp ~env (next, nm) b in
       let op_id = next in
       let node = Node.If (loc, id_a, id_b) in
       let nm = NodeMap.add op_id node nm in
-      ((NodeId.succ next, nm), op_id)
+      ((Id.succ next, nm), op_id)
 
 let compile_binding
     ((next_did, dm, next_nid, nm, env) :
@@ -154,19 +140,19 @@ let compile_binding
       let def = Def.{ name; rhs = n_id } in
       let dm = DefMap.add def_id def dm in
       let env = StringMap.add name def_id env in
-      (DefId.succ next_did, dm, next_nid, nm, env)
+      (Id.succ next_did, dm, next_nid, nm, env)
   | Cat.{ name; exp; is_recursive = true; location = _ } ->
       let def_id = next_did in
       let env = StringMap.add name def_id env in
       let (next_nid, nm), n_id = compile_exp ~env (next_nid, nm) exp in
       let def = Def.{ name; rhs = n_id } in
       let dm = DefMap.add def_id def dm in
-      (DefId.succ next_did, dm, next_nid, nm, env)
+      (Id.succ next_did, dm, next_nid, nm, env)
 
 let compile_bindings (l : Cat.binding list) : def_map * node_map =
   let _, dm, _, nm, _ =
     List.fold_left compile_binding
-      (DefId.zero, DefMap.empty, NodeId.zero, NodeMap.empty, StringMap.empty)
+      (Id.zero, DefMap.empty, Id.zero, NodeMap.empty, StringMap.empty)
       l
   in
   (dm, nm)
@@ -179,17 +165,17 @@ module Var = struct
   let pp fmt =
     let open Format in
     function
-    | VNode id -> fprintf fmt "VNode(%a)" NodeId.pp id
-    | VDef id -> fprintf fmt "VDef(%a)" DefId.pp id
+    | VNode id -> fprintf fmt "VNode(%a)" Id.pp id
+    | VDef id -> fprintf fmt "VDef(%a)" Id.pp id
 end
 
 type var = Var.t
 type t = { def_map : def_map; node_map : node_map; deps_map : var -> var list }
 
 (* let missing_node nid = *)
-(*   failwith (Format.asprintf "Missing node: %a" NodeId.pp nid) *)
+(*   failwith (Format.asprintf "Missing node: %a" Id.pp nid) *)
 
-(* let missing_def did = failwith (Format.asprintf "Missing node: %a" DefId.pp did) *)
+(* let missing_def did = failwith (Format.asprintf "Missing node: %a" Id.pp did) *)
 
 let get_node (t : t) (nid : node_id) : node =
   match NodeMap.find_opt nid t.node_map with
@@ -257,11 +243,11 @@ let pp fmt (t : t) =
   let open Format in
   fprintf fmt "@[<v>defs:@,";
   DefMap.iter
-    (fun did def -> fprintf fmt "  %a -> %a@," DefId.pp did Def.pp def)
+    (fun did def -> fprintf fmt "  %a -> %a@," Id.pp did Def.pp def)
     t.def_map;
   fprintf fmt "nodes:@,";
   NodeMap.iter
-    (fun nid node -> fprintf fmt "  %a: %a@," NodeId.pp nid Node.pp_node node)
+    (fun nid node -> fprintf fmt "  %a: %a@," Id.pp nid Node.pp_node node)
     t.node_map;
   fprintf fmt "@]"
 

@@ -1,18 +1,12 @@
-module DefId : sig
-  type t
-
-  val pp : Format.formatter -> t -> unit
-end
-
-module NodeId : sig
+module Id : sig
   type t
 
   val compare : t -> t -> int
   val pp : Format.formatter -> t -> unit
 end
 
-type def_id = DefId.t
-type node_id = NodeId.t
+type def_id = Id.t
+type node_id = Id.t
 
 module Var : sig
   type t = VNode of node_id | VDef of def_id
