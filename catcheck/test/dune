@@ -1,5 +1,5 @@
 (tests
- (names test_catcheck test_partitioned_sets)
+ (names test_fw_bw_analysis)
  (deps
   (source_tree test-libdir)
   (source_tree libdir))
