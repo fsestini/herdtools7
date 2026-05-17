@@ -38,35 +38,36 @@ let run (bs : Cat.binding list) : unit =
   let module D = AbstractDomain.FromTyped (DRDomain) in
   let module A = Analysis.Make (D) in
   let A.{ graph = g; fw_map; bw_map } = A.solve_all bs in
+  let combined_set v =
+    match (fw_map v, bw_map v) with
+    | D.Set (_, fw), D.Set (_, bw) -> Some (DRDomain.Set.meet fw bw)
+    | _ -> None
+  in
+  let is_empty_set s = CatSet.equal s CatSet.empty in
+  let should_report v =
+    let parent = Graph.get_parent g v in
+    match Graph.get_node g parent with
+    | Node.Def _ -> true
+    | Node.Expr _ -> (
+        match combined_set parent with
+        | None -> true
+        | Some parent_combined -> not (is_empty_set parent_combined))
+  in
   let selected_vars =
     Graph.all_vars g
-    |> List.concat_map (fun n_id ->
+    |> List.filter (fun n_id ->
         match Graph.get_node g n_id with
-        | Node.Expr
-            {
-              expr = AST.Op1 (_, AST.ToId, _) | AST.Op (_, AST.Union, _);
-              children;
-            } ->
-            children
-        | _ -> [])
+        | Node.Expr { expr = AST.Var (_, "emptyset"); children = [] } -> false
+        | Node.Expr _ -> true
+        | _ -> false)
   in
   selected_vars
   |> List.iter (fun v ->
-      let node = Graph.get_node g v in
-      let loc = Node.location node in
-      let fw = fw_map v in
-      let bw = bw_map v in
-      match (fw, bw) with
-      | D.Set (_, fw), D.Set (_, bw) ->
-          let combined = DRDomain.Set.meet fw bw in
-          if CatSet.equal combined CatSet.empty then (
-            Printf.printf "%a:\n" TxtLoc.pp loc;
-            Format.printf "%a@." pp_loc loc;
-            Printf.printf
-              "  this set expression is always empty in its context\n")
-          (* else if (not tainted) && not (CatSet.equal combined fw) then ( *)
-          (*   Printf.printf "%a:\n" TxtLoc.pp loc; *)
-          (*   Format.printf "%a@." pp_loc loc; *)
-          (*   Format.printf "  this expression may be strenghthened to `%a`@." *)
-          (*     CatSet.pp combined) *)
+      match combined_set v with
+      | Some combined when is_empty_set combined && should_report v ->
+          let node = Graph.get_node g v in
+          let loc = Node.location node in
+          Printf.printf "%a:\n" TxtLoc.pp loc;
+          Format.printf "%a@." pp_loc loc;
+          Printf.printf "  this set expression is always empty in its context\n"
       | _ -> ())
