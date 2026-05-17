@@ -5,8 +5,6 @@ module Node = Graph.Node
 type var = Graph.var
 type def_id = Graph.def_id
 
-let invalid_graph_node () = invalid_arg "malformed graph expression node"
-
 module Make (D : AbstractDomain.S) = struct
   module Lat = struct
     type t = D.t
