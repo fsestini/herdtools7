@@ -1,7 +1,6 @@
 module Node = Graph.Node
+module Id = Graph.Id
 module E = TxtLoc.Extract ()
-
-let same_var x y = Int.equal (Graph.Var.compare x y) 0
 
 let parse_loc spec =
   let col_sep = String.rindex spec ':' in
@@ -60,7 +59,7 @@ let trace_ancestor_chain ~graph:g ~fw_map ~bw_map ~pp_domain fmt start =
       Format.fprintf fmt
         "ancestor trace stopped after %d edges; graph may contain a cycle@."
         max_depth
-    else if List.exists (same_var child) seen then
+    else if List.exists (Id.equal child) seen then
       Format.fprintf fmt
         "ancestor trace stopped at node %a; graph contains a cycle@."
         Graph.Id.pp child

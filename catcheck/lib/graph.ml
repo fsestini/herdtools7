@@ -6,6 +6,7 @@ module Id : sig
 
   val zero : t
   val succ : t -> t
+  val equal : t -> t -> bool
   val compare : t -> t -> int
   val pp : Format.formatter -> t -> unit
 end = struct
@@ -161,13 +162,6 @@ let compile_bindings (l : Cat.binding list) : node_map =
   let st, () = Build.run (compile_all l) in
   Build.nodes st
 
-module Var = struct
-  type t = var
-
-  let compare = Id.compare
-  let pp = Id.pp
-end
-
 type t = { node_map : node_map; dependents_map : var -> var list }
 
 let nodes t = NodeMap.fold (fun k v l -> (k, v) :: l) t.node_map []
@@ -193,7 +187,7 @@ let get_parent (t : t) (nid : node_id) : node_id =
       | [] -> failwith "Graph.get_parent: expression node has no parent"
       | _ -> failwith "Graph.get_parent: expression node has multiple parents")
 
-module VarMap = Map.Make (Var)
+module VarMap = Map.Make (Id)
 
 let build_dependents ~(nm : node_map) : var -> var list =
   let add_edge m ~from_ ~to_ =
@@ -230,3 +224,13 @@ let pp fmt (t : t) =
     (fun nid node -> fprintf fmt "  %a: %a@," Id.pp nid Node.pp_node node)
     t.node_map;
   fprintf fmt "@]"
+
+module Util = struct
+  let is_negative_edge g ~parent ~child =
+    match get_node g parent with
+    | Node.Expr { expr = AST.Op (_, AST.Diff, _); children = [ _lhs; rhs ] } ->
+        Id.equal child rhs
+    | Node.Expr { expr = AST.Op1 (_, AST.Comp, _); children = [ operand ] } ->
+        Id.equal child operand
+    | _ -> false
+end

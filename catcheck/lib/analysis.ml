@@ -1,5 +1,5 @@
 module Log = (val Logs.src_log (Logs.Src.create "analysis") : Logs.LOG)
-module Var = Graph.Var
+module Var = Graph.Id
 module Node = Graph.Node
 
 type var = Graph.var

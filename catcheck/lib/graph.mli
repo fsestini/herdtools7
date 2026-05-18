@@ -1,6 +1,7 @@
 module Id : sig
   type t
 
+  val equal : t -> t -> bool
   val compare : t -> t -> int
   val pp : Format.formatter -> t -> unit
 end
@@ -8,13 +9,6 @@ end
 type def_id = Id.t
 type node_id = Id.t
 type var = Id.t
-
-module Var : sig
-  type t = var
-
-  val compare : t -> t -> int
-  val pp : Format.formatter -> t -> unit
-end
 
 module Node : sig
   type t =
@@ -53,3 +47,7 @@ val dependents : t -> var -> var list
     nodes whose [Node.children] contain [v]. *)
 
 val pp : Format.formatter -> t -> unit
+
+module Util : sig
+  val is_negative_edge : t -> parent:var -> child:var -> bool
+end

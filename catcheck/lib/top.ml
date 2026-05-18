@@ -1,4 +1,5 @@
 module Node = Graph.Node
+module Var = Graph.Id
 module E = TxtLoc.Extract ()
 
 let read_chan chan =
@@ -52,10 +53,9 @@ let run (bs : Cat.binding list) : unit =
   let A.{ graph = g; fw_map; bw_map } = A.solve_all bs in
   let combined_set v =
     match (fw_map v, bw_map v) with
-    | D.Set (_, fw), D.Set (_, bw) -> Some (DRDomain.Set.meet fw bw)
+    | D.Set (b, fw), D.Set (_, bw) -> Some ((b, fw), DRDomain.Set.meet fw bw)
     | _ -> None
   in
-  let same_var x y = Int.equal (Graph.Var.compare x y) 0 in
   Trace.run_if_requested ~graph:g ~fw_map ~bw_map ~pp_domain:D.pp;
   let is_empty_set s = CatSet.equal s CatSet.empty in
   let should_report v =
@@ -65,22 +65,15 @@ let run (bs : Cat.binding list) : unit =
     | Node.Expr _ -> (
         match combined_set parent with
         | None -> true
-        | Some parent_combined -> not (is_empty_set parent_combined))
-  in
-  let is_negative_edge ~parent ~child =
-    match Graph.get_node g parent with
-    | Node.Expr { expr = AST.Op (_, AST.Diff, _); children = [ _lhs; rhs ] } ->
-        same_var child rhs
-    | Node.Expr { expr = AST.Op1 (_, AST.Comp, _); children = [ operand ] } ->
-        same_var child operand
-    | _ -> false
+        | Some (_, parent_combined) -> not (is_empty_set parent_combined))
   in
   let rec is_under_negative_context v =
     let parent = Graph.get_parent g v in
     match Graph.get_node g parent with
     | Node.Def _ -> false
     | Node.Expr _ ->
-        is_negative_edge ~parent ~child:v || is_under_negative_context parent
+        Graph.Util.is_negative_edge g ~parent ~child:v
+        || is_under_negative_context parent
   in
   let selected_vars =
     Graph.all_vars g
@@ -93,7 +86,7 @@ let run (bs : Cat.binding list) : unit =
   selected_vars
   |> List.iter (fun v ->
       match combined_set v with
-      | Some combined
+      | Some (_, combined)
         when is_empty_set combined && should_report v
              && not (is_under_negative_context v) ->
           let node = Graph.get_node g v in
