@@ -5,3 +5,6 @@
   (source_tree test-libdir)
   (source_tree libdir))
  (libraries catcheck))
+
+(cram
+ (deps %{bin:catcheck}))

@@ -1,0 +1,3 @@
+let negative-union = Exp \ (W | R)
+let negative-toid = 0 \ [W | R]
+let negative-comp-union = ~(W | R)
