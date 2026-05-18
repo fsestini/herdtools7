@@ -47,6 +47,14 @@ let infer_types (bs : Cat.binding list) =
         Printf.printf "%a: %s : %s\n" TxtLoc.pp location name ty_str
     | _, Node.Expr _ -> ())
 
+let rec is_under_negative_context g v =
+  let parent = Graph.get_parent g v in
+  match Graph.get_node g parent with
+  | Node.Def _ -> false
+  | Node.Expr _ ->
+      Graph.Util.is_negative_edge g ~parent ~child:v
+      || is_under_negative_context g parent
+
 let run (bs : Cat.binding list) : unit =
   let module D = AbstractDomain.FromTyped (DRDomain) in
   let module A = Analysis.Make (D) in
@@ -67,19 +75,20 @@ let run (bs : Cat.binding list) : unit =
   in
   selected_vars
   |> List.iter (fun v ->
-      let loc = Node.location (Graph.get_node g v) in
-      match (fw_map v, bw_map v) with
-      | D.Set (false, fw), D.Set (_, bw) when not (S.equal fw S.top) ->
-          let combined = DRDomain.Set.meet fw bw in
-          if CatSet.equal combined CatSet.empty then (
-            Printf.printf "%a:\n" TxtLoc.pp loc;
-            Format.printf "%a@." pp_loc loc;
-            Printf.printf
-              "  this set expression is always empty in its context\n")
-          else if not (S.equal combined fw) then (
-            let expected = combined in
-            Printf.printf "%a:\n" TxtLoc.pp loc;
-            Format.printf "%a@." pp_loc loc;
-            Format.printf "  this expression may be strenghthened to `%a`@."
-              S.pp expected)
-      | _ -> ())
+      if not (is_under_negative_context g v) then
+        let loc = Node.location (Graph.get_node g v) in
+        match (fw_map v, bw_map v) with
+        | D.Set (false, fw), D.Set (_, bw) when not (S.equal fw S.top) ->
+            let combined = DRDomain.Set.meet fw bw in
+            if CatSet.equal combined CatSet.empty then (
+              Printf.printf "%a:\n" TxtLoc.pp loc;
+              Format.printf "%a@." pp_loc loc;
+              Printf.printf
+                "  this set expression is always empty in its context\n")
+            else if not (S.equal combined fw) then (
+              let expected = combined in
+              Printf.printf "%a:\n" TxtLoc.pp loc;
+              Format.printf "%a@." pp_loc loc;
+              Format.printf "  this expression may be strenghthened to `%a`@."
+                S.pp expected)
+        | _ -> ())
