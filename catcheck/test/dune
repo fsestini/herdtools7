@@ -1,6 +1,7 @@
 (tests
  (names test_fw_bw_analysis test_type_analysis)
  (deps
+  ../primitives.cat
   (source_tree test-libdir)
   (source_tree libdir))
  (libraries catcheck))

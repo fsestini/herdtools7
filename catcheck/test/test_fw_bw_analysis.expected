@@ -1,11 +1,35 @@
+File "libdir/aarch64fences.cat", line 25, characters 17-24:
+and L = try L & (Exp & M | FAULT) with emptyset
+                 ^^^^^^^
+  this expression may be strenghthened to `L`
 File "libdir/aarch64fences.cat", line 25, characters 27-32:
 and L = try L & (Exp & M | FAULT) with emptyset
                            ^^^^^
   this set expression is always empty in its context
+File "libdir/aarch64deps.cat", line 73, characters 34-38:
+let data = [Exp & R]; dtrm & po; [Rreg]; iico_data & ii_data; [Exp & W]
+                                  ^^^^
+  this expression may be strenghthened to `DATA`
+File "libdir/aarch64hwreqs.cat", line 98, characters 10-17:
+ | addr; [Exp & M]; lmrs; [Exp & R | Imp & Tag & R]
+          ^^^^^^^
+  this expression may be strenghthened to `Exp & W`
+File "libdir/aarch64hwreqs.cat", line 99, characters 10-17:
+ | data; [Exp & M]; lmrs; [Exp & R | Imp & Tag & R]
+          ^^^^^^^
+  this expression may be strenghthened to `Exp & W`
 File "libdir/aarch64hwreqs.cat", line 129, characters 21-30:
  | [(Exp & W & L) | (FAULT & L)]; po; [Exp & R & A]
                      ^^^^^^^^^
   this set expression is always empty in its context
+File "libdir/aarch64hwreqs.cat", line 131, characters 75-86:
+ | [(Exp & R & A) | (Exp & R & Q)]; iico_order; [Exp & M | Imp & Tag & R | MMU & FAULT]
+                                                                           ^^^^^^^^^^^
+  this set expression is always empty in its context
+File "libdir/aarch64hwreqs.cat", line 131, characters 49-86:
+ | [(Exp & R & A) | (Exp & R & Q)]; iico_order; [Exp & M | Imp & Tag & R | MMU & FAULT]
+                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  this expression may be strenghthened to `Imp & Tag & R | Exp`
 File "libdir/aarch64hwreqs.cat", line 132, characters 52-61:
  | [Exp & M | Imp & Tag & R]; po; [(Exp & W & L) | (FAULT & L)]
                                                     ^^^^^^^^^
@@ -14,3 +38,11 @@ File "libdir/aarch64hwreqs.cat", line 133, characters 60-69:
  | [Exp & M | Imp & Tag & R]; iico_order; [(Exp & W & L) | (FAULT & L)]
                                                             ^^^^^^^^^
   this set expression is always empty in its context
+File "libdir/aarch64.cat", line 125, characters 5-14:
+    [Imp & TTD]; rf | rf; [Imp & TTD]
+     ^^^^^^^^^
+  this expression may be strenghthened to `Imp & TTD & W`
+File "libdir/aarch64.cat", line 125, characters 27-36:
+    [Imp & TTD]; rf | rf; [Imp & TTD]
+                           ^^^^^^^^^
+  this expression may be strenghthened to `Imp & TTD & R`

@@ -8,8 +8,9 @@ end)
 module E = TxtLoc.Extract ()
 
 let () =
-  (* let bs = P.read_bindings "test.cat" in *)
+  let prims = P.read_bindings "../primitives.cat" in
   let bs = P.read_bindings "aarch64.cat" in
+  let bs = prims @ bs in
   Top.run bs
 (* let module D = AbstractDomain.FromTyped (DRDomain) in *)
 (* let module G = Analysis.Make (D) in *)
