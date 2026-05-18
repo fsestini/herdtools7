@@ -71,6 +71,11 @@ let run (bs : Cat.binding list) : unit =
               children;
             } ->
             children
+            |> List.filter (fun child ->
+                match Graph.get_node g child with
+                | Node.Expr { expr = AST.Var (_, "emptyset"); children = [] } ->
+                    false
+                | _ -> true)
         | _ -> [])
   in
   selected_vars

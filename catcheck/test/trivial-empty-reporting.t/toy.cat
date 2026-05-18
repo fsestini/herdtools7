@@ -1,0 +1,4 @@
+let foo = Exp
+let toid-empty = [emptyset]
+let union-empty-right = foo | emptyset
+let union-empty-left = emptyset | foo
