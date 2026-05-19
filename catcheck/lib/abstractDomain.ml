@@ -117,7 +117,8 @@ module type S = sig
 end
 
 module FromTyped (D : Typed) = struct
-  type t = Top | Rel of D.rel | Set of bool * D.set | Bottom
+  type ('r, 's) ty_lat = Top | Rel of 'r | Set of 's | Bottom
+  type t = (D.rel, bool * D.set) ty_lat
 
   let is_top = function Top -> true | _ -> false
   let is_bottom = function Bottom -> true | _ -> false
@@ -158,31 +159,21 @@ module FromTyped (D : Typed) = struct
 
   let join x y =
     match (x, y) with
-    | _, Top -> Top
-    | Top, _ -> Top
+    | _, Top | Top, _ -> Top
     | Bottom, y -> y
     | x, Bottom -> x
     | Rel x, Rel y -> Rel (D.Rel.join x y)
     | Set (b_x, x), Set (b_y, y) -> Set (b_x || b_y, D.Set.join x y)
-    | Set _, Rel _ | Rel _, Set _ ->
-        let err =
-          Format.asprintf "Type mismatch in domain join: %a  \\/  %a" pp x pp y
-        in
-        invalid_arg err
+    | Set _, Rel _ | Rel _, Set _ -> invalid_arg "ill-typed join"
 
   let meet x y =
     match (x, y) with
     | x, Top -> x
     | Top, y -> y
-    | Bottom, _ -> Bottom
-    | _, Bottom -> Bottom
+    | Bottom, _ | _, Bottom -> Bottom
     | Rel x, Rel y -> Rel (D.Rel.meet x y)
     | Set (b_x, x), Set (b_y, y) -> Set (b_x && b_y, D.Set.meet x y)
-    | Set _, Rel _ | Rel _, Set _ ->
-        let err =
-          Format.asprintf "Type mismatch in domain meet: %a  /  %a" pp x pp y
-        in
-        invalid_arg err
+    | Set _, Rel _ | Rel _, Set _ -> invalid_arg "ill-typed meet"
 
   let as_sets : t list -> D.set list option =
     Util.List.traverse_option (function
@@ -204,10 +195,25 @@ module FromTyped (D : Typed) = struct
   let as_rels_exn l =
     match as_rels l with Some ss -> ss | None -> invalid_arg "expected rels"
 
+  let infer_list (args : t list) : (D.rel list, bool * D.set list) ty_lat =
+    if List.for_all is_bottom args then Bottom
+    else if List.exists is_set args then
+      let b = List.exists is_tainted args in
+      Set (b, as_sets_exn args)
+    else if List.exists is_rel args then Rel (as_rels_exn args)
+    else Top
+
+  let infer_pair a b : (D.rel * D.rel, bool * D.set * D.set) ty_lat =
+    if is_bottom a && is_bottom b then Bottom
+    else if is_set a || is_set b then
+      let tnt = List.exists is_tainted [ a; b ] in
+      Set (tnt, as_set a, as_set b)
+    else if is_rel a || is_rel b then Rel (as_rel a, as_rel b)
+    else Top
+
   let equal x y =
     match (x, y) with
-    | Top, Top -> true
-    | Bottom, Bottom -> true
+    | Top, Top | Bottom, Bottom -> true
     | Rel x, Rel y -> D.Rel.equal x y
     | Set (b_x, x), Set (b_y, y) -> Bool.equal b_x b_y && D.Set.equal x y
     | _ -> false
@@ -238,9 +244,7 @@ module FromTyped (D : Typed) = struct
         | Rel r -> Rel (D.Rel.Forward.comp r)
         | Top | Bottom -> Top)
     | ToId -> Rel (D.Rel.Forward.toid (as_set x))
-    | Plus ->
-        (* Log.app (fun m -> m "op1_f Plus on %a" pp x); *)
-        Rel (D.Rel.Forward.plus (as_rel x))
+    | Plus -> Rel (D.Rel.Forward.plus (as_rel x))
     | Star -> Rel (D.Rel.Forward.star (as_rel x))
     | Opt -> Rel (D.Rel.Forward.opt (as_rel x))
 
@@ -249,71 +253,39 @@ module FromTyped (D : Typed) = struct
 
   let op2_f (op : AST.op2) (args : t list) : t =
     let open AST in
-    match (op, args) with
-    | Union, _ ->
-        (* Log.app (fun m -> *)
-        (*     m "op2_f: doing Union on %a" *)
-        (*       Format.( *)
-        (*         pp_print_list ~pp_sep:(fun fmt () -> pp_print_string fmt ",") pp) *)
-        (*       args); *)
-        if List.for_all is_bottom args then Bottom
-        else if List.exists is_set args then
-          let b = List.exists is_tainted args in
-          Set (b, SetFw.union (as_sets_exn args))
-        else if List.exists is_rel args then
-          Rel (RelFw.union (as_rels_exn args))
-        else Top
-    | Inter, _ ->
-        if List.for_all is_bottom args then Bottom
-        else if List.exists is_set args then
-          let b = List.exists is_tainted args in
-          Set (b, SetFw.inter (as_sets_exn args))
-        else if List.exists is_rel args then
-          Rel (RelFw.inter (as_rels_exn args))
-        else Top
-    | Diff, [ a; b ] ->
-        if List.for_all is_bottom args then Bottom
-        else if is_set a || is_set b then
-          (* Log.app (fun m -> *)
-          (*     m "op2_f: doing Diff on %a" *)
-          (*       Format.( *)
-          (*         pp_print_list *)
-          (*           ~pp_sep:(fun fmt () -> pp_print_string fmt ",") *)
-          (*           pp) *)
-          (*       args); *)
-          let tnt = List.exists is_tainted args in
-          (* Format.printf "Diff tainted: %b@." tnt; *)
-          Set (tnt, SetFw.diff (as_set a) (as_set b))
-        else if is_rel a || is_rel b then Rel (RelFw.diff (as_rel a) (as_rel b))
-        else Top
+    match (op, infer_list args) with
+    | _, Bottom -> Bottom
+    | _, Top -> Top
+    | Union, Set (b, args) -> Set (b, SetFw.union args)
+    | Union, Rel args -> Rel (RelFw.union args)
+    | Inter, Set (b, args) -> Set (b, SetFw.inter args)
+    | Inter, Rel args -> Rel (RelFw.inter args)
+    | Diff, Set (tnt, [ a; b ]) -> Set (tnt, SetFw.diff a b)
+    | Diff, Rel [ a; b ] -> Rel (RelFw.diff a b)
     | Diff, _ -> failwith "malformed Diff"
-    | Seq, x :: xs ->
-        let rr = Util.NonEmpty.(cons x xs |> map as_rel) in
+    | Seq, Rel (x :: xs) ->
+        let rr = Util.NonEmpty.cons x xs in
         Rel (RelFw.seq rr)
     | Seq, _ -> failwith "malformed seq"
-    | Cartesian, [ a; b ] -> Rel (RelFw.cartesian (as_set a) (as_set b))
+    | Cartesian, Set (_, [ a; b ]) -> Rel (RelFw.cartesian a b)
     | Cartesian, _ -> failwith "malformed cartesian product"
     | Add, _ -> Top (* failwith "op2_f: Add not supported" *)
     | Tuple, _ -> Top
   (* failwith "op2_f: Tuple not supported" *)
 
   let try_f a b =
-    if is_bottom a && is_bottom b then Bottom
-    else if is_set a || is_set b then
-      let tnt = List.exists is_tainted [ a; b ] in
-      (* Format.printf "try_f tainted: %b@." tnt; *)
-      Set (tnt, SetFw.try_ (as_set a) (as_set b))
-    else if is_rel a || is_rel b then Rel (RelFw.try_ (as_rel a) (as_rel b))
-    else Top
+    match infer_pair a b with
+    | Bottom -> Bottom
+    | Set (tnt, a, b) -> Set (tnt, SetFw.try_ a b)
+    | Rel (a, b) -> Rel (RelFw.try_ a b)
+    | Top -> Top
 
   let if_f a b =
-    if is_bottom a && is_bottom b then Bottom
-    else if is_set a || is_set b then
-      let tnt = List.exists is_tainted [ a; b ] in
-      (* Format.printf "try_f tainted: %b@." tnt; *)
-      Set (tnt, SetFw.if_ (as_set a) (as_set b))
-    else if is_rel a || is_rel b then Rel (RelFw.if_ (as_rel a) (as_rel b))
-    else Top
+    match infer_pair a b with
+    | Bottom -> Bottom
+    | Set (tnt, a, b) -> Set (tnt, SetFw.if_ a b)
+    | Rel (a, b) -> Rel (RelFw.if_ a b)
+    | Top -> Top
 
   module SetBw = D.Set.Backward
   module RelBw = D.Rel.Backward
