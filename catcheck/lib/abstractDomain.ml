@@ -124,6 +124,8 @@ module FromTyped (D : Typed) = struct
   let is_bottom = function Bottom -> true | _ -> false
   let is_rel = function Rel _ -> true | _ -> false
   let is_set = function Set _ -> true | _ -> false
+  let is_set_or_bottom = function Set _ -> true | Bottom -> true | _ -> false
+  let is_rel_or_bottom = function Rel _ -> true | Bottom -> true | _ -> false
 
   let pp fmt =
     let open Format in
@@ -138,13 +140,13 @@ module FromTyped (D : Typed) = struct
 
   let as_set = function
     | Bottom -> D.Set.bottom
-    | Top -> D.Set.top
+    | Top -> invalid_arg "as_set: Top not allowed"
     | Set s -> s
     | Rel _ -> invalid_arg "as_set: type mismatch"
 
   let as_rel = function
     | Bottom -> D.Rel.bottom
-    | Top -> D.Rel.top
+    | Top -> invalid_arg "as_rel: Top not allowed"
     | Rel r -> r
     | Set _ -> invalid_arg "as_rel: type mismatch"
 
@@ -172,7 +174,7 @@ module FromTyped (D : Typed) = struct
   let as_sets : t list -> D.set list option =
     Util.List.traverse_option (function
       | Set s -> Some s
-      | Top -> Some D.Set.top
+      | Top -> None
       | Bottom -> Some D.Set.bottom
       | Rel _ -> None)
 
@@ -182,7 +184,7 @@ module FromTyped (D : Typed) = struct
   let as_rels : t list -> D.rel list option =
     Util.List.traverse_option (function
       | Rel r -> Some r
-      | Top -> Some D.Rel.top
+      | Top -> None
       | Bottom -> Some D.Rel.bottom
       | Set _ -> None)
 
@@ -190,16 +192,18 @@ module FromTyped (D : Typed) = struct
     match as_rels l with Some ss -> ss | None -> invalid_arg "expected rels"
 
   let infer_list (args : t list) : (D.rel list, D.set list) ty_lat =
-    if List.for_all is_bottom args then Bottom
-    else if List.exists is_set args then Set (as_sets_exn args)
-    else if List.exists is_rel args then Rel (as_rels_exn args)
+    if List.exists is_top args then Top
+    else if List.for_all is_bottom args then Bottom
+    else if List.for_all is_set_or_bottom args then Set (as_sets_exn args)
+    else if List.for_all is_rel_or_bottom args then Rel (as_rels_exn args)
     else Top
 
   let infer_pair a b : (D.rel * D.rel, D.set * D.set) ty_lat =
-    if is_bottom a && is_bottom b then Bottom
-    else if is_set a || is_set b then Set (as_set a, as_set b)
-    else if is_rel a || is_rel b then Rel (as_rel a, as_rel b)
-    else Top
+    match (a, b) with
+    | Top, _ | _, Top | Rel _, Set _ | Set _, Rel _ -> Top
+    | Bottom, Bottom -> Bottom
+    | Rel _, _ | _, Rel _ -> Rel (as_rel a, as_rel b)
+    | Set _, _ | _, Set _ -> Set (as_set a, as_set b)
 
   let equal x y =
     match (x, y) with
@@ -226,17 +230,16 @@ module FromTyped (D : Typed) = struct
 
   let op1_f (op : AST.op1) (x : t) : t =
     let open AST in
-    match op with
-    | Inv -> Rel (D.Rel.Forward.inv (as_rel x))
-    | Comp -> (
-        match x with
-        | Set s -> Set (D.Set.Forward.comp s)
-        | Rel r -> Rel (D.Rel.Forward.comp r)
-        | Top | Bottom -> Top)
-    | ToId -> Rel (D.Rel.Forward.toid (as_set x))
-    | Plus -> Rel (D.Rel.Forward.plus (as_rel x))
-    | Star -> Rel (D.Rel.Forward.star (as_rel x))
-    | Opt -> Rel (D.Rel.Forward.opt (as_rel x))
+    match (op, x) with
+    | _, Bottom -> Bottom
+    | Inv, Rel x -> Rel (D.Rel.Forward.inv x)
+    | Comp, Set s -> Set (D.Set.Forward.comp s)
+    | Comp, Rel r -> Rel (D.Rel.Forward.comp r)
+    | ToId, Set x -> Rel (D.Rel.Forward.toid x)
+    | Plus, Rel x -> Rel (D.Rel.Forward.plus x)
+    | Star, Rel x -> Rel (D.Rel.Forward.star x)
+    | Opt, Rel x -> Rel (D.Rel.Forward.opt x)
+    | _, _ -> Top
 
   module SetFw = D.Set.Forward
   module RelFw = D.Rel.Forward
@@ -282,78 +285,88 @@ module FromTyped (D : Typed) = struct
 
   let op1_b (op : AST.op1) ~(parent : t) ~(child_f : t) : t =
     let open AST in
-    match op with
-    | Inv -> Rel (RelBw.inv ~parent:(as_rel parent) ~child_fw:(as_rel child_f))
-    | Comp -> (
-        match parent with
-        | Rel parent -> Rel (RelBw.comp ~parent ~child_fw:(as_rel child_f))
-        | Set parent -> Set (SetBw.comp ~parent ~child_fw:(as_set child_f))
-        | Top -> Top
-        | Bottom -> Bottom)
-    | ToId ->
+    match (op, parent, child_f) with
+    | Inv, (Rel _ | Bottom), (Rel _ | Bottom) ->
+        Rel (RelBw.inv ~parent:(as_rel parent) ~child_fw:(as_rel child_f))
+    | Comp, Bottom, Bottom -> Bottom
+    | Comp, (Rel _ | Bottom), (Rel _ | Bottom) ->
+        Rel (RelBw.comp ~parent:(as_rel parent) ~child_fw:(as_rel child_f))
+    | Comp, (Set _ | Bottom), (Set _ | Bottom) ->
+        Set (SetBw.comp ~parent:(as_set parent) ~child_fw:(as_set child_f))
+    | ToId, (Rel _ | Bottom), (Set _ | Bottom) ->
         Set (RelBw.to_id ~parent:(as_rel parent) ~child_fw:(as_set child_f))
-    | Plus ->
+    | Plus, (Rel _ | Bottom), (Rel _ | Bottom) ->
         Rel (RelBw.plus ~parent:(as_rel parent) ~child_fw:(as_rel child_f))
-    | Star ->
+    | Star, (Rel _ | Bottom), (Rel _ | Bottom) ->
         Rel (RelBw.star ~parent:(as_rel parent) ~child_fw:(as_rel child_f))
-    | Opt -> Rel (RelBw.opt ~parent:(as_rel parent) ~child_fw:(as_rel child_f))
+    | Opt, (Rel _ | Bottom), (Rel _ | Bottom) ->
+        Rel (RelBw.opt ~parent:(as_rel parent) ~child_fw:(as_rel child_f))
+    | _ -> Top
 
-  (* FIXME: should not Top if parent is Top but children are Rel/Set *)
   let op2_b (op : AST.op2) ~(parent : t) ~(children_f : t list) : t list =
     let open AST in
-    match (op, parent, children_f) with
-    | Union, Rel parent, _ ->
+    let bottoms = List.map (fun _ -> Bottom) children_f in
+    let all_bottom = List.for_all is_bottom (parent :: children_f) in
+    let all_rels = List.for_all is_rel_or_bottom (parent :: children_f) in
+    let all_sets = List.for_all is_set_or_bottom (parent :: children_f) in
+    match (op, children_f) with
+    | Union, _ when all_bottom -> bottoms
+    | Union, _ when all_rels ->
+        let parent = as_rel parent in
         let children_fw = List.map as_rel children_f in
         List.map mk_rel (RelBw.union ~parent ~children_fw)
-    | Union, Set parent, _ ->
+    | Union, _ when all_sets ->
+        let parent = as_set parent in
         let children_fw = List.map as_set children_f in
         List.map mk_set (SetBw.union ~parent ~children_fw)
-    | Inter, Rel parent, _ ->
+    | Inter, _ when all_bottom -> bottoms
+    | Inter, _ when all_rels ->
+        let parent = as_rel parent in
         let children_fw = List.map as_rel children_f in
         List.map mk_rel (RelBw.inter ~parent ~children_fw)
-    | Inter, Set parent, _ ->
+    | Inter, _ when all_sets ->
+        let parent = as_set parent in
         let children_fw = List.map as_set children_f in
         List.map mk_set (SetBw.inter ~parent ~children_fw)
-    | Diff, Rel parent, [ lchild_fw; rchild_fw ] ->
+    | Diff, _ when all_bottom -> bottoms
+    | Diff, [ lchild_fw; rchild_fw ] when all_rels ->
+        let parent = as_rel parent in
         let lchild_fw = as_rel lchild_fw in
         let rchild_fw = as_rel rchild_fw in
         let l, r = RelBw.diff ~parent ~lchild_fw ~rchild_fw in
         [ Rel l; Rel r ]
-    | Diff, Rel _, _ -> failwith "malformed Diff"
-    | Diff, Set parent, [ lchild_fw; rchild_fw ] ->
+    | Diff, [ lchild_fw; rchild_fw ] when all_sets ->
+        let parent = as_set parent in
         let lchild_fw = as_set lchild_fw in
         let rchild_fw = as_set rchild_fw in
         let l, r = SetBw.diff ~parent ~lchild_fw ~rchild_fw in
         [ Set l; Set r ]
-    | Diff, Set _, _ -> failwith "malformed Diff"
-    | Seq, Rel parent, x :: xs ->
+    | Seq, x :: xs when all_rels ->
+        let parent = as_rel parent in
         let x = as_rel x in
         let xs = List.map as_rel xs in
         let l = RelBw.seq ~parent ~children_fw:(Util.NonEmpty.cons x xs) in
         List.map (fun r -> Rel r) l
-    | Seq, Rel _, _ | Seq, Set _, _ -> failwith "malformed Seq"
-    | Cartesian, Rel parent, [ lchild_fw; rchild_fw ] ->
+    | Cartesian, [ lchild_fw; rchild_fw ]
+      when is_rel_or_bottom parent && is_set_or_bottom lchild_fw
+           && is_set_or_bottom rchild_fw ->
+        let parent = as_rel parent in
         let lchild_fw = as_set lchild_fw in
         let rchild_fw = as_set rchild_fw in
         let l, r = RelBw.cartesian ~parent ~lchild_fw ~rchild_fw in
         [ Set l; Set r ]
-    | Cartesian, Rel _, _ | Cartesian, Set _, _ ->
-        failwith "malformed Cartesian"
-    | _, Top, _ -> List.map (fun _ -> Top) children_f
-    | _, Bottom, _ -> List.map (fun _ -> Bottom) children_f
-    | Add, _, _ -> failwith "op2_b: Add not supported"
-    | Tuple, _, _ -> failwith "op2_b: Tuple not supported"
+    | _ -> List.map (fun _ -> Top) children_f
 
   let try_b ~parent ~lchild_fw ~rchild_fw : t * t =
     if List.for_all is_bottom [ parent; lchild_fw; rchild_fw ] then
       (Bottom, Bottom)
-    else if List.exists is_rel [ parent; lchild_fw; rchild_fw ] then
+    else if List.for_all is_rel_or_bottom [ parent; lchild_fw; rchild_fw ] then
       let l, r =
         RelBw.try_ ~parent:(as_rel parent) ~lchild_fw:(as_rel lchild_fw)
           ~rchild_fw:(as_rel rchild_fw)
       in
       (Rel l, Rel r)
-    else if List.exists is_set [ parent; lchild_fw; rchild_fw ] then
+    else if List.for_all is_set_or_bottom [ parent; lchild_fw; rchild_fw ] then
       let l, r =
         SetBw.try_ ~parent:(as_set parent) ~lchild_fw:(as_set lchild_fw)
           ~rchild_fw:(as_set rchild_fw)
@@ -364,13 +377,13 @@ module FromTyped (D : Typed) = struct
   let if_b ~parent ~lchild_fw ~rchild_fw : t * t =
     if List.for_all is_bottom [ parent; lchild_fw; rchild_fw ] then
       (Bottom, Bottom)
-    else if List.exists is_rel [ parent; lchild_fw; rchild_fw ] then
+    else if List.for_all is_rel_or_bottom [ parent; lchild_fw; rchild_fw ] then
       let l, r =
         RelBw.if_ ~parent:(as_rel parent) ~lchild_fw:(as_rel lchild_fw)
           ~rchild_fw:(as_rel rchild_fw)
       in
       (Rel l, Rel r)
-    else if List.exists is_set [ parent; lchild_fw; rchild_fw ] then
+    else if List.for_all is_set_or_bottom [ parent; lchild_fw; rchild_fw ] then
       let l, r =
         SetBw.if_ ~parent:(as_set parent) ~lchild_fw:(as_set lchild_fw)
           ~rchild_fw:(as_set rchild_fw)
