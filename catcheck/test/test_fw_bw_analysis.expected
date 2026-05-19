@@ -38,6 +38,18 @@ File "libdir/aarch64hwreqs.cat", line 133, characters 60-69:
  | [Exp & M | Imp & Tag & R]; iico_order; [(Exp & W & L) | (FAULT & L)]
                                                             ^^^^^^^^^
   this set expression is always empty in its context
+File "libdir/aarch64.cat", line 101, characters 3-10:
+  [Exp & M]; rf & ext; [Exp & M]
+   ^^^^^^^
+  this expression may be strenghthened to `Exp & W`
+File "libdir/aarch64.cat", line 101, characters 24-31:
+  [Exp & M]; rf & ext; [Exp & M]
+                        ^^^^^^^
+  this expression may be strenghthened to `Exp & R`
+File "libdir/aarch64.cat", line 102, characters 26-33:
+  | [Exp & M]; ca & ext; [Exp & M]
+                          ^^^^^^^
+  this expression may be strenghthened to `Exp & W`
 File "libdir/aarch64.cat", line 125, characters 5-14:
     [Imp & TTD]; rf | rf; [Imp & TTD]
      ^^^^^^^^^

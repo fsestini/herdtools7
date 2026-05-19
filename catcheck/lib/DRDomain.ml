@@ -69,7 +69,7 @@ module Rel = struct
   (* FIXME: Remove Option.get *)
   let builtin = function
     | "id" -> Some id_rel
-    | "po" -> Some top
+    | "po" | "ext" | "int" -> Some top
     | "rf" ->
         let domain = CatSet.of_primitive_set "W" |> Option.get in
         let range = CatSet.of_primitive_set "R" |> Option.get in
