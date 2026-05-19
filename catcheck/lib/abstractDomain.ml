@@ -118,18 +118,12 @@ end
 
 module FromTyped (D : Typed) = struct
   type ('r, 's) ty_lat = Top | Rel of 'r | Set of 's | Bottom
-  type t = (D.rel, bool * D.set) ty_lat
+  type t = (D.rel, D.set) ty_lat
 
   let is_top = function Top -> true | _ -> false
   let is_bottom = function Bottom -> true | _ -> false
   let is_rel = function Rel _ -> true | _ -> false
   let is_set = function Set _ -> true | _ -> false
-
-  let is_tainted = function
-    | Top -> true
-    | Set (b, _) -> b
-    | Rel _ -> invalid_arg "must be a set"
-    | Bottom -> false
 
   let pp fmt =
     let open Format in
@@ -137,15 +131,15 @@ module FromTyped (D : Typed) = struct
     | Top -> fprintf fmt "Top"
     | Bottom -> fprintf fmt "Bottom"
     | Rel r -> fprintf fmt "Rel (%a)" D.Rel.pp r
-    | Set (b, r) -> fprintf fmt "Set (%b, %a)" b D.Set.pp r
+    | Set r -> fprintf fmt "Set (%a)" D.Set.pp r
 
   let mk_rel r = Rel r
-  let mk_set b s = Set (b, s)
+  let mk_set s = Set s
 
   let as_set = function
     | Bottom -> D.Set.bottom
     | Top -> D.Set.top
-    | Set (_, s) -> s
+    | Set s -> s
     | Rel _ -> invalid_arg "as_set: type mismatch"
 
   let as_rel = function
@@ -163,7 +157,7 @@ module FromTyped (D : Typed) = struct
     | Bottom, y -> y
     | x, Bottom -> x
     | Rel x, Rel y -> Rel (D.Rel.join x y)
-    | Set (b_x, x), Set (b_y, y) -> Set (b_x || b_y, D.Set.join x y)
+    | Set x, Set y -> Set (D.Set.join x y)
     | Set _, Rel _ | Rel _, Set _ -> invalid_arg "ill-typed join"
 
   let meet x y =
@@ -172,12 +166,12 @@ module FromTyped (D : Typed) = struct
     | Top, y -> y
     | Bottom, _ | _, Bottom -> Bottom
     | Rel x, Rel y -> Rel (D.Rel.meet x y)
-    | Set (b_x, x), Set (b_y, y) -> Set (b_x && b_y, D.Set.meet x y)
+    | Set x, Set y -> Set (D.Set.meet x y)
     | Set _, Rel _ | Rel _, Set _ -> invalid_arg "ill-typed meet"
 
   let as_sets : t list -> D.set list option =
     Util.List.traverse_option (function
-      | Set (_, s) -> Some s
+      | Set s -> Some s
       | Top -> Some D.Set.top
       | Bottom -> Some D.Set.bottom
       | Rel _ -> None)
@@ -195,19 +189,15 @@ module FromTyped (D : Typed) = struct
   let as_rels_exn l =
     match as_rels l with Some ss -> ss | None -> invalid_arg "expected rels"
 
-  let infer_list (args : t list) : (D.rel list, bool * D.set list) ty_lat =
+  let infer_list (args : t list) : (D.rel list, D.set list) ty_lat =
     if List.for_all is_bottom args then Bottom
-    else if List.exists is_set args then
-      let b = List.exists is_tainted args in
-      Set (b, as_sets_exn args)
+    else if List.exists is_set args then Set (as_sets_exn args)
     else if List.exists is_rel args then Rel (as_rels_exn args)
     else Top
 
-  let infer_pair a b : (D.rel * D.rel, bool * D.set * D.set) ty_lat =
+  let infer_pair a b : (D.rel * D.rel, D.set * D.set) ty_lat =
     if is_bottom a && is_bottom b then Bottom
-    else if is_set a || is_set b then
-      let tnt = List.exists is_tainted [ a; b ] in
-      Set (tnt, as_set a, as_set b)
+    else if is_set a || is_set b then Set (as_set a, as_set b)
     else if is_rel a || is_rel b then Rel (as_rel a, as_rel b)
     else Top
 
@@ -215,12 +205,12 @@ module FromTyped (D : Typed) = struct
     match (x, y) with
     | Top, Top | Bottom, Bottom -> true
     | Rel x, Rel y -> D.Rel.equal x y
-    | Set (b_x, x), Set (b_y, y) -> Bool.equal b_x b_y && D.Set.equal x y
+    | Set x, Set y -> D.Set.equal x y
     | _ -> false
 
   let builtin s =
     match D.Set.builtin s with
-    | Some x -> Some (Set (false, x))
+    | Some x -> Some (Set x)
     | None -> (
         match D.Rel.builtin s with
         | Some x -> Some (Rel x)
@@ -229,8 +219,8 @@ module FromTyped (D : Typed) = struct
             None)
 
   let konst_f = function
-    | AST.Empty AST.SET -> Set (false, D.Set.bottom)
-    | AST.Universe AST.SET -> Set (false, D.Set.top)
+    | AST.Empty AST.SET -> Set D.Set.bottom
+    | AST.Universe AST.SET -> Set D.Set.top
     | AST.Empty AST.RLN -> Rel D.Rel.bottom
     | AST.Universe AST.RLN -> Rel D.Rel.top
 
@@ -240,7 +230,7 @@ module FromTyped (D : Typed) = struct
     | Inv -> Rel (D.Rel.Forward.inv (as_rel x))
     | Comp -> (
         match x with
-        | Set (b, s) -> Set (b, D.Set.Forward.comp s)
+        | Set s -> Set (D.Set.Forward.comp s)
         | Rel r -> Rel (D.Rel.Forward.comp r)
         | Top | Bottom -> Top)
     | ToId -> Rel (D.Rel.Forward.toid (as_set x))
@@ -256,18 +246,18 @@ module FromTyped (D : Typed) = struct
     match (op, infer_list args) with
     | _, Bottom -> Bottom
     | _, Top -> Top
-    | Union, Set (b, args) -> Set (b, SetFw.union args)
+    | Union, Set args -> Set (SetFw.union args)
     | Union, Rel args -> Rel (RelFw.union args)
-    | Inter, Set (b, args) -> Set (b, SetFw.inter args)
+    | Inter, Set args -> Set (SetFw.inter args)
     | Inter, Rel args -> Rel (RelFw.inter args)
-    | Diff, Set (tnt, [ a; b ]) -> Set (tnt, SetFw.diff a b)
+    | Diff, Set [ a; b ] -> Set (SetFw.diff a b)
     | Diff, Rel [ a; b ] -> Rel (RelFw.diff a b)
     | Diff, _ -> failwith "malformed Diff"
     | Seq, Rel (x :: xs) ->
         let rr = Util.NonEmpty.cons x xs in
         Rel (RelFw.seq rr)
     | Seq, _ -> failwith "malformed seq"
-    | Cartesian, Set (_, [ a; b ]) -> Rel (RelFw.cartesian a b)
+    | Cartesian, Set [ a; b ] -> Rel (RelFw.cartesian a b)
     | Cartesian, _ -> failwith "malformed cartesian product"
     | Add, _ -> Top (* failwith "op2_f: Add not supported" *)
     | Tuple, _ -> Top
@@ -276,14 +266,14 @@ module FromTyped (D : Typed) = struct
   let try_f a b =
     match infer_pair a b with
     | Bottom -> Bottom
-    | Set (tnt, a, b) -> Set (tnt, SetFw.try_ a b)
+    | Set (a, b) -> Set (SetFw.try_ a b)
     | Rel (a, b) -> Rel (RelFw.try_ a b)
     | Top -> Top
 
   let if_f a b =
     match infer_pair a b with
     | Bottom -> Bottom
-    | Set (tnt, a, b) -> Set (tnt, SetFw.if_ a b)
+    | Set (a, b) -> Set (SetFw.if_ a b)
     | Rel (a, b) -> Rel (RelFw.if_ a b)
     | Top -> Top
 
@@ -297,13 +287,11 @@ module FromTyped (D : Typed) = struct
     | Comp -> (
         match parent with
         | Rel parent -> Rel (RelBw.comp ~parent ~child_fw:(as_rel child_f))
-        | Set (b, parent) ->
-            Set (b, SetBw.comp ~parent ~child_fw:(as_set child_f))
+        | Set parent -> Set (SetBw.comp ~parent ~child_fw:(as_set child_f))
         | Top -> Top
         | Bottom -> Bottom)
     | ToId ->
-        Set
-          (false, RelBw.to_id ~parent:(as_rel parent) ~child_fw:(as_set child_f))
+        Set (RelBw.to_id ~parent:(as_rel parent) ~child_fw:(as_set child_f))
     | Plus ->
         Rel (RelBw.plus ~parent:(as_rel parent) ~child_fw:(as_rel child_f))
     | Star ->
@@ -317,26 +305,26 @@ module FromTyped (D : Typed) = struct
     | Union, Rel parent, _ ->
         let children_fw = List.map as_rel children_f in
         List.map mk_rel (RelBw.union ~parent ~children_fw)
-    | Union, Set (b, parent), _ ->
+    | Union, Set parent, _ ->
         let children_fw = List.map as_set children_f in
-        List.map (mk_set b) (SetBw.union ~parent ~children_fw)
+        List.map mk_set (SetBw.union ~parent ~children_fw)
     | Inter, Rel parent, _ ->
         let children_fw = List.map as_rel children_f in
         List.map mk_rel (RelBw.inter ~parent ~children_fw)
-    | Inter, Set (b, parent), _ ->
+    | Inter, Set parent, _ ->
         let children_fw = List.map as_set children_f in
-        List.map (mk_set b) (SetBw.inter ~parent ~children_fw)
+        List.map mk_set (SetBw.inter ~parent ~children_fw)
     | Diff, Rel parent, [ lchild_fw; rchild_fw ] ->
         let lchild_fw = as_rel lchild_fw in
         let rchild_fw = as_rel rchild_fw in
         let l, r = RelBw.diff ~parent ~lchild_fw ~rchild_fw in
         [ Rel l; Rel r ]
     | Diff, Rel _, _ -> failwith "malformed Diff"
-    | Diff, Set (b, parent), [ lchild_fw; rchild_fw ] ->
+    | Diff, Set parent, [ lchild_fw; rchild_fw ] ->
         let lchild_fw = as_set lchild_fw in
         let rchild_fw = as_set rchild_fw in
         let l, r = SetBw.diff ~parent ~lchild_fw ~rchild_fw in
-        [ Set (b, l); Set (b, r) ]
+        [ Set l; Set r ]
     | Diff, Set _, _ -> failwith "malformed Diff"
     | Seq, Rel parent, x :: xs ->
         let x = as_rel x in
@@ -348,7 +336,7 @@ module FromTyped (D : Typed) = struct
         let lchild_fw = as_set lchild_fw in
         let rchild_fw = as_set rchild_fw in
         let l, r = RelBw.cartesian ~parent ~lchild_fw ~rchild_fw in
-        [ Set (false, l); Set (false, r) ]
+        [ Set l; Set r ]
     | Cartesian, Rel _, _ | Cartesian, Set _, _ ->
         failwith "malformed Cartesian"
     | _, Top, _ -> List.map (fun _ -> Top) children_f
@@ -370,7 +358,7 @@ module FromTyped (D : Typed) = struct
         SetBw.try_ ~parent:(as_set parent) ~lchild_fw:(as_set lchild_fw)
           ~rchild_fw:(as_set rchild_fw)
       in
-      (Set (false, l), Set (false, r))
+      (Set l, Set r)
     else (Top, Top)
 
   let if_b ~parent ~lchild_fw ~rchild_fw : t * t =
@@ -387,6 +375,6 @@ module FromTyped (D : Typed) = struct
         SetBw.if_ ~parent:(as_set parent) ~lchild_fw:(as_set lchild_fw)
           ~rchild_fw:(as_set rchild_fw)
       in
-      (Set (false, l), Set (false, r))
+      (Set l, Set r)
     else (Top, Top)
 end

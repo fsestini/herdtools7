@@ -83,7 +83,7 @@ let run (bs : Cat.binding list) : unit =
       if not (is_under_negative_context g v) then
         let loc = Node.location (Graph.get_node g v) in
         match (fw_map v, bw_map v) with
-        | D.Set (false, fw), D.Set (_, bw) when not (S.equal fw S.top) ->
+        | D.Set fw, D.Set bw when not (S.equal fw S.top) ->
             let combined = DRDomain.Set.meet fw bw in
             if CatSet.equal combined CatSet.empty then (
               Printf.printf "%a:\n" TxtLoc.pp loc;
