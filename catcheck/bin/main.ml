@@ -59,7 +59,6 @@ let () =
   let module P = Cat.MakeParser (struct
     let libdir = opts.libdir
   end) in
-  print_endline "Catcheck";
   let prims =
     match opts.primitives with
     | Some fname -> P.read_bindings fname
