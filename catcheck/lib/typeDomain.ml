@@ -29,6 +29,7 @@ let konst_f = function
   | AST.Empty AST.SET | AST.Universe AST.SET -> Set
   | AST.Empty AST.RLN | AST.Universe AST.RLN -> Rel
 
+let tag_f _ = Any
 let compatible = List.fold_left join Bottom
 let compatible_binary = function [ x; y ] -> compatible [ x; y ] | _ -> Any
 let require_rel = join Rel
@@ -49,6 +50,8 @@ let op2_f (op : AST.op2) xs =
   | Cartesian -> (
       match require_set (compatible_binary xs) with Set -> Rel | _ -> Any)
   | Add | Tuple -> Any
+
+let explicit_set_f = function [] -> Bottom | _ :: _ -> Any
 
 let try_f x y = compatible [ x; y ]
 let if_f x y = compatible [ x; y ]
