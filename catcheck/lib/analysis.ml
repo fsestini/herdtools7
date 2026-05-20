@@ -37,6 +37,9 @@ module MakeForward (D : AbstractDomain.Forward) = struct
         | Konst (_, k), [] -> D.konst_f k
         | Tag (_, tag), [] -> D.tag_f tag
         | ExplicitSet _, cs -> D.explicit_set_f (List.map sol cs)
+        (* The cat models currently exercised by catcheck use MatchSet, not
+           normal tag Match expressions, so keep this unsupported for now. *)
+        | Match _, _ -> D.top
         | MatchSet _, [ scrutinee; empty_case; nonempty_case ] ->
             D.match_set_f ~scrutinee:(sol scrutinee)
               ~empty_case:(sol empty_case) ~nonempty_case:(sol nonempty_case)
