@@ -1,1 +1,4 @@
+let ctrl = R * _
+let addr = R * _
+let data = R * _
 let iico_order = M * M
