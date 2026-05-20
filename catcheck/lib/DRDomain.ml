@@ -4,6 +4,7 @@ type rel = { domain : CatSet.t; range : CatSet.t }
 module Set = struct
   let bottom = CatSet.empty
   let top = CatSet.universe
+  let universe = CatSet.universe
   let join = CatSet.union
   let meet = CatSet.inter
   let equal = CatSet.equal
@@ -59,6 +60,7 @@ module Rel = struct
   let range t = t.range
   let bottom = { domain = CatSet.empty; range = CatSet.empty }
   let top = { domain = CatSet.universe; range = CatSet.universe }
+  let universe = top
 
   let join t1 t2 =
     {

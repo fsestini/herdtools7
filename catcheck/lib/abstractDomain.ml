@@ -7,6 +7,7 @@ module type Typed = sig
   module Set : sig
     val bottom : set
     val top : set
+    val universe : set
     val join : set -> set -> set
     val meet : set -> set -> set
     val equal : set -> set -> bool
@@ -38,6 +39,7 @@ module type Typed = sig
   module Rel : sig
     val bottom : rel
     val top : rel
+    val universe : rel
     val join : rel -> rel -> rel
     val meet : rel -> rel -> rel
     val equal : rel -> rel -> bool
@@ -212,9 +214,9 @@ module FromTyped (D : Typed) = struct
 
   let konst_f = function
     | AST.Empty AST.SET -> Set D.Set.bottom
-    | AST.Universe AST.SET -> Set D.Set.top
+    | AST.Universe AST.SET -> Set D.Set.universe
     | AST.Empty AST.RLN -> Rel D.Rel.bottom
-    | AST.Universe AST.RLN -> Rel D.Rel.top
+    | AST.Universe AST.RLN -> Rel D.Rel.universe
 
   let tag_f _ = Top
 
