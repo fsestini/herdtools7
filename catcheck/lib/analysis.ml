@@ -35,10 +35,12 @@ module MakeForward (D : AbstractDomain.Forward) = struct
         | Op1 (_loc, op, _), [ c ] -> D.op1_f op (sol c)
         | Op (_loc, op, _), cs -> D.op2_f op (List.map sol cs)
         | Konst (_, k), [] -> D.konst_f k
-        | ( ( Konst _ | Tag _ | App _ | Bind _ | BindRec _ | Fun _
-            | ExplicitSet _ | Match _ | MatchSet _ ),
-            _ ) ->
-            D.top
+        | Tag (_, tag), [] -> D.tag_f tag
+        | ExplicitSet _, cs -> D.explicit_set_f (List.map sol cs)
+        | MatchSet _, [ scrutinee; empty_case; nonempty_case ] ->
+            D.match_set_f ~scrutinee:(sol scrutinee)
+              ~empty_case:(sol empty_case) ~nonempty_case:(sol nonempty_case)
+        | (Bind _ | BindRec _ | Fun _), _ -> D.top
         | _ -> invalid_arg "malformed graph expression node")
 
   let forward (g : Graph.t) : Graph.var -> D.t =

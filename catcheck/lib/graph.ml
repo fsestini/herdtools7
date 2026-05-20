@@ -115,6 +115,9 @@ let rec compile_exp : AST.exp -> node_id Build.t =
     (* Log.warn (fun m -> m "compile_exp: unsupported expression@."); *)
     emit_expr exp []
   in
+  let set_clause_exp = function
+    | EltRem (_, _, exp) | PreEltPost (_, _, _, exp) -> exp
+  in
   match exp with
   | Op (_, _, exps) ->
       let* ids = traverse compile_exp exps in
@@ -132,6 +135,11 @@ let rec compile_exp : AST.exp -> node_id Build.t =
   | Tag _ | App _ | Bind _ | BindRec _ | Fun _ | ExplicitSet _ | Match _
   | MatchSet _ ->
       unsupported exp
+  | MatchSet (_, scrutinee, empty_case, clause) ->
+      let* scrutinee_id = compile_exp scrutinee in
+      let* empty_case_id = compile_exp empty_case in
+      let* nonempty_case_id = compile_exp (set_clause_exp clause) in
+      emit_expr exp [ scrutinee_id; empty_case_id; nonempty_case_id ]
   | Try (_, a, b) ->
       let* id_a = compile_exp a in
       let* id_b = compile_exp b in

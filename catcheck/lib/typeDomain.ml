@@ -53,5 +53,8 @@ let op2_f (op : AST.op2) xs =
 
 let explicit_set_f = function [] -> Bottom | _ :: _ -> Any
 
+let match_set_f ~scrutinee:_ ~empty_case ~nonempty_case =
+  compatible [ empty_case; nonempty_case ]
+
 let try_f x y = compatible [ x; y ]
 let if_f x y = compatible [ x; y ]

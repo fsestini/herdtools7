@@ -101,6 +101,7 @@ module type Forward = sig
   val op1_f : AST.op1 -> t -> t
   val op2_f : AST.op2 -> t list -> t
   val explicit_set_f : t list -> t
+  val match_set_f : scrutinee:t -> empty_case:t -> nonempty_case:t -> t
   val try_f : t -> t -> t
   val if_f : t -> t -> t
   val pp : Format.formatter -> t -> unit
@@ -272,6 +273,15 @@ module FromTyped (D : Typed) = struct
   (* failwith "op2_f: Tuple not supported" *)
 
   let explicit_set_f = function [] -> Bottom | _ :: _ -> Top
+
+  let match_set_f ~scrutinee:_ ~empty_case ~nonempty_case =
+    match infer_pair empty_case nonempty_case with
+    | Bottom -> Bottom
+    | Set (empty_case, nonempty_case) ->
+        Set (SetFw.union [ empty_case; nonempty_case ])
+    | Rel (empty_case, nonempty_case) ->
+        Rel (RelFw.union [ empty_case; nonempty_case ])
+    | Top -> Top
 
   let try_f a b =
     match infer_pair a b with
