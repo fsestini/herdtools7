@@ -100,6 +100,7 @@ module type Forward = sig
   (* Forward transfer *)
   val op1_f : AST.op1 -> t -> t
   val op2_f : AST.op2 -> t list -> t
+  val explicit_set_f : t list -> t
   val try_f : t -> t -> t
   val if_f : t -> t -> t
   val pp : Format.formatter -> t -> unit
@@ -269,6 +270,8 @@ module FromTyped (D : Typed) = struct
     | Add -> Top (* failwith "op2_f: Add not supported" *)
     | Tuple -> Top
   (* failwith "op2_f: Tuple not supported" *)
+
+  let explicit_set_f = function [] -> Bottom | _ :: _ -> Top
 
   let try_f a b =
     match infer_pair a b with
