@@ -20,10 +20,10 @@ let join x y =
 let equal = ( = )
 
 let builtin s =
-  match s with
-  | "id" | "po" | "rf" | "fr" | "co" -> Some Rel
-  | "emptyset" -> Some Set
-  | _ -> if Option.is_some (CatSet.of_primitive_set s) then Some Set else None
+  match DRDomain.Set.builtin s with
+  | Some _ -> Some Set
+  | None -> (
+      match DRDomain.Rel.builtin s with Some _ -> Some Rel | None -> None)
 
 let konst_f = function
   | AST.Empty AST.SET | AST.Universe AST.SET -> Set
