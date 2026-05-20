@@ -6,10 +6,26 @@ File "libdir/aarch64fences.cat", line 25, characters 27-32:
 and L = try L & (Exp & M | FAULT) with emptyset
                            ^^^^^
   this set expression is always empty in its context
+File "libdir/aarch64bbm.cat", line 78, characters 33-61:
+let PTE-OA-update = ([PTE]; ca; [PTE & oa-changes(PTE, ca^-1)])
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  this expression may be strenghthened to `Imp & TTD & W`
+File "libdir/aarch64bbm.cat", line 80, characters 21-60:
+        ([PTE]; ca; [PTE & at-least-one-writable(PTE, ca^-1)])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  this expression may be strenghthened to `Imp & TTD & W`
 File "libdir/aarch64deps.cat", line 73, characters 34-38:
 let data = [Exp & R]; dtrm & po; [Rreg]; iico_data & ii_data; [Exp & W]
                                   ^^^^
   this expression may be strenghthened to `DATA`
+File "libdir/aarch64deps.cat", line 89, characters 31-35:
+   [Exp & R]; pick-dtrm & po; [Rreg]; (iico_data | (iico_data; iico_ctrl)) & ii_data; [Exp & W]
+                               ^^^^
+  this expression may be strenghthened to `DATA`
+File "libdir/aarch64hwreqs.cat", line 87, characters 28-31:
+ | [Imp & TTD & R]; tr-ib; [IFB]; po
+                            ^^^
+  this expression may be strenghthened to `MMU`
 File "libdir/aarch64hwreqs.cat", line 98, characters 10-17:
  | addr; [Exp & M]; lmrs; [Exp & R | Imp & Tag & R]
           ^^^^^^^

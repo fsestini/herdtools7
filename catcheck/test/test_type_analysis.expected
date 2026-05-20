@@ -1,5 +1,14 @@
 File "_none_", line 1, characters -1--1: rec_set : Set
 File "_none_", line 1, characters -1--1: alias : Set
+File "_none_", line 1, characters -1--1: unknown_app : Any
+File "_none_", line 1, characters -1--1: match_set_expr : Set
+File "_none_", line 1, characters -1--1: match_rel : Rel
+File "_none_", line 1, characters -1--1: match_set : Set
+File "_none_", line 1, characters -1--1: helper_set_app : Set
+File "_none_", line 1, characters -1--1: helper_app : Rel
+File "_none_", line 1, characters -1--1: explicit_set : Any
+File "_none_", line 1, characters -1--1: domain_rel : Set
+File "_none_", line 1, characters -1--1: range_rel : Set
 File "_none_", line 1, characters -1--1: unknown_primitive : Any
 File "_none_", line 1, characters -1--1: bad_toid : Any
 File "_none_", line 1, characters -1--1: mixed_union : Any
