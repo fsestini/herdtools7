@@ -17,6 +17,8 @@ let lift2 f x y =
 
 let union = lift2 CatSet.union
 let inter = lift2 CatSet.inter
+let join = union
+let meet = inter
 
 let diff (t_x, set_x) (t_y, set_y) =
   let t = t_x || t_y in

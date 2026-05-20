@@ -121,11 +121,12 @@ module Make (D : AbstractDomain.S) = struct
   (* type analysis_result = { forward : D.t; backward : D.t } *)
   type analysis_result = {
     graph : Graph.t;
-    fw_map : var -> D.t;
-    bw_map : var -> D.t;
+    fw_map : var -> FwD.t;
+    bw_map : var -> BwD.t;
   }
 
-  let solve_all (stmts : Cat.binding list) : analysis_result =
+  let solve_all ~(fw_to_bw : FwD.t -> BwD.t) (stmts : Cat.binding list) :
+      analysis_result =
     Log.debug (fun m -> m "solve_all");
 
     let g = Graph.build stmts in

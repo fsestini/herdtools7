@@ -10,6 +10,8 @@ val equal : t -> t -> bool
 val pp : Format.formatter -> t -> unit
 val union : t -> t -> t
 val inter : t -> t -> t
+val join : t -> t -> t
+val meet : t -> t -> t
 val diff : t -> t -> t
 val comp : t -> t
 val taint : t -> t
