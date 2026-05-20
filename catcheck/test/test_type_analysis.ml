@@ -14,8 +14,9 @@ let explicit_set children = AST.ExplicitSet (loc, children)
 let match_ scrutinee clauses default =
   AST.Match (loc, scrutinee, clauses, default)
 
-let match_set scrutinee body =
-  AST.MatchSet (loc, scrutinee, body, AST.EltRem (None, None, var "Exp"))
+let match_set scrutinee empty_case nonempty_case =
+  AST.MatchSet
+    (loc, scrutinee, empty_case, AST.EltRem (None, None, nonempty_case))
 
 let binding ?(is_recursive = false) name exp =
   Cat.{ name; exp; is_recursive; location = loc }
@@ -49,7 +50,9 @@ let bindings =
       (match_ (var "Exp") [ ("case", var "W") ] (Some (var "R")));
     binding "match_rel"
       (match_ (var "Exp") [ ("case", var "po") ] (Some (var "rf")));
-    binding "match_set_expr" (match_set (var "Exp") (var "W"));
+    binding "match_set_expr" (match_set (var "Exp") (var "W") (var "R"));
+    binding "match_set_rel" (match_set (var "po") (var "po") (var "rf"));
+    binding "match_set_mixed" (match_set (var "Exp") (var "W") (var "po"));
     binding "unknown_app" (app (var "definitely_unknown_function") (var "Exp"));
     binding "alias" (var "set_union");
     binding ~is_recursive:true "rec_set"
