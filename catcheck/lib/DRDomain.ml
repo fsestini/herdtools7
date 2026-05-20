@@ -49,6 +49,8 @@ module Rel = struct
     Misc.pair_eq CatSet.equal CatSet.equal (t1.domain, t1.range)
       (t2.domain, t2.range)
 
+  let domain t = t.domain
+  let range t = t.range
   let bottom = { domain = CatSet.empty; range = CatSet.empty }
   let top = { domain = CatSet.universe; range = CatSet.universe }
 
