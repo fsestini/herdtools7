@@ -10,6 +10,12 @@ module Set = struct
 
   let builtin = function
     | "emptyset" -> Some CatSet.empty
+    | "ADDR" | "DC.CVAU" | "IC.IALLU" | "IC.IALLUIS" | "IC.IVAU"
+    | "PTEDevice-GRE" | "PTEDevice-nGRE" | "PTEDevice-nGnRE"
+    | "PTEDevice-nGnRnE" | "PTEINV" | "PTEISH" | "PTENSH" | "PTENormal"
+    | "PTEOSH" | "PTETaggedNormal" | "PTEV" | "PTEXS" | "PTEiNC" | "PTEiWB"
+    | "PTEiWT" | "PTEoNC" | "PTEoWB" | "PTEoWT" | "Restricted-CMODX" ->
+        Some top
     | s -> CatSet.of_primitive_set s
 
   let pp = CatSet.pp
@@ -71,7 +77,11 @@ module Rel = struct
   (* FIXME: Remove Option.get *)
   let builtin = function
     | "id" -> Some id_rel
-    | "po" | "ext" | "int" -> Some top
+    | "po" | "ext" | "int" | "loc" | "same-low-order-bits" | "same-instance"
+    | "sm" | "rmw" | "amo" | "co0" | "AFtoDB" | "inv-domain" | "iico_data"
+    | "iico_ctrl" | "iico_order" | "TLBI-after" | "DC-after" | "IC-after"
+    | "lxsx" | "rf-reg" ->
+        Some top
     | "rf" ->
         let domain = CatSet.of_primitive_set "W" |> Option.get in
         let range = CatSet.of_primitive_set "R" |> Option.get in
