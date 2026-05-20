@@ -36,6 +36,9 @@ module MakeForward (D : AbstractDomain.Forward) = struct
         | Op (_loc, op, _), cs -> D.op2_f op (List.map sol cs)
         | Konst (_, k), [] -> D.konst_f k
         | Tag (_, tag), [] -> D.tag_f tag
+        | App (_, Var (_, func), _), [ _func_id; arg_id ] ->
+            D.app_f ~func ~arg_t:(sol arg_id)
+        | App _, [ _func_id; _arg_id ] -> D.top
         | ExplicitSet _, cs -> D.explicit_set_f (List.map sol cs)
         (* The cat models currently exercised by catcheck use MatchSet, not
            normal tag Match expressions, so keep this unsupported for now. *)

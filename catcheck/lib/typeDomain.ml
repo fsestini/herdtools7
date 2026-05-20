@@ -51,6 +51,14 @@ let op2_f (op : AST.op2) xs =
       match require_set (compatible_binary xs) with Set -> Rel | _ -> Any)
   | Add | Tuple -> Any
 
+let app_f ~func ~arg_t =
+  match func with
+  | "domain" | "range" -> (
+      match require_rel arg_t with Rel -> Set | _ -> Any)
+  | "intervening" | "fencerel" | "same-oa" -> Rel
+  | "oa-changes" | "at-least-one-writable" -> Set
+  | _ -> Any
+
 let explicit_set_f = function [] -> Bottom | _ :: _ -> Any
 
 let match_set_f ~scrutinee:_ ~empty_case ~nonempty_case =

@@ -100,6 +100,7 @@ module type Forward = sig
   (* Forward transfer *)
   val op1_f : AST.op1 -> t -> t
   val op2_f : AST.op2 -> t list -> t
+  val app_f : func:string -> arg_t:t -> t
   val explicit_set_f : t list -> t
   val match_set_f : scrutinee:t -> empty_case:t -> nonempty_case:t -> t
   val try_f : t -> t -> t
@@ -271,6 +272,22 @@ module FromTyped (D : Typed) = struct
     | Add -> Top (* failwith "op2_f: Add not supported" *)
     | Tuple -> Top
   (* failwith "op2_f: Tuple not supported" *)
+
+  let app_f ~func ~arg_t =
+    match func with
+    | "domain" -> (
+        match arg_t with
+        | Rel rel -> Set (D.Rel.domain rel)
+        | Bottom -> Set (D.Rel.domain D.Rel.bottom)
+        | Top | Set _ -> Top)
+    | "range" -> (
+        match arg_t with
+        | Rel rel -> Set (D.Rel.range rel)
+        | Bottom -> Set (D.Rel.range D.Rel.bottom)
+        | Top | Set _ -> Top)
+    | "intervening" | "fencerel" | "same-oa" -> Rel D.Rel.top
+    | "oa-changes" | "at-least-one-writable" -> Set D.Set.top
+    | _ -> Top
 
   let explicit_set_f = function [] -> Bottom | _ :: _ -> Top
 

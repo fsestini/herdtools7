@@ -47,6 +47,66 @@ let infer_types (bs : Cat.binding list) =
         Printf.printf "%a: %s : %s\n" TxtLoc.pp location name ty_str
     | _, Node.Expr _ -> ())
 
+let selected_vars g =
+  Graph.all_vars g
+  |> List.concat_map (fun n_id ->
+      match Graph.get_node g n_id with
+      | Node.Expr
+          {
+            expr = AST.Op1 (_, AST.ToId, _) | AST.Op (_, AST.Union, _);
+            children;
+          } ->
+          children
+          |> List.filter (fun child ->
+              match Graph.get_node g child with
+              | Node.Expr { expr = AST.Var (_, "emptyset"); children = [] } ->
+                  false
+              | _ -> true)
+      | _ -> [])
+
+let exp_constructor = function
+  | AST.Konst _ -> "Konst"
+  | AST.Tag _ -> "Tag"
+  | AST.Var _ -> "Var"
+  | AST.Op1 _ -> "Op1"
+  | AST.Op _ -> "Op"
+  | AST.App _ -> "App"
+  | AST.Bind _ -> "Bind"
+  | AST.BindRec _ -> "BindRec"
+  | AST.Fun _ -> "Fun"
+  | AST.ExplicitSet _ -> "ExplicitSet"
+  | AST.Match _ -> "Match"
+  | AST.MatchSet _ -> "MatchSet"
+  | AST.Try _ -> "Try"
+  | AST.If _ -> "If"
+
+let report_any_types (bs : Cat.binding list) =
+  let module A = Analysis.MakeForward (TypeDomain) in
+  let g = Graph.build bs in
+  let ty_map = A.forward g in
+  let report id node =
+    match ty_map id with
+    | TypeDomain.Any ->
+        let loc = Node.location node in
+        let kind =
+          match node with
+          | Node.Def { name; _ } -> "definition " ^ name
+          | Node.Expr { expr; _ } -> "expression " ^ exp_constructor expr
+        in
+        Printf.printf "%a: %s: %s\n" TxtLoc.pp loc kind (E.extract loc)
+    | TypeDomain.Bottom | TypeDomain.Set | TypeDomain.Rel -> ()
+  in
+  Graph.nodes g
+  |> List.iter (function
+    | _, Node.Def { rhs; _ }
+      when match Graph.get_node g rhs with
+           | Node.Expr { expr = AST.Fun _; _ } -> true
+           | _ -> false ->
+        ()
+    | id, (Node.Def _ as node) -> report id node
+    | _ -> ());
+  selected_vars g |> List.iter (fun id -> report id (Graph.get_node g id))
+
 let rec is_under_negative_context g v =
   let parent = Graph.get_parent g v in
   match Graph.get_node g parent with
@@ -61,24 +121,7 @@ let run (bs : Cat.binding list) : unit =
   let module S = DRDomain.Set in
   let A.{ graph = g; fw_map; bw_map } = A.solve_all bs in
   Trace.run_if_requested ~graph:g ~fw_map ~bw_map ~pp_domain:D.pp;
-  let selected_vars =
-    Graph.all_vars g
-    |> List.concat_map (fun n_id ->
-        match Graph.get_node g n_id with
-        | Node.Expr
-            {
-              expr = AST.Op1 (_, AST.ToId, _) | AST.Op (_, AST.Union, _);
-              children;
-            } ->
-            children
-            |> List.filter (fun child ->
-                match Graph.get_node g child with
-                | Node.Expr { expr = AST.Var (_, "emptyset"); children = [] } ->
-                    false
-                | _ -> true)
-        | _ -> [])
-  in
-  selected_vars
+  selected_vars g
   |> List.iter (fun v ->
       if not (is_under_negative_context g v) then
         let loc = Node.location (Graph.get_node g v) in
