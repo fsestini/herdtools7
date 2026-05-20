@@ -132,7 +132,7 @@ let rec compile_exp : AST.exp -> node_id Build.t =
       in
       emit_expr (Var (loc, s)) children
   | Konst _ -> unsupported exp
-  | Tag _ | Bind _ | BindRec _ | Fun _ -> unsupported exp
+  | Tag _ | Bind _ | BindRec _ | Fun _ | Match _ -> unsupported exp
   | ExplicitSet (_, exps) ->
       let* ids = traverse compile_exp exps in
       emit_expr exp ids

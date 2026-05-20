@@ -4,8 +4,6 @@ File "_none_", line 1, characters -1--1: unknown_app : Any
 File "_none_", line 1, characters -1--1: match_set_mixed : Any
 File "_none_", line 1, characters -1--1: match_set_rel : Rel
 File "_none_", line 1, characters -1--1: match_set_expr : Set
-File "_none_", line 1, characters -1--1: match_rel : Rel
-File "_none_", line 1, characters -1--1: match_set : Set
 File "_none_", line 1, characters -1--1: helper_set_app : Set
 File "_none_", line 1, characters -1--1: helper_app : Rel
 File "_none_", line 1, characters -1--1: explicit_set : Any

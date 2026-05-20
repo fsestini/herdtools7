@@ -11,9 +11,6 @@ let op1 op child = AST.Op1 (loc, op, child)
 let app func arg = AST.App (loc, func, arg)
 let explicit_set children = AST.ExplicitSet (loc, children)
 
-let match_ scrutinee clauses default =
-  AST.Match (loc, scrutinee, clauses, default)
-
 let match_set scrutinee empty_case nonempty_case =
   AST.MatchSet
     (loc, scrutinee, empty_case, AST.EltRem (None, None, nonempty_case))
@@ -46,10 +43,6 @@ let bindings =
       (app (var "intervening") (op AST.Tuple [ var "W"; var "po" ]));
     binding "helper_set_app"
       (app (var "oa-changes") (op AST.Tuple [ var "Exp"; var "po" ]));
-    binding "match_set"
-      (match_ (var "Exp") [ ("case", var "W") ] (Some (var "R")));
-    binding "match_rel"
-      (match_ (var "Exp") [ ("case", var "po") ] (Some (var "rf")));
     binding "match_set_expr" (match_set (var "Exp") (var "W") (var "R"));
     binding "match_set_rel" (match_set (var "po") (var "po") (var "rf"));
     binding "match_set_mixed" (match_set (var "Exp") (var "W") (var "po"));
