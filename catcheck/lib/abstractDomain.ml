@@ -98,8 +98,6 @@ module type Forward = sig
 
   val konst_f : AST.konst -> t
   val tag_f : AST.tag -> t
-
-  (* Forward transfer *)
   val op1_f : AST.op1 -> t -> t
   val op2_f : AST.op2 -> t list -> t
   val app_f : func:string -> arg_t:t -> t
@@ -110,10 +108,13 @@ module type Forward = sig
   val pp : Format.formatter -> t -> unit
 end
 
-module type S = sig
-  include Forward
+module type Backward = sig
+  type t
 
-  val meet : t -> t -> t
+  val bottom : t
+  val join : t -> t -> t
+  val equal : t -> t -> bool
+  val pp : Format.formatter -> t -> unit
 
   (* Backward/demand transfer:
      Given parent demand and forward facts of children, produce demands for children
@@ -122,6 +123,11 @@ module type S = sig
   val op2_b : AST.op2 -> parent:t -> children_f:t list -> t list
   val try_b : parent:t -> lchild_fw:t -> rchild_fw:t -> t * t
   val if_b : parent:t -> lchild_fw:t -> rchild_fw:t -> t * t
+end
+
+module type S = sig
+  include Forward
+  include Backward with type t := t
 end
 
 module FromTyped (D : Typed) = struct

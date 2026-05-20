@@ -42,18 +42,18 @@ let pp_combined_set combined_set fmt v =
   | Some combined -> Format.fprintf fmt "%a" CatSet.pp combined
   | None -> Format.pp_print_string fmt "<not a set>"
 
-let trace_node ~graph:g ~fw_map ~bw_map ~pp_domain fmt v =
+let trace_node ~graph:g ~fw_map ~bw_map ~pp_fw ~pp_bw fmt v =
   let node = Graph.get_node g v in
   let loc = Node.location node in
   Format.fprintf fmt "node %a (%a) at %a:@." Graph.Id.pp v pp_node_kind node
     pp_txtloc loc;
   Format.fprintf fmt "  source: %a@." pp_source loc;
-  Format.fprintf fmt "  fw:     %a@." pp_domain (fw_map v);
-  Format.fprintf fmt "  bw:     %a@." pp_domain (bw_map v)
+  Format.fprintf fmt "  fw:     %a@." pp_fw (fw_map v);
+  Format.fprintf fmt "  bw:     %a@." pp_bw (bw_map v)
 
-let trace_ancestor_chain ~graph:g ~fw_map ~bw_map ~pp_domain fmt start =
+let trace_ancestor_chain ~graph:g ~fw_map ~bw_map ~pp_fw ~pp_bw fmt start =
   let max_depth = 64 in
-  let trace_node = trace_node ~graph:g ~fw_map ~bw_map ~pp_domain in
+  let trace_node = trace_node ~graph:g ~fw_map ~bw_map ~pp_fw ~pp_bw in
   let rec loop depth seen child =
     if depth > max_depth then
       Format.fprintf fmt
@@ -72,7 +72,7 @@ let trace_ancestor_chain ~graph:g ~fw_map ~bw_map ~pp_domain fmt start =
   in
   loop 0 [] start
 
-let run_if_requested ~graph:g ~fw_map ~bw_map ~pp_domain =
+let run_if_requested ~graph:g ~fw_map ~bw_map ~pp_fw ~pp_bw =
   match Sys.getenv_opt "CATCHECK_TRACE_LOC" with
   | None -> ()
   | Some spec -> (
@@ -82,9 +82,9 @@ let run_if_requested ~graph:g ~fw_map ~bw_map ~pp_domain =
             "CATCHECK_TRACE_LOC: expected path:line:start_col-end_col, got %S@."
             spec
       | target ->
-          let trace_node = trace_node ~graph:g ~fw_map ~bw_map ~pp_domain in
+          let trace_node = trace_node ~graph:g ~fw_map ~bw_map ~pp_fw ~pp_bw in
           let trace_ancestor_chain =
-            trace_ancestor_chain ~graph:g ~fw_map ~bw_map ~pp_domain
+            trace_ancestor_chain ~graph:g ~fw_map ~bw_map ~pp_fw ~pp_bw
           in
           Graph.all_vars g
           |> List.iter (fun v ->

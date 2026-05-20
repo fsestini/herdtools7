@@ -17,9 +17,6 @@ module MakeForward (D : AbstractDomain.Forward) = struct
 
   module Fw = Fixpoint.MakeForward (Var) (Lat)
 
-  (* type fw_env = { dm : def_map; nm : node_map; deps : var -> var list } *)
-
-  (* let fw_rhs (env : fw_env) (sol : var -> D.t) (v : var) : D.t = *)
   let fw_rhs (g : Graph.t) (sol : Graph.var -> D.t) (v : Graph.var) : D.t =
     match Graph.get_node g v with
     | Node.Def { rhs; _ } -> sol rhs
@@ -41,7 +38,7 @@ module MakeForward (D : AbstractDomain.Forward) = struct
         | App _, [ _func_id; _arg_id ] -> D.top
         | ExplicitSet _, cs -> D.explicit_set_f (List.map sol cs)
         (* The cat models currently exercised by catcheck use MatchSet, not
-           normal tag Match expressions, so keep this unsupported for now. *)
+           normal tag Match expressions, so keeping this unsupported for now. *)
         | Match _, _ -> D.top
         | MatchSet _, [ scrutinee; empty_case; nonempty_case ] ->
             D.match_set_f ~scrutinee:(sol scrutinee)
@@ -51,25 +48,34 @@ module MakeForward (D : AbstractDomain.Forward) = struct
 
   let forward (g : Graph.t) : Graph.var -> D.t =
     let vars = Graph.all_vars g in
-    let deps = Graph.dependents g in
+    let deps v = Graph.dependents g v in
     Fw.solve ~vars ~deps ~rhs:(fw_rhs g) ~init:(fun _ -> D.bottom)
 end
 
-module Make (D : AbstractDomain.S) = struct
-  include MakeForward (D)
-  module Bw = Fixpoint.MakeBackward (Var) (Lat)
+module MakeSplit (FwD : AbstractDomain.Forward) (BwD : AbstractDomain.Backward) =
+struct
+  module FwAnalysis = MakeForward (FwD)
+
+  let forward = FwAnalysis.forward
+
+  module BwLat = struct
+    type t = BwD.t
+
+    let bottom = BwD.bottom
+    let join = BwD.join
+    let equal = BwD.equal
+    let pp = BwD.pp
+  end
+
+  module Bw = Fixpoint.MakeBackward (Var) (BwLat)
 
   (* ---------------- Backward (demand) analysis ---------------- *)
 
-  (* type bw_env = { *)
-  (*   dm : def_map; *)
-  (*   nm : node_map; *)
-  (*   v : var -> D.t; (* results of forward analysis *) *)
-  (* } *)
-
   (* Propagate demand "downward" (from parent to children) in the syntax tree. *)
-  let bw_step ~(g : Graph.t) ~(fw_map : var -> D.t) (c : var -> D.t) (v : var) :
-      (var * D.t) list =
+  let bw_step ~(g : Graph.t) ~(fw_to_bw : FwD.t -> BwD.t)
+      ~(fw_map : var -> FwD.t) (c : var -> BwD.t) (v : var) : (var * BwD.t) list
+      =
+    let fw_map child = fw_to_bw (fw_map child) in
     match Graph.get_node g v with
     | Node.Def { rhs; _ } -> [ (rhs, c v) ]
     | Node.Expr { expr; children } -> (
@@ -81,23 +87,24 @@ module Make (D : AbstractDomain.S) = struct
             let parent = c v in
             let lchild_fw = fw_map c1 in
             let rchild_fw = fw_map c2 in
-            let l_bw, r_bw = D.try_b ~parent ~lchild_fw ~rchild_fw in
+            let l_bw, r_bw = BwD.try_b ~parent ~lchild_fw ~rchild_fw in
             [ (c1, l_bw); (c2, r_bw) ]
         | If _, [ c1; c2 ] ->
             let parent = c v in
             let lchild_fw = fw_map c1 in
             let rchild_fw = fw_map c2 in
-            let l_bw, r_bw = D.if_b ~parent ~lchild_fw ~rchild_fw in
+            let l_bw, r_bw = BwD.if_b ~parent ~lchild_fw ~rchild_fw in
             [ (c1, l_bw); (c2, r_bw) ]
         | Op1 (_, op, _), [ child ] ->
             let parent_d = c v in
             let child_f = fw_map child in
-            [ (child, D.op1_b op ~parent:parent_d ~child_f) ]
+            [ (child, BwD.op1_b op ~parent:parent_d ~child_f) ]
         | Op (_, op, _), children ->
             let parent_d = c v in
             let children_f = List.map fw_map children in
-            let ds = D.op2_b op ~parent:parent_d ~children_f in
+            let ds = BwD.op2_b op ~parent:parent_d ~children_f in
             List.map2 (fun ch d -> (ch, d)) children ds
+        (* TODO: shouldn't implement backward rules for these constructors? *)
         | ( ( Konst _ | Tag _ | App _ | Bind _ | BindRec _ | Fun _
             | ExplicitSet _ | Match _ | MatchSet _ ),
             _ ) ->
@@ -105,20 +112,18 @@ module Make (D : AbstractDomain.S) = struct
         | _ -> invalid_arg "malformed graph expression node")
 
   (* Backward roots: definitions that should be treated as "publicly exported". *)
-  let backward ~(g : Graph.t) ~(fw_map : var -> D.t) (roots : def_id list) :
-      var -> D.t =
+  let backward ~(g : Graph.t) ~(fw_to_bw : FwD.t -> BwD.t)
+      ~(fw_map : var -> FwD.t) (roots : def_id list) : var -> BwD.t =
     let vars = Graph.all_vars g in
-    (* let env = { dm; nm; v } in *)
     let seeds =
       List.map
         (fun did ->
-          let vd = fw_map did in
+          let vd = fw_to_bw (fw_map did) in
           (did, vd))
         roots
     in
-    Bw.solve ~vars ~step:(bw_step ~g ~fw_map) ~seeds
+    Bw.solve ~vars ~step:(bw_step ~g ~fw_to_bw ~fw_map) ~seeds
 
-  (* type analysis_result = { forward : D.t; backward : D.t } *)
   type analysis_result = {
     graph : Graph.t;
     fw_map : var -> FwD.t;
@@ -135,7 +140,7 @@ module Make (D : AbstractDomain.S) = struct
 
     (* debug_analysis ~name:"Forward analysis" ~vars ~dm ~nm fw_map; *)
     let roots = Graph.all_toplevel_defs g in
-    let bw_map = backward ~g ~fw_map roots in
+    let bw_map = backward ~g ~fw_to_bw ~fw_map roots in
 
     (* debug_analysis ~name:"Backward analysis" ~vars ~dm ~nm bw_map; *)
     (* debug_analysis ~name:"Full analysis" ~vars ~dm ~nm (fun v -> *)
