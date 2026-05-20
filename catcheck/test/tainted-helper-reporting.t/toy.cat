@@ -1,0 +1,4 @@
+let oa-changes = emptyset
+let known-left = [Exp & M]; rf
+let known-right = rf; [Exp & M]
+let unknown-right = rf; [Exp & oa-changes(Exp, rf)]

@@ -116,9 +116,9 @@ let rec is_under_negative_context g v =
       || is_under_negative_context g parent
 
 let run (bs : Cat.binding list) : unit =
-  let module D = AbstractDomain.FromTyped (DRDomain) in
+  let module D = AbstractDomain.FromTyped (DRTaintDomain) in
   let module A = Analysis.Make (D) in
-  let module S = DRDomain.Set in
+  let module S = DRTaintDomain.Set in
   let A.{ graph = g; fw_map; bw_map } = A.solve_all bs in
   Trace.run_if_requested ~graph:g ~fw_map ~bw_map ~pp_domain:D.pp;
   selected_vars g
@@ -126,14 +126,18 @@ let run (bs : Cat.binding list) : unit =
       if not (is_under_negative_context g v) then
         let loc = Node.location (Graph.get_node g v) in
         match (fw_map v, bw_map v) with
-        | D.Set fw, D.Set bw when not (S.equal fw S.top) ->
-            let combined = DRDomain.Set.meet fw bw in
-            if CatSet.equal combined CatSet.empty then (
+        | D.Set fw, D.Set bw
+          when not (CatSet.equal (S.carrier fw) CatSet.universe) ->
+            let combined = S.meet fw bw in
+            if CatSet.equal (S.carrier combined) CatSet.empty then (
               Printf.printf "%a:\n" TxtLoc.pp loc;
               Format.printf "%a@." pp_loc loc;
               Printf.printf
                 "  this set expression is always empty in its context\n")
-            else if not (S.equal combined fw) then (
+            else if
+              (not (S.is_tainted fw))
+              && not (CatSet.equal (S.carrier combined) (S.carrier fw))
+            then (
               let expected = combined in
               Printf.printf "%a:\n" TxtLoc.pp loc;
               Format.printf "%a@." pp_loc loc;
