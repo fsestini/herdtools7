@@ -116,31 +116,43 @@ let rec is_under_negative_context g v =
       || is_under_negative_context g parent
 
 let run (bs : Cat.binding list) : unit =
-  let module D = AbstractDomain.FromTyped (DRTaintDomain) in
-  let module A = Analysis.Make (D) in
+  let module Fw = AbstractDomain.FromTyped (DRTaintDomain) in
+  let module Bw = AbstractDomain.FromTyped (DRDomain) in
+  let module A = Analysis.MakeSplit (Fw) (Bw) in
   let module S = DRTaintDomain.Set in
-  let A.{ graph = g; fw_map; bw_map } = A.solve_all bs in
-  Trace.run_if_requested ~graph:g ~fw_map ~bw_map ~pp_domain:D.pp;
+  let erase_taint = function
+    | Fw.Top -> Bw.Top
+    | Fw.Bottom -> Bw.Bottom
+    | Fw.Set s -> Bw.Set (S.carrier s)
+    | Fw.Rel r ->
+        Bw.Rel
+          {
+            DRDomain.domain = S.carrier r.DRTaintDomain.domain;
+            range = S.carrier r.DRTaintDomain.range;
+          }
+  in
+  let A.{ graph = g; fw_map; bw_map } = A.solve_all ~fw_to_bw:erase_taint bs in
+  Trace.run_if_requested ~graph:g ~fw_map ~bw_map ~pp_fw:Fw.pp ~pp_bw:Bw.pp;
   selected_vars g
   |> List.iter (fun v ->
       if not (is_under_negative_context g v) then
         let loc = Node.location (Graph.get_node g v) in
         match (fw_map v, bw_map v) with
-        | D.Set fw, D.Set bw
+        | Fw.Set fw, Bw.Set bw
           when not (CatSet.equal (S.carrier fw) CatSet.universe) ->
-            let combined = S.meet fw bw in
-            if CatSet.equal (S.carrier combined) CatSet.empty then (
+            let combined = CatSet.inter (S.carrier fw) bw in
+            if CatSet.equal combined CatSet.empty then (
               Printf.printf "%a:\n" TxtLoc.pp loc;
               Format.printf "%a@." pp_loc loc;
               Printf.printf
                 "  this set expression is always empty in its context\n")
             else if
               (not (S.is_tainted fw))
-              && not (CatSet.equal (S.carrier combined) (S.carrier fw))
+              && not (CatSet.equal combined (S.carrier fw))
             then (
               let expected = combined in
               Printf.printf "%a:\n" TxtLoc.pp loc;
               Format.printf "%a@." pp_loc loc;
               Format.printf "  this expression may be strenghthened to `%a`@."
-                S.pp expected)
+                CatSet.pp expected)
         | _ -> ())
