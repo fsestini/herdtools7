@@ -16,4 +16,9 @@
 
 type dirn = R | W
 
+let equal d1 d2 =
+  match d1,d2 with
+  | R,R | W,W -> true
+  | R,W | W,R -> false
+
 let pp_dirn d = match d with R -> "R" | W -> "W"
