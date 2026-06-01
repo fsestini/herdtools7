@@ -743,7 +743,7 @@ module IC = struct
 
   let all op = match op.typ with | VA -> false | ALL -> true
 
-  let equal = ( = )
+  let equal (op1 : op) (op2 : op) = Misc.polymorphic_equal op1 op2
 end
 
 module DC = struct
@@ -793,7 +793,7 @@ module DC = struct
           k)
       k
 
-  let equal = ( = )
+  let equal (op1 : op) (op2 : op) = Misc.polymorphic_equal op1 op2
 end
 
 type level = |E0 |E1 |E2 |E3
