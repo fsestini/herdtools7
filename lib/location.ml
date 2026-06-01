@@ -36,6 +36,7 @@ module type S = sig
   val pp_location : location -> string
   val pp_location_brk : location -> string
   val pp_rval : location -> string
+  val location_equal : location -> location -> bool
   val location_compare : location -> location -> int
   val of_proc : int -> location -> loc_reg option
   val is_global : location -> bool
@@ -125,6 +126,8 @@ with type loc_reg = A.arch_reg and type loc_global = A.arch_global =
     | Location_global a1, Location_global a2 -> A.global_compare a1 a2
     | Location_reg _, (Location_global _) -> -1
     | (Location_global _), Location_reg _ -> 1
+
+    let location_equal l1 l2 = Int.equal (location_compare l1 l2) 0
 
     module OL = struct
       type t = location
