@@ -19,6 +19,8 @@
 
 type t = REG | VIR | PHY | PTE of DISide.t | TLB | TAG | PHY_PTE
 
+val equal : t -> t -> bool
+
 val pp : t -> string
 
 val is_physical : t -> bool

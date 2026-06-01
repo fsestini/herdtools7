@@ -25,4 +25,5 @@ let pp = function
   | Data -> "D"
   | Any -> ""
 
+let equal = Misc.polymorphic_equal
 let compare = Stdlib.compare
