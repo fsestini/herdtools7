@@ -44,6 +44,8 @@ module Make (C:Arch_herd.Config)(V:Value.AArch64) =
     let nexp_annot = AArch64Explicit.NExp AArch64Explicit.Other
     let nexp_ifetch = AArch64Explicit.NExp AArch64Explicit.IFetch
 
+    let equal_annot a1 a2 = AArch64Annot.equal a1 a2
+
     let is_atomic = AArch64Annot.is_atomic
 
     let is_ifetch_annot = function
@@ -62,6 +64,11 @@ module Make (C:Arch_herd.Config)(V:Value.AArch64) =
 
     module CMO = struct
       type t = | DC of AArch64Base.DC.op | IC of AArch64Base.IC.op
+
+      let equal cmo1 cmo2 = match cmo1,cmo2 with
+        | DC op1,DC op2 -> AArch64Base.DC.equal op1 op2
+        | IC op1,IC op2 -> AArch64Base.IC.equal op1 op2
+        | (DC _|IC _),_ -> false
 
       let pp cmo loc =
         let loc = (Misc.pp_opt_arg Fun.id loc) in

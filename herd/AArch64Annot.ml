@@ -78,3 +78,5 @@ let pp = function
   | EX -> "EX"
   | EXA -> "AcqEx"
   | EXL -> "RelEx"
+
+let equal (ann1 : t) (ann2 : t) = Misc.polymorphic_equal ann1 ann2

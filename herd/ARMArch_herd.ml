@@ -20,6 +20,9 @@ module Types = struct
       A | L | EX | EXL | EXA | N
   type lannot = annot
   type explicit = Exp | NExp
+
+  let equal_annot a1 a2 = Misc.polymorphic_equal a1 a2
+  let equal_explicit e1 e2 = Misc.polymorphic_equal e1 e2
 end
 
 module Make (C:Arch_herd.Config) (V:Value.S) =

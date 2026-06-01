@@ -31,6 +31,7 @@ module Make
     let empty_annot = false
     let is_atomic _ = false
     let is_exclusive annot = annot
+    let equal_annot = Bool.equal
 
     let ifetch_value_sets = []
 

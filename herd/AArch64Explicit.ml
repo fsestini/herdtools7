@@ -26,6 +26,8 @@ let pp = function
   | NExp AFDB-> "NExpAFDB"
   | NExp GCS-> "GCS"
 
+let equal_explicit e1 e2 = Misc.polymorphic_equal e1 e2
+
 let is_explicit_annot = function
   | Exp -> true
   | NExp _ -> false

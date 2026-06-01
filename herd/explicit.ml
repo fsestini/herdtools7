@@ -25,6 +25,7 @@ module type S = sig
   val is_not_explicit_annot : explicit -> bool
   val is_ifetch_annot : explicit -> bool
   val pp_explicit : explicit -> string
+  val equal_explicit : explicit -> explicit -> bool
   val explicit_sets : (string * (explicit -> bool)) list
 end
 
@@ -37,6 +38,7 @@ module No = struct
   let is_not_explicit_annot _ = false
   let is_ifetch_annot _ = false
   let pp_explicit _ = ""
+  let equal_explicit () () = true
   let explicit_sets = []
 end
 

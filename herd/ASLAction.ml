@@ -64,6 +64,8 @@ module Make (C: Config) (A : S) = struct
     let acc = A.access_of_location_init loc in
     Access (W, loc, v, sz, (AArch64Annot.N, AArch64Explicit.Exp,acc))
 
+  let equal _ _ = failwith "NIY"
+
   let pp_action = function
     | Access (d, l, v, _sz,(a,e,_)) ->
         Printf.sprintf "%s%s=%s%s%s"

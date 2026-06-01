@@ -26,6 +26,7 @@ module type S = sig
   type arch_explicit
 
   val pp : t -> string
+  val equal : t -> t -> bool
 
   val get_lannot : t -> arch_lannot
   val get_explicit : t ->  arch_explicit
@@ -62,6 +63,7 @@ module No(C:NoConf) = struct
   type arch_explicit = C.arch_explicit
 
   let pp _ = assert false
+  let equal _ _ = assert false
 
   let get_lannot _ = assert false
   let get_explicit _ = assert false

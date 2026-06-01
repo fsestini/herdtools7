@@ -22,6 +22,8 @@ module TLBI = struct
 
   type op
 
+  let equal _ _ = assert false
+
   let pp_op = fun _ -> Printf.sprintf "no notion of TLBI op in arch"
 
   let is_at_level _lvl _op = assert false

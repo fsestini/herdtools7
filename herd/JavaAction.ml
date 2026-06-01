@@ -40,6 +40,8 @@ end = struct
   
   let mk_init_write l sz v = Access (W, l, v, AccessModes.NA, sz)
 
+  let equal _ _ = failwith "NIY"
+
   let par f x = sprintf "(%s)" (f x) (*for access modes*)
 
   let pp_action a =

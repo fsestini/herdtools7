@@ -30,6 +30,7 @@ module Make (C:Arch_herd.Config) (V:Value.S)
     let empty_annot = false
     let is_atomic _ = false
     let is_exclusive annot = annot
+    let equal_annot = Bool.equal
     let is_barrier b1 b2 = barrier_compare b1 b2 = 0
 
     let ifetch_value_sets = []
