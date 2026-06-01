@@ -698,18 +698,22 @@ let barrier_compare = compare
 
 module IC = struct
   type funct = I
+  let equal_funct = Misc.polymorphic_equal
   let pp_funct = function I -> "I"
   let fold_funct f k = f I k
 
   type typ = ALL | VA
+  let equal_typ = Misc.polymorphic_equal
   let pp_typ = function | ALL -> "ALL" | VA -> "VA"
   let fold_typ f k = k |> f ALL |> f VA
 
   type point = U
+  let equal_point = Misc.polymorphic_equal
   let pp_point = function U -> "U"
   let fold_point f k = f U k
 
   type domain = IS | NO
+  let equal_domain = Misc.polymorphic_equal
   let pp_domain = function IS -> "IS" | NO -> ""
   let fold_domain f k = k |> f IS |> f NO
 
@@ -743,11 +747,16 @@ module IC = struct
 
   let all op = match op.typ with | VA -> false | ALL -> true
 
-  let equal (op1 : op) (op2 : op) = Misc.polymorphic_equal op1 op2
+  let equal op1 op2 =
+    equal_funct op1.funct op2.funct
+    && equal_typ op1.typ op2.typ
+    && equal_point op1.point op2.point
+    && equal_domain op1.domain op2.domain
 end
 
 module DC = struct
   type funct = I | C | CI | Z
+  let equal_funct = Misc.polymorphic_equal
   let pp_funct = function
     | I -> "I"
     | C -> "C"
@@ -756,10 +765,12 @@ module DC = struct
   let fold_funct f k = k |> f I |> f C |> f CI |> f Z
 
   type typ = VA | SW
+  let equal_typ = Misc.polymorphic_equal
   let pp_typ = function VA -> "VA" | SW -> "SW"
   let fold_typ f k = k |> f VA |> f SW
 
   type point = CO | U
+  let equal_point = Misc.polymorphic_equal
   let pp_point = function CO -> "C" | U -> "U"
   let fold_point f k = k |> f CO |> f U
 
@@ -793,7 +804,10 @@ module DC = struct
           k)
       k
 
-  let equal (op1 : op) (op2 : op) = Misc.polymorphic_equal op1 op2
+  let equal op1 op2 =
+    equal_funct op1.funct op2.funct
+    && equal_typ op1.typ op2.typ
+    && equal_point op1.point op2.point
 end
 
 type level = |E0 |E1 |E2 |E3
@@ -853,6 +867,8 @@ module TLBI = struct
 
   type domain = | IS | No
 
+  let equal_domain = Misc.polymorphic_equal
+
   let pp_domain = function
     | IS -> "IS"
     | No -> ""
@@ -863,6 +879,16 @@ module TLBI = struct
     in k
 
   type op = { typ:typ; level:level; domain:domain; nXS:bool }
+
+  let equal_typ = Misc.polymorphic_equal
+  let equal_level = Misc.polymorphic_equal
+  let equal_nXS = Misc.polymorphic_equal
+
+  let equal op1 op2 =
+    equal_typ op1.typ op2.typ
+    && equal_level op1.level op2.level
+    && equal_domain op1.domain op2.domain
+    && equal_nXS op1.nXS op2.nXS
 
   let alle1is = { typ=ALL; level=E1; domain=IS; nXS=false; }
   let alle2is = { typ=ALL; level=E2; domain=IS; nXS=false; }

@@ -293,6 +293,8 @@ let pp_signed = function
 
 type mo = Rlx | Acq | Rel | AcqRel | Sc
 
+let equal_mo = Misc.polymorphic_equal
+
 let pp_mo = function
   | Rlx -> ""
   | Acq -> ".aq"
