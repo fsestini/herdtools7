@@ -42,6 +42,7 @@ let filebase f = Filename.basename f |> Filename.remove_extension
 (* basic utils  *)
 (****************)
 
+let polymorphic_equal = (=)
 let polymorphic_compare = compare
 
 let int_compare = Int.compare

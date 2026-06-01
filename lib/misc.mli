@@ -44,6 +44,7 @@ val filebase : string -> string
 (****************)
 (* basic misc   *)
 (****************)
+val polymorphic_equal : 'a -> 'a -> bool
 val polymorphic_compare : 'a -> 'a -> int
 val int_compare : int -> int -> int
 val int_eq : int -> int -> bool
