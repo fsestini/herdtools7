@@ -40,6 +40,9 @@ module Make (C:Arch_herd.Config) (V:Value.S) =
     type lannot = P of mo | X of mo
     let get_machsize _ = V.Cst.Scalar.machsize (* TODO, consider machsizes *)
     let empty_annot = P Rlx
+    let equal_annot a1 a2 = match a1,a2 with
+      | P mo1,P mo2 | X mo1,X mo2 -> equal_mo mo1 mo2
+      | (P _|X _),_ -> false
 
     include Explicit.No
     include PteValSets.No

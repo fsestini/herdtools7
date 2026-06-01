@@ -30,6 +30,7 @@ struct
   let reject_mixed = false
   let get_machsize _ = V.Cst.Scalar.machsize
   let empty_annot = N
+  let equal_annot a1 a2 = BPFBase.equal_lannot a1 a2
 
   let is_sc = function
     | SC -> true

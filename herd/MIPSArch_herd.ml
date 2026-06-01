@@ -29,6 +29,7 @@ module Make
     let get_machsize _ = V.Cst.Scalar.machsize
 
     let empty_annot = false
+    let equal_annot = Bool.equal
     let is_atomic annot = annot
 
     let ifetch_value_sets = []

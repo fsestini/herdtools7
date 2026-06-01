@@ -16,6 +16,7 @@
 
 module type S = sig
   type t
+  val equal : t -> t -> bool
   val pp : t -> string option -> string
 end
 

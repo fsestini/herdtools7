@@ -69,3 +69,5 @@ let pp = function
   | NoRet -> "NoRet"
   | S -> "^s"
   | NTA -> "NT"
+
+let equal (ann1 : t) (ann2 : t) = Misc.polymorphic_equal ann1 ann2

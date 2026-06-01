@@ -22,6 +22,8 @@ module type S = sig
 
   type action
 
+  val equal : action -> action -> bool
+
   val mk_init_write : A.location -> MachSize.sz -> A.V.v -> action
 
   val pp_action : action -> string

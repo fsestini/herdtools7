@@ -32,6 +32,7 @@ module Make (C:Arch_herd.Config)(V:Value.S) =
     type lannot = Plain|Atomic|NonTemporal
     let get_machsize _ = V.Cst.Scalar.machsize
     let empty_annot = Plain
+    let equal_annot a1 a2 = Misc.polymorphic_equal a1 a2
     let is_atomic = function
       | Atomic -> true
       | Plain|NonTemporal -> false
@@ -142,6 +143,9 @@ module Make (C:Arch_herd.Config)(V:Value.S) =
 
       let pp (ClFlush (opt,loc)) =
         Printf.sprintf "ClFlush%s %s" (pp_opt opt) (pp_location loc)
+
+      let equal (ClFlush (opt1,loc1)) (ClFlush (opt2,loc2)) =
+        equal_opt opt1 opt2 && location_equal loc1 loc2
 
       let get_lannot _ = Plain
       let get_explicit _ = exp_annot

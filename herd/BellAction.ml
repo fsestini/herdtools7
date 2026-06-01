@@ -46,6 +46,8 @@ end = struct
 (* I think this is right... *)
   let mk_init_write l sz v = Access(W,l,v,false,[],sz)
 
+  let equal _ _ = failwith "NIY"
+
 (*  Quite ad-hoc, should devise a more general mechanism *)
   let tr_annot = function
     | "rcu_read_unlock" -> "rcu-unlock"

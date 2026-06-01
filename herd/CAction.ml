@@ -65,6 +65,8 @@ end = struct
 
   let mk_init_write l sz v = Access (W,l,v,AN [],false,sz)
 
+  let equal _ _ = failwith "NIY"
+
   let par f x = sprintf "(%s)" (f x)
   let bra f x = sprintf "[%s]" (f x)
 

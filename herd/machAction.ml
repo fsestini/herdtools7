@@ -21,6 +21,7 @@ module type A = sig
 
   type lannot
   val empty_annot : lannot
+  val equal_annot : lannot -> lannot -> bool
   val ifetch_value_sets : (string * (V.v -> bool)) list
   val barrier_sets : (string * (barrier -> bool)) list
   val cmo_sets : (string * (CMO.t -> bool)) list
@@ -141,6 +142,57 @@ end = struct
     | _ ->
        let acc = A.access_of_location_init l in
        Access(W,l,v,A.empty_annot,A.exp_annot,sz,acc)
+
+  let equal =
+    let equal_location loc1 loc2 = A.location_compare loc1 loc2 = 0 in
+    let equal_barrier b1 b2 = A.barrier_compare b1 b2 = 0 in
+    let equal_inst_instance_id i1 i2 = A.inst_instance_compare i1 i2 = 0 in
+    let equal_fault_type ft1 ft2 = A.I.FaultType.compare ft1 ft2 = 0 in
+    let equal_commit_type c1 c2 =
+      match c1,c2 with
+      | Bcc , Bcc | Pred , Pred | ExcReturn , ExcReturn -> true
+      | (Bcc|Pred|ExcReturn) , _ -> false
+    in
+    fun a1 a2 -> match a1,a2 with
+      | Access (d1,l1,v1,an1,exp1,sz1,ac1),
+        Access (d2,l2,v2,an2,exp2,sz2,ac2) ->
+          Dir.equal d1 d2
+          && equal_location l1 l2
+          && V.equal v1 v2
+          && A.equal_annot an1 an2
+          && A.equal_explicit exp1 exp2
+          && MachSize.equal sz1 sz2
+          && Access.equal ac1 ac2
+      | Barrier b1,Barrier b2 -> equal_barrier b1 b2
+      | Commit (ct1,msg1),Commit (ct2,msg2) ->
+          equal_commit_type ct1 ct2 && Option.equal String.equal msg1 msg2
+      | Amo (loc1,vr1,vw1,an1,exp1,sz1,ac1),
+        Amo (loc2,vr2,vw2,an2,exp2,sz2,ac2) ->
+          equal_location loc1 loc2
+          && V.equal vr1 vr2
+          && V.equal vw1 vw2
+          && A.equal_annot an1 an2
+          && A.equal_explicit exp1 exp2
+          && MachSize.equal sz1 sz2
+          && Access.equal ac1 ac2
+      | Fault (i1,loc1,d1,an1,handler1,ftype1,msg1),
+        Fault (i2,loc2,d2,an2,handler2,ftype2,msg2) ->
+          equal_inst_instance_id i1 i2
+          && Option.equal equal_location loc1 loc2
+          && Dir.equal d1 d2
+          && A.equal_annot an1 an2
+          && Bool.equal handler1 handler2
+          && Option.equal equal_fault_type ftype1 ftype2
+          && Option.equal String.equal msg1 msg2
+      | CutOff msg1 , CutOff msg2 -> String.equal msg1 msg2
+      | Inv (op1,loc1) , Inv (op2,loc2) ->
+          A.TLBI.equal op1 op2 && Option.equal equal_location loc1 loc2
+      | CMO (cmo1,loc1) , CMO (cmo2,loc2) ->
+          A.CMO.equal cmo1 cmo2 && Option.equal equal_location loc1 loc2
+      | NoAction , NoAction -> true
+      | Arch a1 , Arch a2 -> A.ArchAction.equal a1 a2
+      | (Access _ | Barrier _ | Commit _ | Amo _ | Fault _ | CutOff _ | Inv _
+        | CMO _ | NoAction | Arch _) , _ -> false
 
   let pp_action a = match a with
   | Access (d,l,v,an,exp_an,sz,_) ->

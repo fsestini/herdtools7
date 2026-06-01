@@ -33,6 +33,7 @@ module Make (C:Arch_herd.Config)(V:Value.S) =
     type lannot = bool (* atomicity *)
     let get_machsize _ = V.Cst.Scalar.machsize
     let empty_annot = false
+    let equal_annot = Bool.equal
     let is_atomic annot = annot
     let is_barrier b1 b2 = barrier_compare b1 b2 = 0
 
