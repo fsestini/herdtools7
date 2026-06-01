@@ -357,6 +357,12 @@ let pp_movntdqa = "movntdqa"
 
 type opt = NoOpt|Opt
 
+let equal_opt o1 o2 = match o1, o2 with
+  | NoOpt, NoOpt -> true
+  | Opt, Opt -> true
+  | NoOpt, Opt -> false
+  | Opt, NoOpt -> false
+
 let pp_clflush opt = match opt with
   | NoOpt -> "clflush"
   | Opt -> "clflushopt"

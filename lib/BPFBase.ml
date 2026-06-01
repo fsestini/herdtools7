@@ -127,6 +127,8 @@ type lannot =
   | A
   | R
 
+let equal_lannot a1 a2 = Misc.polymorphic_equal a1 a2
+
 (****************)
 (* Instructions *)
 (****************)
