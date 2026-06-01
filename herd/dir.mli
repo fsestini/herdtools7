@@ -18,4 +18,6 @@
 
 type dirn = R | W
 
+val equal : dirn -> dirn -> bool
+
 val pp_dirn : dirn -> string
