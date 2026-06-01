@@ -16,6 +16,13 @@
 
 type t = REG | VIR | PHY | PTE of DISide.t | TLB | TAG | PHY_PTE
 
+let equal a1 a2 =
+  match a1,a2 with
+  | REG,REG | VIR,VIR | PHY,PHY | TLB,TLB | TAG,TAG
+  | PHY_PTE,PHY_PTE -> true
+  | PTE d1,PTE d2 -> DISide.equal d1 d2
+  | (REG|VIR|PHY|PTE _|TLB|TAG|PHY_PTE),_ -> false
+
 let pp = function
   | REG -> "REG"
   | VIR -> "VIR"
