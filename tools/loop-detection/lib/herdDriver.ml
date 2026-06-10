@@ -10,7 +10,7 @@ module DefaultConfig = struct
 
   let model = None
   let archcheck = false
-  let through = Model.ThroughInvalid
+  let through = Model.ThroughNone
   let strictskip = false
   let cycles = StringSet.empty
   let bell_model_info = None
@@ -20,14 +20,13 @@ module DefaultConfig = struct
   let restrict = Restrict.No
   let outcomereads = false
   let showsome = true
-  let show = PrettyConf.ShowProp
+  let show = PrettyConf.ShowAll
   let nshow = None
   let badflag = None
   let badexecs = true
   let throughflag = None
   let verbose = 0
   let optace = OptAce.Iico
-  let unroll = None
   let speedcheck = Speed.False
   let debug = Debug_herd.none
   let observed_finals_only = not ModelOption.(default.co)
@@ -102,12 +101,12 @@ module DefaultConfig = struct
     let fixedsize = !PP.fixedsize
     let extrachars = !PP.extrachars
     let edgeattrs = PP.get_edgeattrs ()
-    let doshow = StringSet.of_list [ "ob" ]
-    let unshow = !PP.unshow
+    let doshow = StringSet.of_list [ "co" ]
+    let unshow = StringSet.of_list [ "ctrl"; "ca" ]
     let noid = !PP.noid
     let symetric = !PP.symetric
     let classes = !PP.classes
-    let showraw = StringSet.of_list [ "ob" ]
+    let showraw = StringSet.of_list [ "co" ]
     let dotheader = None
     let shift = !PP.shift
     let edgemerge = !PP.edgemerge
@@ -296,7 +295,7 @@ end
 (*     !l *)
 (* end *)
 
-let top ~libdir str =
+let top ~libdir ~unroll str =
   (* let (splitted : Splitter.result) = SP.split "T" chan in *)
   (* let dirty = DirtyBit.get splitted.Splitter.info in *)
   let libfind =
@@ -317,6 +316,7 @@ let top ~libdir str =
     include DefaultConfig
 
     let libfind = libfind
+    let unroll = unroll
   end in
   let module PT = ParseTest.Top (C) in
   let _, results = PT.from_string str StringMap.empty in

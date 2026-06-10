@@ -31,13 +31,29 @@ module T = LitmusTest.MakeArch (struct
   let is_morello = false
 end)
 
+module SW = WeightedRel.SetWeights
+
 module Make (O : Herdlib.RunTest.Outcome) = struct
   open Herdlib
   module S = O.M.S
   module E = S.E
 
+  module WR =
+    WeightedRel.Make
+      (SW)
+      (struct
+        type t = E.event
+
+        let compare = E.event_compare
+      end)
+
   let test = O.test
   let ess, result = O.result
+
+  let execs =
+    let l = ref [] in
+    let _stats = result (fun exec -> l := exec :: !l) in
+    List.rev !l
 
   let iterations_of_loop ~(proc : int) ~(start_spoi : int) ~(end_spoi : int)
       (evs : E.EventSet.t) : E.event list list =
@@ -68,6 +84,125 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
            ([], [])
     in
     List.rev (current :: iters)
+
+  type lasso_candidate = {
+    events : E.event list;
+    rf : WR.t;
+    co : WR.t;
+    po : WR.t;
+  }
+
+  let overlap ~(lasso_po : E.EventRel.t) ~(lasso_co : E.EventRel.t)
+      ~(lasso_rf : E.EventRel.t) ~(before_last_iteration : E.event list)
+      ~(last_iteration : E.event list) : lasso_candidate option =
+    let ( let* ) = Option.bind in
+    let last_iteration_eiids = List.map (fun ev -> ev.E.eiid) last_iteration in
+    (* let it2_eiids = List.map (fun ev -> ev.E.eiid) it2 in *)
+    let is_lasso_event ev = List.mem ev.E.eiid last_iteration_eiids in
+    let* () =
+      (* Check that the two iterations are event-equal *)
+      List.combine before_last_iteration last_iteration
+      |> List.for_all (fun (ev1, ev2) -> E.Act.equal ev1.E.action ev2.E.action)
+      |> fun b -> if b then Some () else None
+    in
+    let* branch_before_lasso =
+      let brchs =
+        before_last_iteration
+        |> List.filter_map (fun ev -> if E.is_bcc ev then Some ev else None)
+      in
+      match brchs with [ brch ] -> Some brch | _ -> None
+    in
+    let* lasso_branch =
+      let brchs =
+        last_iteration
+        |> List.filter_map (fun ev -> if E.is_bcc ev then Some ev else None)
+      in
+      match brchs with [ brch ] -> Some brch | _ -> None
+    in
+
+    (* Assign weights to input lasso co edges *)
+    let co =
+      E.EventRel.fold
+        (fun (ev1, ev2) acc ->
+          match (is_lasso_event ev1, is_lasso_event ev2) with
+          | false, true -> WR.add (ev1, ev2, SW.To_pos_inf 1) acc
+          | true, false -> WR.add (ev1, ev2, SW.From_neg_inf (-1)) acc
+          | true, true -> WR.add (ev1, ev2, SW.singleton 0) acc
+          | false, false -> assert false)
+        lasso_co WR.empty
+    in
+    let lasso_writes =
+      lasso_co |> E.EventRel.nodes |> E.EventSet.to_list
+      |> List.filter is_lasso_event
+    in
+    (* Add lasso co edges with +1 weight from each write to each other write (incl. self edges) *)
+    let co =
+      let edges =
+        let ( let* ) x f = List.concat_map f x in
+        let* ev1 = lasso_writes in
+        let* ev2 = lasso_writes in
+        [ (ev1, ev2, SW.To_pos_inf 1) ]
+      in
+      List.fold_right WR.add edges co
+    in
+    (* Compute transitive closure *)
+    let co = WR.transitive_closure co in
+    (* Adjust cross-lasso edges, so that lasso-to-external edges have strictly
+       negative weight, and external-to-lasso edges have
+       strictly positive weights. *)
+    let co =
+      WR.fold
+        (fun (ev1, ev2, w) ->
+          match (is_lasso_event ev1, is_lasso_event ev2) with
+          | false, true -> WR.add (ev1, ev2, SW.intersection w (SW.To_pos_inf 1))
+          | true, false ->
+              WR.add (ev1, ev2, SW.intersection w (SW.From_neg_inf (-1)))
+          | _ -> WR.add (ev1, ev2, w))
+        co WR.empty
+    in
+
+    let rf =
+      E.EventRel.fold
+        (fun (ev1, ev2) acc ->
+          match (is_lasso_event ev1, is_lasso_event ev2) with
+          | false, true ->
+              (* TODO: there could be other choices here. *)
+              WR.add (ev1, ev2, SW.To_pos_inf 1) acc
+          (* | true, false -> failwith "rf edge going from lasso to outside" *)
+          | true, false -> WR.add (ev1, ev2, SW.singleton (-1)) acc
+          | true, true -> WR.add (ev1, ev2, SW.singleton 0) acc
+          | false, false -> assert false)
+        lasso_rf WR.empty
+    in
+
+    (* Assign weights to existing po edges *)
+    let po =
+      E.EventRel.fold
+        (fun (ev1, ev2) acc ->
+          match (is_lasso_event ev1, is_lasso_event ev2) with
+          | false, true -> WR.add (ev1, ev2, SW.To_pos_inf 1) acc
+          | true, false -> assert false
+          | true, true -> WR.add (ev1, ev2, SW.singleton 0) acc
+          | false, false -> assert false)
+        lasso_po WR.empty
+    in
+    (* Add po edges to the next iteration *)
+    let po =
+      let po_edges_into_lasso =
+        E.EventRel.fold
+          (fun (ev1, ev2) l ->
+            if E.event_equal ev1 branch_before_lasso then ev2 :: l else l)
+          lasso_po []
+      in
+      List.fold_right
+        (fun ev2 -> WR.add (lasso_branch, ev2, SW.singleton 1))
+        po_edges_into_lasso po
+    in
+    (* Compute transitive closure *)
+    let po = WR.transitive_closure po in
+
+    (* TODO: Compute lasso rf-reg *)
+    Some { events = last_iteration; po; co; rf }
 
   let find_static_loop_boundaries (_test : LitmusTest.test)
       (es : E.event_structure) =
@@ -104,46 +239,181 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
         m "cutoff start_spoi: %d, end_spoi: %d@." start_spoi end_spoi);
     Some (cutoff_proc, start_spoi, end_spoi)
 
-  let run (test : LitmusTest.test) () =
-    let ess_with_cutoff =
-      ess |> List.filter (fun es -> E.EventSet.exists E.is_cutoff es.E.events)
+  module TR = Top_herd.TestResult
+
+  module D = Dot.Make (struct
+    type node = E.event
+    type edge = string * E.event * E.event * SW.t
+
+    let node_id ev = Format.sprintf "eiid%d" ev.E.eiid
+    let node_cluster ev = E.proc_of ev
+    let endpoints (_, x, y, _) = (x, y)
+    let node_label ev = Format.sprintf "%s: %s" (E.pp_eiid ev) (E.pp_action ev)
+    let edge_label (r, _, _, w) = Format.asprintf "%s %a" r SW.pp w
+  end)
+
+  let run (ltest : LitmusTest.test) () =
+    let execs_with_cutoff =
+      execs
+      |> List.filter (fun exec ->
+          let conc = exec.TR.concrete in
+          E.EventSet.exists E.is_cutoff conc.S.str.E.events)
     in
-    let es = List.hd ess_with_cutoff in
-    let proc_poi = find_static_loop_boundaries test es in
-    match proc_poi with
-    | None -> Format.printf "Could not find any loops@."
-    | Some (proc, start_spoi, end_spoi) ->
-        Log.debug (fun m ->
-            m "Loop detected: proc: %d, start_spoi: %d, end_spoi: %d@." proc
-              start_spoi end_spoi);
-        let prog_ins = LitmusTest.prog_instructions test in
-        let proc_prog = List.assoc proc prog_ins in
-        let loop_prog =
-          List.take (end_spoi - start_spoi + 1) (List.drop start_spoi proc_prog)
-        in
-        Format.printf "Loop:@.";
-        let () =
-          loop_prog
-          |> List.iter (fun ins ->
-              Format.printf "  %s@." (T.show_instruction ins))
-        in
-        let iterations =
-          iterations_of_loop ~proc ~start_spoi ~end_spoi es.events
-        in
-        iterations
-        |> List.iteri (fun i iter ->
-            Format.printf "Iteration #%d@." i;
-            iter
-            |> List.iter (fun ev ->
-                Format.printf "  %s: %s@." (E.pp_eiid ev) (E.pp_action ev)))
+    let ( let* ) = Option.bind in
+    let candidates =
+      execs_with_cutoff
+      |> List.filter_map (fun exec ->
+          let rels = Lazy.force exec.TR.rels in
+          (* let co = List.assoc "co" rels in *)
+          (* let rf = List.assoc "rf" rels in *)
+          (* let rf_reg = List.assoc "rf-reg" rels in *)
+          let po = exec.concrete.S.po in
+          (* let iico_data = exec.concrete.str.intra_causality_data in *)
+          (* let pp_rel lbl rel = *)
+          (*   rel *)
+          (*   |> E.EventRel.iter (fun (ev1, ev2) -> *)
+          (*       Log.debug (fun m -> *)
+          (*           m "%s -- %s -> %s" (E.pp_eiid ev1) lbl (E.pp_eiid ev2))) *)
+          (* in *)
+          (* let () = pp_rel "co" co in *)
+          (* let () = pp_rel "rf" rf in *)
+          (* let () = pp_rel "rf-reg" rf_reg in *)
+          (* let () = pp_rel "po" po in *)
+          (* let () = pp_rel "iico_data" iico_data in *)
+          let es = exec.TR.concrete.S.str in
+          let* proc, start_spoi, end_spoi =
+            find_static_loop_boundaries ltest es
+          in
+          (* Log.debug (fun m -> *)
+          (*     m "Loop detected: proc: %d, start_spoi: %d, end_spoi: %d@." proc *)
+          (*       start_spoi end_spoi); *)
+          (* let prog_ins = LitmusTest.prog_instructions ltest in *)
+          (* let proc_prog = List.assoc proc prog_ins in *)
+          (* let loop_prog = *)
+          (*   List.take *)
+          (*     (end_spoi - start_spoi + 1) *)
+          (*     (List.drop start_spoi proc_prog) *)
+          (* in *)
+          (* Log.debug (fun m -> m "Loop:"); *)
+          (* let () = *)
+          (*   loop_prog *)
+          (*   |> List.iter (fun ins -> *)
+          (*       Log.debug (fun m -> m "  %s" (T.show_instruction ins))) *)
+          (* in *)
+          let iterations =
+            iterations_of_loop ~proc ~start_spoi ~end_spoi es.events
+          in
+          (* let () = *)
+          (*   iterations *)
+          (*   |> List.iteri (fun i iter -> *)
+          (*       Log.debug (fun m -> m "Iteration #%d" i); *)
+          (*       iter *)
+          (*       |> List.iter (fun ev -> *)
+          (*           Log.debug (fun m -> *)
+          (*               m "  %s: %s" (E.pp_eiid ev) (E.pp_action ev)))) *)
+          (* in *)
+          let* last_iteration, before_last_iteration =
+            match List.rev iterations with
+            | _cutoff :: x :: y :: _ -> Some (x, y)
+            | _ -> None (* need at least two iterations *)
+          in
+          let last_iteration_eiids =
+            List.map (fun ev -> ev.E.eiid) last_iteration
+          in
+          let is_lasso_event ev = List.mem ev.E.eiid last_iteration_eiids in
+          let is_lasso_edge ev1 ev2 =
+            (is_lasso_event ev1 || is_lasso_event ev2)
+            && not (E.Act.is_cutoff ev1.E.action || E.Act.is_cutoff ev2.E.action)
+          in
+          let* () =
+            (* FIXME: Temporary: check that there are no cross-iteration rf-reg edges. To be supported. *)
+            (not
+               (rels |> List.assoc_opt "rf-reg"
+               |> Option.value ~default:E.EventRel.empty
+               |> E.EventRel.exists (fun (ev1, ev2) ->
+                   (is_lasso_event ev1 && not (is_lasso_event ev2))
+                   || (is_lasso_event ev2 && not (is_lasso_event ev1)))))
+            |> fun b -> if b then Some () else None
+          in
+          let assign_zero_weight r =
+            E.EventRel.fold
+              (fun (ev1, ev2) -> WR.add (ev1, ev2, SW.singleton 0))
+              r WR.empty
+          in
+          let co =
+            List.assoc_opt "co" rels |> Option.value ~default:E.EventRel.empty
+          in
+          let rf =
+            List.assoc_opt "rf" rels |> Option.value ~default:E.EventRel.empty
+          in
+          let lasso_co = co |> E.EventRel.restrict_rel is_lasso_edge in
+          let lasso_rf = rf |> E.EventRel.restrict_rel is_lasso_edge in
+          let lasso_po = po |> E.EventRel.restrict_rel is_lasso_edge in
+          let other_co = E.EventRel.diff co lasso_co |> assign_zero_weight in
+          let other_rf = E.EventRel.diff rf lasso_rf |> assign_zero_weight in
+          let other_po = E.EventRel.diff po lasso_po |> assign_zero_weight in
+          (* let rels = *)
+          (*   let lasso_edges = [ ("co", lasso_co); ("rf", lasso_rf) ] in *)
+          (*   rels *)
+          (*   |> List.map (fun (tag, r) -> *)
+          (*       match List.assoc_opt tag lasso_edges with *)
+          (*       | Some lasso_r -> (tag, E.EventRel.diff r lasso_r) *)
+          (*       | None -> (tag, r)) *)
+          (* in *)
+          let* lasso_cand =
+            overlap ~lasso_po ~lasso_co ~lasso_rf ~before_last_iteration
+              ~last_iteration
+          in
+          let po = WR.union lasso_cand.po other_po in
+          let co = WR.union lasso_cand.co other_co in
+          let rf = WR.union lasso_cand.rf other_rf in
+          (* let rels = rels @ extra_edges in *)
+          (* let () = *)
+          (*   PP.dump_legend Out_channel.stdout test "" exec.TR.concrete rels *)
+          (* in *)
+          (* let _ = rels in *)
+          Some (exec.concrete, { lasso_cand with po; co; rf }))
+    in
+    let print_dot () =
+      candidates
+      |> List.iter (fun (conc, lasso) ->
+          Format.printf "%a@.@."
+            (fun fmt () ->
+              let all_nodes =
+                conc.S.str.events |> E.EventSet.to_list
+                |> List.filter (fun e -> not (E.is_cutoff e))
+              in
+              let is_lasso_node ev =
+                List.exists
+                  (fun lasso_ev -> E.event_equal ev lasso_ev)
+                  lasso.events
+              in
+              let reduced_po = WR.transitive_reduction lasso.po in
+              let reduced_co = WR.transitive_reduction lasso.co in
+              (* let reduced_po = lasso.po in *)
+              let to_edge r (ev1, ev2, w) = (r, ev1, ev2, w) in
+              let edges =
+                []
+                |> WR.fold (fun ed -> List.cons (to_edge "po" ed)) reduced_po
+                |> WR.fold (fun ed -> List.cons (to_edge "co" ed)) reduced_co
+                |> WR.fold (fun ed -> List.cons (to_edge "rf" ed)) lasso.rf
+                |> List.filter (fun (_, ev1, ev2, _) ->
+                    not (E.is_cutoff ev1 || E.is_cutoff ev2))
+              in
+              D.pp_dot_graph fmt ~all_nodes ~is_lasso_node edges)
+            ())
+    in
+    print_dot ();
+    let _ = print_dot in
+    ()
 
   (* result |> Iter.iteri (fun _i _exec -> ()) *)
 end
 
-let top ~libdir file_path =
+let top ~libdir ~unroll file_path =
   let str = In_channel.with_open_text file_path In_channel.input_all in
   let test = T.parse_from_file file_path in
-  let analysis = HerdDriver.top ~libdir str in
+  let analysis = HerdDriver.top ~libdir ~unroll str in
   let module R = (val analysis) in
   let module M = Make (R) in
   M.run test ()

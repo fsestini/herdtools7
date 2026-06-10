@@ -1,6 +1,12 @@
-(cram
- (package herdtools7)
- (deps
-  (source_tree data)
-  (source_tree libdir)
-  %{bin:loop_detection}))
+; (cram
+;  (package herdtools7)
+;  (deps
+;   (source_tree data)
+;   (source_tree libdir)
+;   %{bin:loop_detection}))
+
+(tests
+ (names weighted_rel_test interpreter_test)
+ (libraries loop_detection herdtools herdlib)
+ (deps toy.cat)
+ (modes native))

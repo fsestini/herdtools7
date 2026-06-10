@@ -3,12 +3,14 @@ let () =
   let usage = "Usage: litmus2desc [options] FILE" in
 
   let libdir = ref None in
+  let unroll = ref None in
   let debug = ref false in
   let options =
     [
       ( "-set-libdir",
         Arg.String (fun s -> libdir := Some s),
         "<path> set libdir" );
+      ("--unroll", Arg.Int (fun i -> unroll := Some i), "set unrolling limit");
       ("--debug", Arg.Unit (fun () -> debug := true), "enable debugging");
     ]
   in
@@ -36,4 +38,4 @@ let () =
     Logs.set_reporter (Logs.format_reporter ());
     Logs.set_level (Some Logs.Debug)
   end;
-  Loop_detection.Top.top ~libdir:!libdir file_path
+  Loop_detection.Top.top ~libdir:!libdir ~unroll:!unroll file_path

@@ -1,1 +1,5 @@
-val top : libdir:string option -> string -> (module Herdlib.RunTest.Outcome)
+val top :
+  libdir:string option ->
+  unroll:int option ->
+  string ->
+  (module Herdlib.RunTest.Outcome)

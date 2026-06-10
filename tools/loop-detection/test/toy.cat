@@ -1,0 +1,13 @@
+toy
+
+let seq = r ; s
+let unioned = r | s
+let inv = r^-1
+let none = r \ r
+let ids = [_]
+let all_pairs = _ * _
+let without_id = (_ * _) \ id
+let empty_id = [~_]
+let compose_s x = x ; s
+let fun_seq = compose_s r
+let rec tc = r | tc ; tc
