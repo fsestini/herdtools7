@@ -22,6 +22,17 @@ let iter_count (i : ('a -> unit) -> 'b) : ('a -> unit) -> int * 'b =
     let b = i (fun x -> f x; c := !c + 1) in
     !c, b
 
+let pp_timers fmt = function
+  | [] -> ()
+  | timers ->
+      Format.fprintf fmt "Timers: ";
+      List.iteri
+        (fun i timer ->
+           if i > 0 then Format.fprintf fmt ", ";
+           Timer.pp fmt timer)
+        timers;
+      Format.fprintf fmt "\n"
+
 module Make (O : sig
   include RunTest.Config
   include Top_herd.PrinterConfig
@@ -155,6 +166,14 @@ end) = struct
 (* Now output *)
         let time = Sys.time () -. start_time in
         Format.printf "%a\n" (fun fmt () -> PP.pp_stats ~time test c fmt) ();
+        if O.debug.Debug_herd.timers then
+          Format.printf "%a"
+            pp_timers
+            [
+              Timer.model;
+              Timer.run;
+              Timer.semantics;
+            ];
         do_show ();
         begin
           match TR.cutoff c with

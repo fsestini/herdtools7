@@ -220,7 +220,7 @@ module Printer (O : PrinterConfig) (S : SemExtra.S) = struct
       (fun (k,v) ->
         if Misc.string_eq k "Hash" then
           fprintf fmt "%s=%s\n" k v)
-      test.Test_herd.info ;
+      test.Test_herd.info
 
   module PP = Pretty.Make (S)
 
@@ -460,8 +460,11 @@ module Make(O:Config)(M:XXXMem.S) =
 
     (* Driver *)
     let run test =
+      Timer.start Timer.run;
+      Timer.start Timer.semantics;
       let { MC.event_structures=rfms; MC.overwritable_labels=owls; },test =
         MC.glommed_event_structures ~is_pgm:true test in
+      Timer.stop Timer.semantics;
 
       let restrict_faults =
         if !Opts.dumpallfaults then
@@ -497,10 +500,11 @@ module Make(O:Config)(M:XXXMem.S) =
           if Misc.is_some cutoff then Count.{ c with cutoff = cutoff }
           else c in
         (* Discard pruned executions if not explicitely required *)
-        check_test
+        let c = check_test
           conc kfail
           (check_failed_model_kont cutoff
              ofail solver emit_exec test final_state_restrict_locs) c in
+        Timer.stop Timer.model; c in
       let c =
         if O.statelessrc11
         then let module SL = Slrc11.Make(struct include MC let skipchecks = O.skipchecks end) in
@@ -527,6 +531,7 @@ module Make(O:Config)(M:XXXMem.S) =
                 st,flts,solver in
           A.StateSet.map do_restrict c.states
         else c.states in
+        Timer.stop Timer.run;
         {
           states = finals;
           TestResult.cfail = c.Count.cfail;
