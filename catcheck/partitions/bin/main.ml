@@ -5,7 +5,7 @@ let () =
   let content =
     In_channel.with_open_text fname (fun ch -> In_channel.input_all ch)
   in
-  let solutions = Solver.run content in
+  let solutions = Top.run content in
   let ps, partitioned_sets = Sets.from_solutions solutions in
   let () = Sets.dump_partitions ps in
   let () = Sets.dump_defs partitioned_sets in

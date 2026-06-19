@@ -10,6 +10,6 @@ let text : string =
 
 let () =
   Format.printf "Parsed:@.";
-  let module P = Solver.Parser in
+  let module P = Top.Parser in
   let parsed = P.parse_all text in
   parsed |> List.iter (fun x -> Format.printf "%a@." P.pp x)
