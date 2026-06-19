@@ -1,0 +1,89 @@
+let rec union-sets Ss = match Ss with
+|| {} -> {}
+|| S ++ Ss -> S | union-sets Ss
+end
+
+let rec overlaps-with(A, Ss) = match Ss with
+|| {} -> {}
+|| B ++ Ss -> (A & B) | overlaps-with(A, Ss)
+end
+
+let rec overlaps Ss = match Ss with
+|| {} -> {}
+|| S ++ Ss -> overlaps-with(S, Ss) | overlaps Ss
+end
+
+procedure cover(Ss) =
+  empty (_ \ union-sets Ss)
+end
+
+procedure subseteq(As, Bs) =
+  empty (union-sets As \ union-sets Bs)
+end
+
+procedure disjoint(Ss) =
+  empty overlaps Ss
+end
+
+(*****************************************************************************)
+(* Constraints                                                               *)
+(*****************************************************************************)
+
+let fences = {
+  DMB.ISH, DMB.ISHLD, DMB.ISHST, DSB.ISH, DSB.ISHLD, DSB.ISHST,
+  DMB.SY, DMB.ST, DMB.LD, DSB.SY, DSB.ST, DSB.LD,
+  DMB.OSH, DSB.OSH, DMB.OSHLD, DSB.OSHLD, DMB.OSHST, DSB.OSHST,
+  ISB
+}
+
+call cover({M, F, FAULT, TLBI, B, Rreg, Wreg, IC, DC})
+call disjoint({M, F, FAULT, TLBI, B, Rreg, Wreg, IC, DC})
+
+call disjoint({NExp, Exp, IW, SPURIOUS})
+call subseteq({NExp, Exp, IW, SPURIOUS}, {M})
+call subseteq({M}, {NExp, Exp, IW, SPURIOUS})
+
+call subseteq({R, W, Instr, PTE, T}, {M})
+call disjoint({R, W})
+call disjoint({Instr, PTE, T})
+call subseteq({M}, {R, W, Instr, PTE, T})
+call subseteq({M}, {R, W})
+call subseteq({Instr}, {NExp})
+call subseteq({PTE}, {NExp})
+call subseteq({NoRet}, {R})
+call subseteq({IW}, {W})
+call subseteq({AF}, {NExp})
+call subseteq({DB}, {NExp})
+call subseteq({EXC-ENTRY, TagCheck}, {FAULT})
+call disjoint({MMU, SVC, UndefinedInstruction})
+call subseteq({MMU, SVC, UndefinedInstruction}, {EXC-ENTRY})
+call disjoint({FAULT, Exp})
+
+call disjoint({AccessFlag, Permission, Translation})
+call subseteq({AccessFlag, Permission, Translation}, {MMU})
+
+call disjoint(fences)
+call subseteq(fences, {F})
+call subseteq({F}, fences)
+
+call disjoint({A, Q, L, NoRet})
+
+call subseteq({A}, {Exp})
+call subseteq({A}, {R})
+call disjoint({A, T})
+
+call subseteq({Q}, {Exp})
+call subseteq({Q}, {R})
+call disjoint({Q, T})
+
+call subseteq({L}, {Exp})
+call subseteq({L}, {W})
+call disjoint({L, T})
+
+call disjoint({TLBIIS, TLBInXS})
+call subseteq({TLBIIS, TLBInXS}, {TLBI})
+
+call disjoint({BCC, EXC-RET})
+call subseteq({BCC, EXC-RET}, {B})
+
+call subseteq({DATA}, {Rreg})
