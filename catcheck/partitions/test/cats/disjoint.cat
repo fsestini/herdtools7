@@ -1,0 +1,5 @@
+include "lib.cat"
+
+call disjoint({A})
+call disjoint({A, B})
+call disjoint({A, B, C})

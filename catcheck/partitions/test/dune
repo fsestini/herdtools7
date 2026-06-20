@@ -1,3 +1,6 @@
 (tests
  (libraries partitions)
- (names test_parser))
+ (names test_parser test_interpreter)
+ (deps
+  (source_tree cats)
+  (source_tree ../libdir)))

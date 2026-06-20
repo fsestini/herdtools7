@@ -18,6 +18,18 @@ let unsupported_at what loc =
 let unsupported_exp exp = unsupported_at "expression" (ASTUtils.exp2loc exp)
 let unsupported_ins ins = unsupported_at "instruction" (ASTUtils.ins2loc ins)
 
+let formula_of_atom = function
+  | Logic.Var name -> Logic.var name
+  | Logic.Neg name -> Logic.neg (Logic.var name)
+
+let formula_of_cnf cnf =
+  Logic.conj
+    (List.map
+       (fun clause -> Logic.disj (List.map formula_of_atom clause))
+       cnf)
+
+let normalise_formula formula = formula_of_cnf (Logic.to_cnf formula)
+
 let as_formula = function
   | VFormula f -> f
   | VEmpty -> Logic.disj []
@@ -149,4 +161,4 @@ and eval_ins_list env constraints ins =
 
 let constraints_of_cat (ins : AST.ins list) : string Logic.t list =
   let _, constraints = eval_ins_list StringMap.empty [] ins in
-  List.rev constraints
+  List.rev_map normalise_formula constraints
