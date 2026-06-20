@@ -13,6 +13,13 @@ let conj l = Conj l
 let disj l = Disj l
 let impl a b = disj [ neg a; b ]
 
+let map_atom f = function Var x -> Var (f x) | Neg x -> Neg (f x)
+
+let rec map f = function
+  | Atom a -> Atom (map_atom f a)
+  | Conj l -> Conj (List.map (map f) l)
+  | Disj l -> Disj (List.map (map f) l)
+
 module Disj : sig
   type 'a t
 

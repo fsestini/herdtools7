@@ -6,6 +6,7 @@ val neg : 'a t -> 'a t
 val conj : 'a t list -> 'a t
 val disj : 'a t list -> 'a t
 val impl : 'a t -> 'a t -> 'a t
+val map : ('a -> 'b) -> 'a t -> 'b t
 
 val pp : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a t -> unit
 (** Pretty-print a formula. *)
