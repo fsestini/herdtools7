@@ -1,0 +1,3 @@
+include "lib.cat"
+
+call cover({A, B, C})

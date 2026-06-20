@@ -1,0 +1,6 @@
+include "lib.cat"
+
+call subseteq({A}, {B})
+call subseteq({A, B}, {C})
+call subseteq({A}, {B, C, D})
+call subseteq({A, B, C}, {D, E})

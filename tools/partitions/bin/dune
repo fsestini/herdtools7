@@ -1,0 +1,4 @@
+(executable
+ (public_name catpart)
+ (name main)
+ (libraries catpart yojson ocamlgraph))

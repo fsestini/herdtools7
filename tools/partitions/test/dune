@@ -1,0 +1,12 @@
+(tests
+ (libraries catpart)
+ (names test_interpreter)
+ (deps
+  (source_tree cats)
+  (source_tree ../libdir)))
+
+(cram
+ (deps
+  (source_tree cats)
+  (source_tree ../libdir)
+  %{bin:catpart}))

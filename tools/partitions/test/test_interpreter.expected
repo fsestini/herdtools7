@@ -1,0 +1,11 @@
+== cats/simple_cover.cat ==
+A | B | C
+== cats/subseteq.cat ==
+~A | B
+(~A | C) & (~B | C)
+~A | B | C | D
+(~A | D | E) & (~B | D | E) & (~C | D | E)
+== cats/disjoint.cat ==
+true
+~A | ~B
+(~A | ~B) & (~A | ~C) & (~B | ~C)

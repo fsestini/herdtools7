@@ -1,0 +1,83 @@
+include "lib.cat"
+
+let fences = {
+  DSB.NSH, DSB.ISH, DSB.OSH, DSB.SY, DSB.ST, DSB.LD,
+  DMB.SY, DMB.ST, DMB.LD,
+  IFB
+}
+
+call cover({M, F, FAULT, TLBI, B, Rreg, Wreg, IC, DC})
+call disjoint({M, F, FAULT, TLBI, B, Rreg, Wreg, IC, DC})
+
+call disjoint({NExp, Exp, IW})
+call subseteq({NExp, Exp, IW}, {M})
+call subseteq({M}, {NExp, Exp, IW})
+
+call subseteq({R, W, Instr, PTE, T}, {M})
+call disjoint({R, W})
+call disjoint({Instr, PTE, T})
+call subseteq({M}, {R, W, Instr, PTE, T})
+call subseteq({M}, {R, W})
+
+(* conventionally, Instr and PTE is always mentioned in conjunction with NExp
+   in the cat file *)
+call subseteq({Instr}, {NExp})
+call subseteq({PTE}, {NExp})
+
+call subseteq({IW}, {W})
+call subseteq({AF}, {NExp})
+call subseteq({DB}, {NExp})
+call subseteq({AF, DB}, {PTE})  (* is this correct? *)
+call subseteq({AF, DB}, {W})  (* is this correct? *)
+call subseteq({EXC-ENTRY, TagCheck}, {FAULT})
+(* call disjoint({MMU, SVC, UndefinedInstruction}) *)
+call disjoint({MMU, SVC, TagCheck, UndefinedInstruction})
+call subseteq({MMU, SVC, UndefinedInstruction}, {EXC-ENTRY})
+call disjoint({FAULT, Exp})
+
+call disjoint({AccessFlag, Permission, Translation})
+call subseteq({AccessFlag, Permission, Translation}, {MMU})
+
+call disjoint(fences)
+call subseteq(fences, {F})
+call subseteq({F}, fences)
+
+call disjoint({A, Q, L, NoRet})
+
+call subseteq({A}, {Exp})
+call subseteq({A}, {R})
+call disjoint({A, T})
+
+call subseteq({Q}, {Exp})
+call subseteq({Q}, {R})
+call disjoint({Q, T})
+
+call subseteq({L}, {Exp})
+call subseteq({L}, {W})
+call disjoint({L, T})
+
+call subseteq({NoRet}, {Exp})  (* from notes *)
+call subseteq({NoRet}, {R})
+call disjoint({NoRet, T})  (* from notes *)
+
+call disjoint({TLBIIS, TLBInXS})
+call subseteq({TLBIIS, TLBInXS}, {TLBI})
+
+call disjoint({BCC, EXC-RET})
+call subseteq({BCC, EXC-RET}, {B})
+
+call subseteq({SPURIOUS}, {AF})
+
+call disjoint({SPURIOUS, DB})
+
+empty(T & W & NExp)
+empty(Instr & W & NExp)
+
+(* Imp & W == Imp & TTD & W *)
+call subseteq({NExp & W}, {NExp & PTE & W})
+
+(* HU == AF U DB == Imp & TTD & W *)
+call subseteq({NExp & PTE & W}, {AF | DB})
+
+(* this should be empty: Imp & R \ (T | TTD | Instr) *)
+empty (NExp & R) \ (T | PTE | Instr)

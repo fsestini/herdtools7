@@ -1,0 +1,26 @@
+let rec union-sets Ss = match Ss with
+|| {} -> {}
+|| S ++ Ss -> S | union-sets Ss
+end
+
+let rec overlaps-with(A, Ss) = match Ss with
+|| {} -> {}
+|| B ++ Ss -> (A & B) | overlaps-with(A, Ss)
+end
+
+let rec overlaps Ss = match Ss with
+|| {} -> {}
+|| S ++ Ss -> overlaps-with(S, Ss) | overlaps Ss
+end
+
+procedure cover(Ss) =
+  empty ~(union-sets Ss)
+end
+
+procedure subseteq(As, Bs) =
+  empty (union-sets As \ union-sets Bs)
+end
+
+procedure disjoint(Ss) =
+  empty overlaps Ss
+end
