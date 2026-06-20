@@ -13,5 +13,9 @@ val pp : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a t -> unit
 val to_cnf : 'a t -> 'a atom list list
 (** Convert boolean formula to Conjunctive Normal Form. *)
 
-val pp_cnf : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a atom list list -> unit
+val pp_cnf :
+  (Format.formatter -> 'a -> unit) ->
+  Format.formatter ->
+  'a atom list list ->
+  unit
 (** Pretty-print a formula in Conjunctive Normal Form. *)
