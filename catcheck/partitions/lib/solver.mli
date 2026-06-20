@@ -3,7 +3,7 @@ type lit
 type solution = bool StringMap.t
 
 val create : unit -> t
-val fresh_lit : t -> string -> lit
+val fresh_lit : t -> lit
 val add_clause : t -> lit Logic.t -> unit
 
 val solve : t -> unit

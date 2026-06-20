@@ -19,7 +19,7 @@ let create () =
     (* symbol_map = Hashtbl.create 20; *)
   }
 
-let fresh_lit t _name : lit =
+let fresh_lit t : lit =
   let n = !(t.lit_counter) in
   t.lit_counter := n + 1;
   let lit = Lit.make n in
