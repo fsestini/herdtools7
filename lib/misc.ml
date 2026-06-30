@@ -890,4 +890,6 @@ module Option = struct
     let* f = f_opt in
     let* x = x_opt in
     Some (f x)
+
+  let guard b = if b then Some () else None
 end

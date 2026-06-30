@@ -405,4 +405,5 @@ module Option : sig
 
   val apply : ('a -> 'b) t -> 'a t -> 'b t
   val get_or_exn : exn -> 'a option -> 'a
+  val guard : bool -> unit option
 end
