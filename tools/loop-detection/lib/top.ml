@@ -99,12 +99,6 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
     let last_iteration_eiids = List.map (fun ev -> ev.E.eiid) last_iteration in
     (* let it2_eiids = List.map (fun ev -> ev.E.eiid) it2 in *)
     let is_lasso_event ev = List.mem ev.E.eiid last_iteration_eiids in
-    let* () =
-      (* Check that the two iterations are event-equal *)
-      List.combine before_last_iteration last_iteration
-      |> List.for_all (fun (ev1, ev2) -> E.Act.equal ev1.E.action ev2.E.action)
-      |> fun b -> if b then Some () else None
-    in
     let* branch_before_lasso =
       let brchs =
         before_last_iteration
@@ -225,15 +219,20 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
       | _ :: _ :: _ ->
           invalid_arg "Multi-loop litmus tests are not supported yet."
     in
-    let* end_spoi =
+    let bcc_events =
       events
-      |> List.find_map (fun ev ->
+      |> List.filter_map (fun ev ->
           match (E.proc_of ev, ev.iiid) with
           | Some proc, IdSome iiid
-            when E.is_bcc ev && Int.equal proc cutoff_proc
-                 && Int.equal iiid.program_order_index (cutoff_poi - 1) ->
-              Some iiid.static_poi
+            when E.is_bcc ev && Int.equal proc cutoff_proc ->
+              Some iiid
           | _ -> None)
+    in
+    let* end_spoi =
+      match bcc_events with
+      | [ iiid ] when Int.equal iiid.program_order_index (cutoff_poi - 1) ->
+          Some iiid.static_poi
+      | _ -> None
     in
     Log.debug (fun m ->
         m "cutoff start_spoi: %d, end_spoi: %d@." start_spoi end_spoi);
@@ -320,20 +319,26 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
           let last_iteration_eiids =
             List.map (fun ev -> ev.E.eiid) last_iteration
           in
+          let* () =
+            (* Check that the two iterations are event-equal *)
+            List.combine before_last_iteration last_iteration
+            |> List.for_all (fun (ev1, ev2) ->
+                E.Act.equal ev1.E.action ev2.E.action)
+            |> Misc.Option.guard
+          in
           let is_lasso_event ev = List.mem ev.E.eiid last_iteration_eiids in
+          let* () =
+            (* Temporary: check that there are no cross-iteration rf-reg edges. To be supported. *)
+            rels |> List.assoc_opt "rf-reg"
+            |> Option.value ~default:E.EventRel.empty
+            |> E.EventRel.exists (fun (ev1, ev2) ->
+                (is_lasso_event ev1 && not (is_lasso_event ev2))
+                || (is_lasso_event ev2 && not (is_lasso_event ev1)))
+            |> not |> Misc.Option.guard
+          in
           let is_lasso_edge ev1 ev2 =
             (is_lasso_event ev1 || is_lasso_event ev2)
             && not (E.Act.is_cutoff ev1.E.action || E.Act.is_cutoff ev2.E.action)
-          in
-          let* () =
-            (* FIXME: Temporary: check that there are no cross-iteration rf-reg edges. To be supported. *)
-            (not
-               (rels |> List.assoc_opt "rf-reg"
-               |> Option.value ~default:E.EventRel.empty
-               |> E.EventRel.exists (fun (ev1, ev2) ->
-                   (is_lasso_event ev1 && not (is_lasso_event ev2))
-                   || (is_lasso_event ev2 && not (is_lasso_event ev1)))))
-            |> fun b -> if b then Some () else None
           in
           let assign_zero_weight r =
             E.EventRel.fold
