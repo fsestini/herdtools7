@@ -48,11 +48,11 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
       end)
 
   let test = O.test
-  let ess, result = O.result
+  let result = O.result
 
   let execs =
     let l = ref [] in
-    let _stats = result (fun exec -> l := exec :: !l) in
+    let _stats = result.exec_iter (fun exec -> l := exec :: !l) in
     List.rev !l
 
   let iterations_of_loop ~(proc : int) ~(start_spoi : int) ~(end_spoi : int)
@@ -255,18 +255,19 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
     let execs_with_cutoff =
       execs
       |> List.filter (fun exec ->
-          let conc = exec.TR.concrete in
+          let conc = TR.concrete exec in
           E.EventSet.exists E.is_cutoff conc.S.str.E.events)
     in
     let ( let* ) = Option.bind in
     let candidates =
       execs_with_cutoff
       |> List.filter_map (fun exec ->
-          let rels = Lazy.force exec.TR.rels in
+          let conc = TR.concrete exec in
+          let rels = TR.relations exec in
           (* let co = List.assoc "co" rels in *)
           (* let rf = List.assoc "rf" rels in *)
           (* let rf_reg = List.assoc "rf-reg" rels in *)
-          let po = exec.concrete.S.po in
+          let po = conc.S.po in
           (* let iico_data = exec.concrete.str.intra_causality_data in *)
           (* let pp_rel lbl rel = *)
           (*   rel *)
@@ -279,7 +280,7 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
           (* let () = pp_rel "rf-reg" rf_reg in *)
           (* let () = pp_rel "po" po in *)
           (* let () = pp_rel "iico_data" iico_data in *)
-          let es = exec.TR.concrete.S.str in
+          let es = conc.S.str in
           let* proc, start_spoi, end_spoi =
             find_static_loop_boundaries ltest es
           in
@@ -377,7 +378,7 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
           (*   PP.dump_legend Out_channel.stdout test "" exec.TR.concrete rels *)
           (* in *)
           (* let _ = rels in *)
-          Some (exec.concrete, { lasso_cand with po; co; rf }))
+          Some (TR.concrete exec, { lasso_cand with po; co; rf }))
     in
     let print_dot () =
       candidates

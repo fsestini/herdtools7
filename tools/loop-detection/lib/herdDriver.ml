@@ -19,7 +19,6 @@ module DefaultConfig = struct
   let check_cond = fun _ -> None
   let restrict = Restrict.No
   let outcomereads = false
-  let showsome = true
   let show = PrettyConf.ShowAll
   let nshow = None
   let badflag = None
@@ -52,6 +51,8 @@ module DefaultConfig = struct
   module PC = struct
     module PP = Opts.PP
 
+    let showkind = false
+    let shortlegend = false
     let debug = debug.Debug_herd.pretty
     let verbose = verbose
     let dotmode = !PP.dotmode
@@ -317,9 +318,12 @@ let top ~libdir ~unroll str =
 
     let libfind = libfind
     let unroll = unroll
+    let collect_graph_data = true
   end in
   let module PT = ParseTest.Top (C) in
-  let _, results = PT.from_string str StringMap.empty in
+  let _, results =
+    PT.from_string ~filename:None ~contents:str StringMap.empty
+  in
   match results with None -> assert false | Some results -> results
 (* let module R = (val results) in *)
 (* let module Conv = Converter (R.M.S) in *)
