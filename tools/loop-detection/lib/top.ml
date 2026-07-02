@@ -1,36 +1,5 @@
 module Log = (val Logs.src_log (Logs.Src.create "top") : Logs.LOG)
-
-(* module Iter = struct *)
-(*   type ('a, 'b) t = ('a -> unit) -> 'b *)
-(**)
-(*   let iteri (f : int -> 'a -> unit) (i : ('a, 'b) t) : 'b = *)
-(*     let k = ref 0 in *)
-(*     let b = *)
-(*       i (fun x -> *)
-(*           f !k x; *)
-(*           k := !k + 1) *)
-(*     in *)
-(*     b *)
-(* end *)
-
-module Util = struct
-  let fold_left_until (f : 'acc -> 'a -> 'acc option) (acc : 'acc) l =
-    let acc = ref acc in
-    try
-      List.iter
-        (fun x ->
-          match f !acc x with
-          | Some new_acc -> acc := new_acc
-          | None -> raise Exit)
-        l;
-      !acc
-    with Exit -> !acc
-end
-
-module T = LitmusTest.MakeArch (struct
-  let is_morello = false
-end)
-
+module T = LitmusTest
 module SW = WeightedRel.SetWeights
 
 module Make (O : Herdlib.RunTest.Outcome) = struct
@@ -251,6 +220,15 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
     let edge_label (r, _, _, w) = Format.asprintf "%s %a" r SW.pp w
   end)
 
+  let pp_rel ~lbl fmt rel =
+    let rel_list = Util.Iter.to_list (fun f -> E.EventRel.iter f rel) in
+    let open Format in
+    pp_print_list
+      ~pp_sep:(fun fmt () -> fprintf fmt "@,")
+      (fun fmt (ev1, ev2) ->
+        fprintf fmt "%s -- %s -> %s" (E.pp_eiid ev1) lbl (E.pp_eiid ev2))
+      fmt rel_list
+
   let run (ltest : LitmusTest.test) () =
     let execs_with_cutoff =
       execs
@@ -264,42 +242,17 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
       |> List.filter_map (fun exec ->
           let conc = TR.concrete exec in
           let rels = TR.relations exec in
-          (* let co = List.assoc "co" rels in *)
-          (* let rf = List.assoc "rf" rels in *)
-          (* let rf_reg = List.assoc "rf-reg" rels in *)
-          let po = conc.S.po in
-          (* let iico_data = exec.concrete.str.intra_causality_data in *)
-          (* let pp_rel lbl rel = *)
-          (*   rel *)
-          (*   |> E.EventRel.iter (fun (ev1, ev2) -> *)
-          (*       Log.debug (fun m -> *)
-          (*           m "%s -- %s -> %s" (E.pp_eiid ev1) lbl (E.pp_eiid ev2))) *)
-          (* in *)
-          (* let () = pp_rel "co" co in *)
-          (* let () = pp_rel "rf" rf in *)
-          (* let () = pp_rel "rf-reg" rf_reg in *)
-          (* let () = pp_rel "po" po in *)
-          (* let () = pp_rel "iico_data" iico_data in *)
           let es = conc.S.str in
           let* proc, start_spoi, end_spoi =
             find_static_loop_boundaries ltest es
           in
-          (* Log.debug (fun m -> *)
-          (*     m "Loop detected: proc: %d, start_spoi: %d, end_spoi: %d@." proc *)
-          (*       start_spoi end_spoi); *)
-          (* let prog_ins = LitmusTest.prog_instructions ltest in *)
-          (* let proc_prog = List.assoc proc prog_ins in *)
-          (* let loop_prog = *)
-          (*   List.take *)
-          (*     (end_spoi - start_spoi + 1) *)
-          (*     (List.drop start_spoi proc_prog) *)
-          (* in *)
-          (* Log.debug (fun m -> m "Loop:"); *)
-          (* let () = *)
-          (*   loop_prog *)
-          (*   |> List.iter (fun ins -> *)
-          (*       Log.debug (fun m -> m "  %s" (T.show_instruction ins))) *)
-          (* in *)
+
+          Log.debug (fun m ->
+              let loop_prog =
+                LitmusTest.prog_section ~proc ~start_spoi ~end_spoi ltest
+              in
+              m "Loop: %a" T.pp_prog_section loop_prog);
+
           let iterations =
             iterations_of_loop ~proc ~start_spoi ~end_spoi es.events
           in
@@ -352,6 +305,7 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
           let rf =
             List.assoc_opt "rf" rels |> Option.value ~default:E.EventRel.empty
           in
+          let po = conc.S.po in
           let lasso_co = co |> E.EventRel.restrict_rel is_lasso_edge in
           let lasso_rf = rf |> E.EventRel.restrict_rel is_lasso_edge in
           let lasso_po = po |> E.EventRel.restrict_rel is_lasso_edge in
