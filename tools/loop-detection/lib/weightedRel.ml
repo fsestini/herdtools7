@@ -30,6 +30,13 @@ module SetWeights = struct
   let top = Top
   let singleton (n : int) : t = Int_set (IntSet.singleton n)
 
+  let mem (n : int) (t : t) =
+    match t with
+    | Int_set s -> IntSet.mem n s
+    | To_pos_inf m -> m <= n
+    | From_neg_inf m -> n <= m
+    | Top -> true
+
   let is_empty = function
     | Int_set s -> IntSet.is_empty s
     | To_pos_inf _ | From_neg_inf _ | Top -> false
@@ -207,6 +214,7 @@ module type S = sig
   val diff : t -> t -> t
   val inverse : t -> t
   val sequence : t -> t -> t
+  val filter : (elt -> elt -> weight -> bool) -> t -> t
 
   val transitive_closure : t -> t
   (** Positive transitive closure. The returned edge set is exact w.r.t.
@@ -425,9 +433,8 @@ module Make
             let visited = node :: visited in
             let succs =
               scc_successors pairs node
-              |> List.filter
-                   (fun dst ->
-                     not (Int.equal node skip_src && Int.equal dst skip_dst))
+              |> List.filter (fun dst ->
+                  not (Int.equal node skip_src && Int.equal dst skip_dst))
             in
             if List.exists (Int.equal target) succs then true
             else loop visited (succs @ stack)
@@ -496,4 +503,9 @@ module Make
          ~pp_sep:(fun fmt () -> Format.fprintf fmt "; ")
          pp_edge)
       edges
+
+  let filter p (t : t) =
+    fold
+      (fun (x, y, w) acc -> if p x y w then add (x, y, w) acc else acc)
+      t empty
 end

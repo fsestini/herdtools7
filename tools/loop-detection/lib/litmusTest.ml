@@ -79,4 +79,4 @@ let show_instruction (ins : AArch64Base.instruction) =
 let pp_prog_section fmt l =
   let open Format in
   let l = List.map show_instruction l in
-  pp_print_list ~pp_sep:(fun fmt () -> fprintf fmt "@,") pp_print_string fmt l
+  pp_print_list ~pp_sep:(fun fmt () -> fprintf fmt "@.") pp_print_string fmt l
