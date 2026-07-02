@@ -1,11 +1,23 @@
 module Log = (val Logs.src_log (Logs.Src.create "top") : Logs.LOG)
+open Herdlib
 module T = LitmusTest
 module SW = WeightedRel.SetWeights
+module TR = Top_herd.TestResult
 
 module Make (O : Herdlib.RunTest.Outcome) = struct
-  open Herdlib
   module S = O.M.S
   module E = S.E
+
+  module D = Dot.Make (struct
+    type node = E.event
+    type edge = string * E.event * E.event * SW.t
+
+    let node_id ev = Format.sprintf "eiid%d" ev.E.eiid
+    let node_cluster ev = E.proc_of ev
+    let endpoints (_, x, y, _) = (x, y)
+    let node_label ev = Format.sprintf "%s: %s" (E.pp_eiid ev) (E.pp_action ev)
+    let edge_label (r, _, _, w) = Format.asprintf "%s %a" r SW.pp w
+  end)
 
   module WR =
     WeightedRel.Make
@@ -15,6 +27,15 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
 
         let compare = E.event_compare
       end)
+
+  let pp_rel ~lbl fmt rel =
+    let rel_list = Util.Iter.to_list (fun f -> E.EventRel.iter f rel) in
+    let open Format in
+    pp_print_list
+      ~pp_sep:(fun fmt () -> fprintf fmt "@,")
+      (fun fmt (ev1, ev2) ->
+        fprintf fmt "%s -- %s -> %s" (E.pp_eiid ev1) lbl (E.pp_eiid ev2))
+      fmt rel_list
 
   let test = O.test
   let result = O.result
@@ -206,28 +227,6 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
     Log.debug (fun m ->
         m "cutoff start_spoi: %d, end_spoi: %d@." start_spoi end_spoi);
     Some (cutoff_proc, start_spoi, end_spoi)
-
-  module TR = Top_herd.TestResult
-
-  module D = Dot.Make (struct
-    type node = E.event
-    type edge = string * E.event * E.event * SW.t
-
-    let node_id ev = Format.sprintf "eiid%d" ev.E.eiid
-    let node_cluster ev = E.proc_of ev
-    let endpoints (_, x, y, _) = (x, y)
-    let node_label ev = Format.sprintf "%s: %s" (E.pp_eiid ev) (E.pp_action ev)
-    let edge_label (r, _, _, w) = Format.asprintf "%s %a" r SW.pp w
-  end)
-
-  let pp_rel ~lbl fmt rel =
-    let rel_list = Util.Iter.to_list (fun f -> E.EventRel.iter f rel) in
-    let open Format in
-    pp_print_list
-      ~pp_sep:(fun fmt () -> fprintf fmt "@,")
-      (fun fmt (ev1, ev2) ->
-        fprintf fmt "%s -- %s -> %s" (E.pp_eiid ev1) lbl (E.pp_eiid ev2))
-      fmt rel_list
 
   let run (ltest : LitmusTest.test) () =
     let execs_with_cutoff =
