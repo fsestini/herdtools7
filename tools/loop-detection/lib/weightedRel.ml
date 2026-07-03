@@ -1,7 +1,10 @@
+exception Unsupported of string
+
 module type Weight = sig
   type t
 
   val empty : t
+  val top : t
   val is_empty : t -> bool
   val equal : t -> t -> bool
   val pp : Format.formatter -> t -> unit
@@ -26,6 +29,7 @@ module SetWeights = struct
     | Z  (** [Z] represents the entire set of integers. *)
 
   let empty = Int_set IntSet.empty
+  let top = Z
   let singleton (n : int) : t = Int_set (IntSet.singleton n)
 
   let mem (n : int) (t : t) =
@@ -61,12 +65,6 @@ module SetWeights = struct
     | From_neg_inf n -> Format.fprintf fmt "(-inf,%d]" n
     | Z -> Format.fprintf fmt "Z"
 
-  let min_elt_default default s =
-    if IntSet.is_empty s then default else IntSet.min_elt s
-
-  let max_elt_default default s =
-    if IntSet.is_empty s then default else IntSet.max_elt s
-
   let range from_ until =
     let rec loop acc n =
       let acc = IntSet.add n acc in
@@ -76,7 +74,7 @@ module SetWeights = struct
 
   let negate i =
     if Int.equal i min_int then
-      invalid_arg "SetWeights.inverse: cannot negate min_int"
+      invalid_arg "SetWeights.negate: cannot negate min_int"
     else -i
 
   let add_int i j =
@@ -87,6 +85,71 @@ module SetWeights = struct
   let succ i = if i = max_int then None else Some (i + 1)
   let pred i = if i = min_int then None else Some (i - 1)
 
+  let unsupported op =
+    let msg = Format.sprintf "SetWeights.%s: result is not representable" op in
+    raise (Unsupported msg)
+
+  let interval_equal s ~first ~last =
+    if first > last then IntSet.is_empty s
+    else
+      match IntSet.elements s with
+      | [] -> false
+      | x :: xs ->
+          Int.equal x first
+          &&
+          let rec loop prev = function
+            | [] -> Int.equal prev last
+            | x :: xs -> (
+                match succ prev with
+                | None -> false
+                | Some expected -> Int.equal x expected && loop expected xs)
+          in
+          loop x xs
+
+  let union_int_set_to_pos_inf s n =
+    let below = IntSet.filter (fun i -> i < n) s in
+    if IntSet.is_empty below then To_pos_inf n
+    else
+      match pred n with
+      | None -> unsupported "union"
+      | Some last ->
+          let first = IntSet.min_elt below in
+          if interval_equal below ~first ~last then To_pos_inf first
+          else unsupported "union"
+
+  let union_int_set_from_neg_inf s n =
+    let above = IntSet.filter (fun i -> i > n) s in
+    if IntSet.is_empty above then From_neg_inf n
+    else
+      match succ n with
+      | None -> unsupported "union"
+      | Some first ->
+          let last = IntSet.max_elt above in
+          if interval_equal above ~first ~last then From_neg_inf last
+          else unsupported "union"
+
+  let diff_to_pos_inf_int_set n s =
+    let removed = IntSet.filter (fun i -> i >= n) s in
+    if IntSet.is_empty removed then To_pos_inf n
+    else
+      let last = IntSet.max_elt removed in
+      if interval_equal removed ~first:n ~last then
+        match succ last with
+        | None -> unsupported "diff"
+        | Some n -> To_pos_inf n
+      else unsupported "diff"
+
+  let diff_from_neg_inf_int_set n s =
+    let removed = IntSet.filter (fun i -> i <= n) s in
+    if IntSet.is_empty removed then From_neg_inf n
+    else
+      let first = IntSet.min_elt removed in
+      if interval_equal removed ~first ~last:n then
+        match pred first with
+        | None -> unsupported "diff"
+        | Some n -> From_neg_inf n
+      else unsupported "diff"
+
   let union w1 w2 =
     match (w1, w2) with
     | Z, _ | _, Z -> Z
@@ -94,10 +157,13 @@ module SetWeights = struct
     | To_pos_inf n1, To_pos_inf n2 -> To_pos_inf (min n1 n2)
     | From_neg_inf n1, From_neg_inf n2 -> From_neg_inf (max n1 n2)
     | Int_set s, To_pos_inf n | To_pos_inf n, Int_set s ->
-        To_pos_inf (min n (min_elt_default n s))
+        union_int_set_to_pos_inf s n
     | Int_set s, From_neg_inf n | From_neg_inf n, Int_set s ->
-        From_neg_inf (max n (max_elt_default n s))
-    | To_pos_inf _, From_neg_inf _ | From_neg_inf _, To_pos_inf _ -> Z
+        union_int_set_from_neg_inf s n
+    | To_pos_inf a, From_neg_inf b | From_neg_inf b, To_pos_inf a -> (
+        match succ b with
+        | None -> Z
+        | Some b_succ -> if a <= b_succ then Z else unsupported "union")
 
   let intersection w1 w2 =
     match (w1, w2) with
@@ -113,9 +179,6 @@ module SetWeights = struct
       ->
         Int_set (range from until)
 
-  (* Difference is exact when the result is representable in this domain. When
-     subtracting finite holes from a half-infinite interval or Z,
-     [diff w1 w2] defaults to [w1] as a sound overapproximation. *)
   let diff w1 w2 =
     match (w1, w2) with
     | Int_set s, _ when IntSet.is_empty s -> empty
@@ -124,22 +187,31 @@ module SetWeights = struct
     | Int_set s1, Int_set s2 -> Int_set (IntSet.diff s1 s2)
     | Int_set s, To_pos_inf n -> Int_set (IntSet.filter (fun i -> i < n) s)
     | Int_set s, From_neg_inf n -> Int_set (IntSet.filter (fun i -> i > n) s)
-    | Z, Int_set _ -> Z
+    | Z, Int_set _ -> unsupported "diff"
     | Z, To_pos_inf n -> (
-        match pred n with None -> empty | Some n -> From_neg_inf n)
+        match pred n with
+        | None -> unsupported "diff"
+        | Some n -> From_neg_inf n)
     | Z, From_neg_inf n -> (
-        match succ n with None -> empty | Some n -> To_pos_inf n)
-    | To_pos_inf _, Int_set _ | From_neg_inf _, Int_set _ -> w1
+        match succ n with None -> unsupported "diff" | Some n -> To_pos_inf n)
+    | To_pos_inf n, Int_set s -> diff_to_pos_inf_int_set n s
+    | From_neg_inf n, Int_set s -> diff_from_neg_inf_int_set n s
     | To_pos_inf n1, To_pos_inf n2 ->
         if n2 <= n1 then empty else Int_set (range n1 (n2 - 1))
     | From_neg_inf n1, From_neg_inf n2 ->
         if n2 >= n1 then empty else Int_set (range (n2 + 1) n1)
     | To_pos_inf n1, From_neg_inf n2 -> (
         if n2 < n1 then w1
-        else match succ n2 with None -> empty | Some n -> To_pos_inf n)
+        else
+          match succ n2 with
+          | None -> unsupported "diff"
+          | Some n -> To_pos_inf n)
     | From_neg_inf n1, To_pos_inf n2 -> (
         if n2 > n1 then w1
-        else match pred n2 with None -> empty | Some n -> From_neg_inf n)
+        else
+          match pred n2 with
+          | None -> unsupported "diff"
+          | Some n -> From_neg_inf n)
 
   let inverse = function
     | Int_set s ->
@@ -214,10 +286,12 @@ module type S = sig
   val sequence : t -> t -> t
   val filter : (elt -> elt -> weight -> bool) -> t -> t
 
-  val transitive_closure : t -> t
+  val transitive_closure_widened : t -> t
   (** Positive transitive closure. The returned edge set is exact w.r.t.
       reachability in the input relation, but edge weights may be sound
       overapproximations. *)
+
+  val transitive_closure_exact : t -> t
 
   val transitive_reduction : t -> t
   (** Transitive reduction, computed independently for each [W.equal] weight
@@ -341,9 +415,8 @@ module Make
   let equal rel1 rel2 = EltMap.equal (EltMap.equal W.equal) rel1 rel2
   let widen rel1 rel2 = EltMap.union (EltMap.union W.widen) rel1 rel2
 
-  let transitive_closure rel =
+  let transitive_closure_ ~widen rel =
     let max_iterations = 1000 in
-    let widen rel1 rel2 = EltMap.union (EltMap.union W.widen) rel1 rel2 in
     let rec loop iteration current =
       if iteration >= max_iterations then
         failwith "weighted relation transitive closure did not stabilize";
@@ -352,6 +425,14 @@ module Make
       if equal current next then current else loop (iteration + 1) next
     in
     loop 0 rel
+
+  let transitive_closure_widened rel =
+    let widen rel1 rel2 = EltMap.union (EltMap.union W.widen) rel1 rel2 in
+    transitive_closure_ ~widen rel
+
+  let transitive_closure_exact rel =
+    let widen _ rel2 = rel2 in
+    transitive_closure_ ~widen rel
 
   let successors rel src =
     match EltMap.find_opt src rel with

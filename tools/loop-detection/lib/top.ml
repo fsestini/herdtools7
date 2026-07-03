@@ -243,7 +243,8 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
         back_po_targets po
     in
     (* Compute transitive closure *)
-    let po = WR.transitive_closure po in
+    (* let po = WR.transitive_closure po in *)
+    let po = WR.transitive_closure_exact po in
     { rf; po }
 
   let run (ltest : LitmusTest.test) () =

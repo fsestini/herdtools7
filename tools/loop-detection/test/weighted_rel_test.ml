@@ -24,12 +24,16 @@ let print_binary_weight name op w1 w2 =
 
 let print_unary_weight_or_exception name op w =
   try Format.printf "%s %a = %a@." name W.pp w W.pp (op w) with
+  | WeightedRel.Unsupported msg ->
+      Format.printf "%s %a = Unsupported %S@." name W.pp w msg
   | Invalid_argument msg ->
       Format.printf "%s %a = Invalid_argument %S@." name W.pp w msg
   | exn -> Format.printf "%s %a = %s@." name W.pp w (Printexc.to_string exn)
 
 let print_binary_weight_or_exception name op w1 w2 =
   try Format.printf "%a %s %a = %a@." W.pp w1 name W.pp w2 W.pp (op w1 w2) with
+  | WeightedRel.Unsupported msg ->
+      Format.printf "%a %s %a = Unsupported %S@." W.pp w1 name W.pp w2 msg
   | Invalid_argument msg ->
       Format.printf "%a %s %a = Invalid_argument %S@." W.pp w1 name W.pp w2 msg
   | exn ->
@@ -59,10 +63,26 @@ let () =
     (W.From_neg_inf (-3));
   (* Format.printf "pp %a = %a@." W.pp W.Top W.pp W.Top; *)
   print_binary_weight "union" W.union (finite [ 1; 3 ]) (finite [ 2; 3 ]);
+  print_binary_weight "union" W.union (finite [ 4 ]) (W.To_pos_inf 5);
+  print_binary_weight "union" W.union (finite [ 2; 3; 4 ]) (W.To_pos_inf 5);
+  print_binary_weight "union" W.union (finite [ 6 ]) (W.From_neg_inf 5);
+  print_binary_weight "union" W.union (W.To_pos_inf 0) (W.From_neg_inf (-1));
+  print_binary_weight_or_exception "union" W.union (finite [ 2 ])
+    (W.To_pos_inf 5);
+  print_binary_weight_or_exception "union" W.union (finite [ 8 ])
+    (W.From_neg_inf 5);
+  print_binary_weight_or_exception "union" W.union (W.To_pos_inf 5)
+    (W.From_neg_inf 3);
   print_binary_weight "intersection" W.intersection (W.To_pos_inf 0)
     (W.From_neg_inf 2);
   print_binary_weight "diff" W.diff (finite [ 1; 2; 3 ]) (finite [ 2 ]);
   print_binary_weight "diff" W.diff (W.To_pos_inf 0) (W.To_pos_inf 3);
+  print_binary_weight "diff" W.diff (W.To_pos_inf 0) (finite [ 0; 1; 2 ]);
+  print_binary_weight "diff" W.diff (W.From_neg_inf 5) (finite [ 3; 4; 5 ]);
+  print_binary_weight_or_exception "diff" W.diff W.Z (finite [ 0 ]);
+  print_binary_weight_or_exception "diff" W.diff (W.To_pos_inf 0) (finite [ 2 ]);
+  print_binary_weight_or_exception "diff" W.diff (W.From_neg_inf 5)
+    (finite [ 3 ]);
   (* print_binary_weight "diff" W.diff W.Top (W.To_pos_inf 0); *)
   print_unary_weight "inverse" W.inverse (finite [ -2; 0; 3 ]);
   print_unary_weight "inverse" W.inverse (W.To_pos_inf 3);
@@ -105,12 +125,12 @@ let () =
   print_binary_rel "widen" WR.widen
     (rel [ (1, 2, finite [ 0 ]) ])
     (rel [ (1, 2, finite [ 0; 1 ]) ]);
-  print_unary_rel "transitive_closure" WR.transitive_closure WR.empty;
-  print_unary_rel "transitive_closure" WR.transitive_closure
+  print_unary_rel "transitive_closure" WR.transitive_closure_widened WR.empty;
+  print_unary_rel "transitive_closure" WR.transitive_closure_widened
     (rel [ (1, 2, finite [ 0 ]); (2, 3, finite [ 0 ]) ]);
-  print_unary_rel "transitive_closure" WR.transitive_closure
+  print_unary_rel "transitive_closure" WR.transitive_closure_widened
     (rel [ (1, 2, finite [ 1 ]); (2, 3, finite [ 2 ]) ]);
-  print_unary_rel "transitive_closure" WR.transitive_closure
+  print_unary_rel "transitive_closure" WR.transitive_closure_widened
     (rel
        [
          (1, 2, finite [ 1 ]);
@@ -118,11 +138,11 @@ let () =
          (1, 3, finite [ 2 ]);
          (3, 4, finite [ 2 ]);
        ]);
-  print_unary_rel "transitive_closure" WR.transitive_closure
+  print_unary_rel "transitive_closure" WR.transitive_closure_widened
     (rel [ (1, 1, finite [ 1 ]) ]);
-  print_unary_rel "transitive_closure" WR.transitive_closure
+  print_unary_rel "transitive_closure" WR.transitive_closure_widened
     (rel [ (1, 1, finite [ -1 ]) ]);
-  print_unary_rel "transitive_closure" WR.transitive_closure
+  print_unary_rel "transitive_closure" WR.transitive_closure_widened
     (rel [ (1, 2, finite [ 1 ]); (2, 1, finite [ 1 ]); (3, 4, finite [ 1 ]) ]);
   print_unary_rel "transitive_reduction" WR.transitive_reduction WR.empty;
   print_unary_rel "transitive_reduction" WR.transitive_reduction
