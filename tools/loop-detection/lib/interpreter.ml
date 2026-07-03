@@ -30,32 +30,24 @@ end = struct
     match (v1, v2) with
     | Set s1, Set s2 -> Set (Elts.union s1 s2)
     | Rel r1, Rel r2 -> Rel (WR.union r1 r2)
-    | Set _, Rel _ | Rel _, Set _ ->
-        failwith "mixing sets and relations in union"
-    | Clo _, _ | _, Clo _ -> failwith "union expects sets or relations"
+    | _ -> failwith "union_v: type mismatch"
 
   let inter_v v1 v2 =
     match (v1, v2) with
     | Set s1, Set s2 -> Set (Elts.inter s1 s2)
     | Rel r1, Rel r2 -> Rel (WR.intersection r1 r2)
-    | Set _, Rel _ | Rel _, Set _ ->
-        failwith "mixing sets and relations in intersection"
-    | Clo _, _ | _, Clo _ -> failwith "intersection expects sets or relations"
+    | _ -> failwith "inter_v: type mismatch"
 
   let sequence_v v1 v2 =
     match (v1, v2) with
     | Rel r1, Rel r2 -> Rel (WR.sequence r1 r2)
-    | Set _, Set _ | Set _, Rel _ | Rel _, Set _ ->
-        failwith "sequence expects relations"
-    | Clo _, _ | _, Clo _ -> failwith "sequence expects relations"
+    | _ -> failwith "sequence_v: type mismatch"
 
   let diff_v v1 v2 =
     match (v1, v2) with
     | Set s1, Set s2 -> Set (Elts.diff s1 s2)
     | Rel r1, Rel r2 -> Rel (WR.diff r1 r2)
-    | Set _, Rel _ | Rel _, Set _ ->
-        failwith "mixing sets and relations in difference"
-    | Clo _, _ | _, Clo _ -> failwith "difference expects sets or relations"
+    | _ -> failwith "diff_v: type mismatch"
 
   let cartesian_v v1 v2 =
     match (v1, v2) with
@@ -63,15 +55,12 @@ end = struct
         (* TODO: this needs to take lasso events into consideration *)
         failwith "NIY"
         (* Rel (WR.cartesian (Elts.elements s1) (Elts.elements s2) W.top) *)
-    | Rel _, Rel _ | Set _, Rel _ | Rel _, Set _ ->
-        failwith "cartesian product expects sets"
-    | Clo _, _ | _, Clo _ -> failwith "cartesian product expects sets"
+    | _ -> failwith "cartesian_v: type mismatch"
 
   let inverse_v v =
     match v with
     | Rel r -> Rel (WR.inverse r)
-    | Set _ -> failwith "inverse expects a relation"
-    | Clo _ -> failwith "inverse expects a relation"
+    | _ -> failwith "inverse_v: type mismatch"
 
   let complement_v universes = function
     | Set s -> Set (Elts.diff universes.events s)
@@ -122,9 +111,6 @@ end = struct
         recursive_rhs_allowed exp1 && recursive_rhs_allowed exp2
     | VariantCond _ -> true
 
-  (* let lmrs = [W]; ((po & same-loc) & ~(intervening(W,(po & same-loc)))); [R] *)
-  (* let intervening(S,r) = r; [S]; r *)
-
   let rec eval_exp (ctx : context) (st : state) : AST.exp -> v =
     let rec go (env : env) : AST.exp -> v = function
       | Konst (_, AST.Empty kind) -> (
@@ -149,18 +135,9 @@ end = struct
           List.map (go env) exps |> fold_nonempty union_v "union"
       | Op (_, Inter, exps) ->
           List.map (go env) exps |> fold_nonempty inter_v "intersection"
-      | Op (_, Diff, exps) -> (
-          match exps with
-          | [ x; y ] -> diff_v (go env x) (go env y)
-          | _ -> failwith "invalid difference")
-      | Op (_, Seq, exps) -> (
-          match exps with
-          | [ x; y ] -> sequence_v (go env x) (go env y)
-          | _ -> failwith "invalid sequence")
-      | Op (_, Cartesian, exps) -> (
-          match exps with
-          | [ x; y ] -> cartesian_v (go env x) (go env y)
-          | _ -> failwith "Invalid cartesian product")
+      | Op (_, Diff, [ x; y ]) -> diff_v (go env x) (go env y)
+      | Op (_, Seq, [ x; y ]) -> sequence_v (go env x) (go env y)
+      | Op (_, Cartesian, [ x; y ]) -> cartesian_v (go env x) (go env y)
       | Op1 (_, ToId, exp) ->
           let v = go env exp in
           inter_v (cartesian_v v v) (StringMap.find "id" ctx.builtins)
@@ -172,11 +149,11 @@ end = struct
               let arg = go env arg in
               go (StringMap.add param arg closure_env) body
           | Set _ | Rel _ -> failwith "application expects a function")
-      | Bind (_, [ ((_, Pvar (Some _), _) as binding) ], body) ->
-          let env = eval_let_binding ctx { env } binding in
+      | Bind (_, [ (_, Pvar (Some name), _) ], body) ->
+          let env = eval_let_binding ctx { env } name body in
           go env body
-      | BindRec (_, [ ((_, Pvar (Some _), _) as binding) ], body) ->
-          let env = eval_rec_binding ctx { env } binding in
+      | BindRec (_, [ (_, Pvar (Some name), _) ], body) ->
+          let env = eval_rec_binding ctx { env } name body in
           go env body
       | exp ->
           let loc = ASTUtils.exp2loc exp in
@@ -186,21 +163,11 @@ end = struct
     in
     go st.env
 
-  and eval_let_binding ctx st (_, pat, rhs) =
-    let name =
-      match pat with
-      | Pvar (Some name) -> name
-      | Pvar None | Ptuple _ -> invalid_arg "unsupported let binding"
-    in
+  and eval_let_binding ctx st name rhs =
     let v = eval_exp ctx st rhs in
     StringMap.add name v st.env
 
-  and eval_rec_binding ctx st (_, pat, rhs) =
-    let name =
-      match pat with
-      | Pvar (Some name) -> name
-      | Pvar None | Ptuple _ -> invalid_arg "unsupported let rec binding"
-    in
+  and eval_rec_binding ctx st name rhs =
     if not (recursive_rhs_allowed rhs) then
       failwith "recursive definitions must be monotone relation expressions";
     let rec fix iteration current =
@@ -210,10 +177,10 @@ end = struct
       let next =
         match eval_exp ctx rec_st rhs with
         | Rel r -> r
-        | Set _ -> failwith "recursive definitions must be relation-valued"
-        | Clo _ -> failwith "recursive functions are not supported"
+        | _ -> failwith "recursive definitions must be relation-valued"
       in
-      let widened = WR.widen current next in
+      (* let widened = WR.widen current next in *)
+      let widened = next in
       if WR.equal current widened then StringMap.add name (Rel current) st.env
       else fix (iteration + 1) widened
     in
@@ -226,10 +193,10 @@ end = struct
     failwith msg
 
   let eval_ins (ctx : context) (st : state) : AST.ins -> state = function
-    | Let (_, [ ((_, Pvar (Some _), _) as binding) ]) ->
-        { env = eval_let_binding ctx st binding }
-    | Rec (_, [ ((_, Pvar (Some _), _) as binding) ], None) ->
-        { env = eval_rec_binding ctx st binding }
+    | Let (_, [ (_, Pvar (Some name), rhs) ]) ->
+        { env = eval_let_binding ctx st name rhs }
+    | Rec (_, [ (_, Pvar (Some name), rhs) ], None) ->
+        { env = eval_rec_binding ctx st name rhs }
     | ins -> unsupported_ins ins
 
   let eval_ins_list ctx st ins = List.fold_left (eval_ins ctx) st ins
