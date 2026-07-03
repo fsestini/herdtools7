@@ -2,7 +2,6 @@ module type Weight = sig
   type t
 
   val empty : t
-  val top : t
   val is_empty : t -> bool
   val equal : t -> t -> bool
   val pp : Format.formatter -> t -> unit
@@ -24,10 +23,9 @@ module SetWeights = struct
     | From_neg_inf of int
         (** [To_pos_inf n] represents the set of integers in the interval from
             negative infinity to [n]. *)
-    | Top  (** [Top] represents the entire set of integers. *)
+    | Z  (** [Z] represents the entire set of integers. *)
 
   let empty = Int_set IntSet.empty
-  let top = Top
   let singleton (n : int) : t = Int_set (IntSet.singleton n)
 
   let mem (n : int) (t : t) =
@@ -35,19 +33,19 @@ module SetWeights = struct
     | Int_set s -> IntSet.mem n s
     | To_pos_inf m -> m <= n
     | From_neg_inf m -> n <= m
-    | Top -> true
+    | Z -> true
 
   let is_empty = function
     | Int_set s -> IntSet.is_empty s
-    | To_pos_inf _ | From_neg_inf _ | Top -> false
+    | To_pos_inf _ | From_neg_inf _ | Z -> false
 
   let equal w1 w2 =
     match (w1, w2) with
     | Int_set s1, Int_set s2 -> IntSet.equal s1 s2
     | To_pos_inf n1, To_pos_inf n2 | From_neg_inf n1, From_neg_inf n2 ->
         Int.equal n1 n2
-    | Top, Top -> true
-    | (Int_set _ | To_pos_inf _ | From_neg_inf _ | Top), _ -> false
+    | Z, Z -> true
+    | (Int_set _ | To_pos_inf _ | From_neg_inf _ | Z), _ -> false
 
   let pp fmt = function
     | Int_set s ->
@@ -61,7 +59,7 @@ module SetWeights = struct
         pp_ints fmt s
     | To_pos_inf n -> Format.fprintf fmt "[%d,+inf)" n
     | From_neg_inf n -> Format.fprintf fmt "(-inf,%d]" n
-    | Top -> Format.fprintf fmt "Top"
+    | Z -> Format.fprintf fmt "Z"
 
   let min_elt_default default s =
     if IntSet.is_empty s then default else IntSet.min_elt s
@@ -91,7 +89,7 @@ module SetWeights = struct
 
   let union w1 w2 =
     match (w1, w2) with
-    | Top, _ | _, Top -> Top
+    | Z, _ | _, Z -> Z
     | Int_set s1, Int_set s2 -> Int_set (IntSet.union s1 s2)
     | To_pos_inf n1, To_pos_inf n2 -> To_pos_inf (min n1 n2)
     | From_neg_inf n1, From_neg_inf n2 -> From_neg_inf (max n1 n2)
@@ -99,11 +97,11 @@ module SetWeights = struct
         To_pos_inf (min n (min_elt_default n s))
     | Int_set s, From_neg_inf n | From_neg_inf n, Int_set s ->
         From_neg_inf (max n (max_elt_default n s))
-    | To_pos_inf _, From_neg_inf _ | From_neg_inf _, To_pos_inf _ -> Top
+    | To_pos_inf _, From_neg_inf _ | From_neg_inf _, To_pos_inf _ -> Z
 
   let intersection w1 w2 =
     match (w1, w2) with
-    | Top, w | w, Top -> w
+    | Z, w | w, Z -> w
     | Int_set s1, Int_set s2 -> Int_set (IntSet.inter s1 s2)
     | To_pos_inf n1, To_pos_inf n2 -> To_pos_inf (max n1 n2)
     | From_neg_inf n1, From_neg_inf n2 -> From_neg_inf (min n1 n2)
@@ -116,20 +114,20 @@ module SetWeights = struct
         Int_set (range from until)
 
   (* Difference is exact when the result is representable in this domain. When
-     subtracting finite holes from a half-infinite interval or Top,
+     subtracting finite holes from a half-infinite interval or Z,
      [diff w1 w2] defaults to [w1] as a sound overapproximation. *)
   let diff w1 w2 =
     match (w1, w2) with
     | Int_set s, _ when IntSet.is_empty s -> empty
     | _, Int_set s when IntSet.is_empty s -> w1
-    | _, Top -> empty
+    | _, Z -> empty
     | Int_set s1, Int_set s2 -> Int_set (IntSet.diff s1 s2)
     | Int_set s, To_pos_inf n -> Int_set (IntSet.filter (fun i -> i < n) s)
     | Int_set s, From_neg_inf n -> Int_set (IntSet.filter (fun i -> i > n) s)
-    | Top, Int_set _ -> Top
-    | Top, To_pos_inf n -> (
+    | Z, Int_set _ -> Z
+    | Z, To_pos_inf n -> (
         match pred n with None -> empty | Some n -> From_neg_inf n)
-    | Top, From_neg_inf n -> (
+    | Z, From_neg_inf n -> (
         match succ n with None -> empty | Some n -> To_pos_inf n)
     | To_pos_inf _, Int_set _ | From_neg_inf _, Int_set _ -> w1
     | To_pos_inf n1, To_pos_inf n2 ->
@@ -149,7 +147,7 @@ module SetWeights = struct
           (IntSet.fold (fun i acc -> IntSet.add (negate i) acc) s IntSet.empty)
     | To_pos_inf n -> From_neg_inf (negate n)
     | From_neg_inf n -> To_pos_inf (negate n)
-    | Top -> Top
+    | Z -> Z
 
   let cross_sum s1 s2 =
     IntSet.fold
@@ -161,7 +159,7 @@ module SetWeights = struct
     match (w1, w2) with
     | Int_set s, _ when IntSet.is_empty s -> Int_set IntSet.empty
     | _, Int_set s when IntSet.is_empty s -> Int_set IntSet.empty
-    | Top, _ | _, Top -> Top
+    | Z, _ | _, Z -> Z
     | Int_set s1, Int_set s2 -> Int_set (cross_sum s1 s2)
     | Int_set s, To_pos_inf n | To_pos_inf n, Int_set s ->
         To_pos_inf (add_int n (IntSet.min_elt s))
@@ -169,14 +167,14 @@ module SetWeights = struct
         From_neg_inf (add_int n (IntSet.max_elt s))
     | To_pos_inf n1, To_pos_inf n2 -> To_pos_inf (add_int n1 n2)
     | From_neg_inf n1, From_neg_inf n2 -> From_neg_inf (add_int n1 n2)
-    | To_pos_inf _, From_neg_inf _ | From_neg_inf _, To_pos_inf _ -> Top
+    | To_pos_inf _, From_neg_inf _ | From_neg_inf _, To_pos_inf _ -> Z
 
   (* Widening operator.
 
      The interesting case is finite-set vs finite-set.
      - If the finite bounds expand upward, widen to [To_pos_inf];
      - if they expand downward, widen to [From_neg_inf];
-     - if both bounds expand, widen to [Top].
+     - if both bounds expand, widen to [Z].
 
      If the bounds do not expand, keep the exact finite union. Other shapes
      already represent unboundedness, so widening falls back to union. *)
@@ -192,7 +190,7 @@ module SetWeights = struct
           let joined_max = IntSet.max_elt joined in
           let grows_down = joined_min < old_min in
           let grows_up = joined_max > old_max in
-          if grows_down && grows_up then Top
+          if grows_down && grows_up then Z
           else if grows_down then From_neg_inf joined_max
           else if grows_up then To_pos_inf joined_min
           else Int_set joined
