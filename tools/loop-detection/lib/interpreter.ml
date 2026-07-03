@@ -17,9 +17,11 @@ end = struct
   type context = { universes : universes; builtins : env }
   type state = { env : env }
 
-  let universes_of_events events =
-    let event_list = Elts.elements events in
-    { events; rel = WR.cartesian event_list event_list W.top }
+  let universes_of_events _events =
+    (* TODO: this needs to take lasso events into consideration *)
+    failwith "NIY"
+  (* let event_list = Elts.elements events in *)
+  (* { events; rel = WR.cartesian event_list event_list W.top } *)
 
   let context universes builtins = { universes; builtins }
   let empty_state = { env = StringMap.empty }
@@ -57,8 +59,10 @@ end = struct
 
   let cartesian_v v1 v2 =
     match (v1, v2) with
-    | Set s1, Set s2 ->
-        Rel (WR.cartesian (Elts.elements s1) (Elts.elements s2) W.top)
+    | Set _s1, Set _s2 ->
+        (* TODO: this needs to take lasso events into consideration *)
+        failwith "NIY"
+        (* Rel (WR.cartesian (Elts.elements s1) (Elts.elements s2) W.top) *)
     | Rel _, Rel _ | Set _, Rel _ | Rel _, Set _ ->
         failwith "cartesian product expects sets"
     | Clo _, _ | _, Clo _ -> failwith "cartesian product expects sets"
@@ -124,9 +128,7 @@ end = struct
   let rec eval_exp (ctx : context) (st : state) : AST.exp -> v =
     let rec go (env : env) : AST.exp -> v = function
       | Konst (_, AST.Empty kind) -> (
-          match kind with
-          | AST.SET -> Set Elts.empty
-          | AST.RLN -> Rel WR.empty)
+          match kind with AST.SET -> Set Elts.empty | AST.RLN -> Rel WR.empty)
       | Konst (_, AST.Universe kind) -> (
           match kind with
           | AST.SET -> Set ctx.universes.events
