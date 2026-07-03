@@ -193,7 +193,9 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
         (fun (ev1, ev2) acc ->
           let is_not_uniquely_determined =
             last_iteration.events
-            |> List.exists (fun ev -> E.EventRel.mem (ev1, ev) co)
+            |> List.exists (fun ev ->
+                E.EventRel.mem (ev1, ev) co
+                && Option.equal E.A.V.equal (E.value_of ev) (E.value_of ev1))
           in
           if is_not_uniquely_determined then
             failwith "rf is not uniquely determined"
