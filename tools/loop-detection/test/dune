@@ -6,7 +6,7 @@
 ;   %{bin:loop_detection}))
 
 (tests
- (names weighted_rel_test interpreter_test)
+ (names weighted_rel_test interpreter_test lazy_interpreter_test)
  (libraries loop_detection herdtools herdlib)
- (deps toy.cat lasso_cartesian.cat)
+ (deps toy.cat lasso_cartesian.cat lazy.cat)
  (modes native))
