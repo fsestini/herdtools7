@@ -118,38 +118,6 @@ end = struct
     | Ptuple _ ->
         failwith "only single-variable function parameters are supported"
 
-  let rec recursive_rhs_allowed : AST.exp -> bool = function
-    | App _ | Fun _ | Bind _ | BindRec _ -> false
-    | Op (_, Diff, _) | Op1 (_, Comp, _) -> false
-    | Op (_, _, exps) | ExplicitSet (_, exps) ->
-        List.for_all recursive_rhs_allowed exps
-    | Op1 (_, _, exp) -> recursive_rhs_allowed exp
-    | Match (_, exp, clauses, default) -> (
-        recursive_rhs_allowed exp
-        && List.for_all (fun (_, exp) -> recursive_rhs_allowed exp) clauses
-        &&
-        match default with
-        | None -> true
-        | Some exp -> recursive_rhs_allowed exp)
-    | MatchSet (_, exp1, exp2, clause) ->
-        let clause_exp =
-          match clause with
-          | EltRem (_, _, exp) | PreEltPost (_, _, _, exp) -> exp
-        in
-        recursive_rhs_allowed exp1 && recursive_rhs_allowed exp2
-        && recursive_rhs_allowed clause_exp
-    | Try (_, exp1, exp2) ->
-        recursive_rhs_allowed exp1 && recursive_rhs_allowed exp2
-    | If (_, cond, exp1, exp2) ->
-        recursive_cond_allowed cond
-        && recursive_rhs_allowed exp1 && recursive_rhs_allowed exp2
-    | Konst _ | Tag _ | Var _ -> true
-
-  and recursive_cond_allowed = function
-    | Eq (exp1, exp2) | Subset (exp1, exp2) | In (exp1, exp2) ->
-        recursive_rhs_allowed exp1 && recursive_rhs_allowed exp2
-    | VariantCond _ -> true
-
   let rec eval_exp (ctx : context) (st : state) : AST.exp -> v =
     let rec go (env : env) : AST.exp -> v = function
       | Konst (_, AST.Empty kind) -> (
@@ -212,8 +180,6 @@ end = struct
     StringMap.add name v st.env
 
   and eval_rec_binding ctx st name rhs =
-    if not (recursive_rhs_allowed rhs) then
-      failwith "recursive definitions must be monotone relation expressions";
     let rec fix iteration current =
       if iteration >= max_fixpoint_iterations then
         raise
