@@ -30,6 +30,8 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
         let compare = E.event_compare
       end)
 
+  module MC = ModelChecker.Make (S) (WR)
+
   let get_rel_or_empty lbl rels =
     List.assoc_opt lbl rels |> Option.value ~default:E.EventRel.empty
 
@@ -316,6 +318,7 @@ module Make (O : Herdlib.RunTest.Outcome) = struct
             let new_rels =
               [ ("po", po); ("rf", rf); ("co", co); ("rf-reg", rf_reg) ]
             in
+            let new_rels = MC.check conc new_rels in
             Some
               ( TR.concrete exec,
                 before_last_iteration.branch_event,
