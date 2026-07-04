@@ -18,6 +18,7 @@ module Make
 
   val force_rel : t -> string -> WR.t
   val force_rels : t -> string list -> WR.t StringMap.t
+  val check_failures : t -> string list
 end = struct
   type v = Set of Elts.t | Rel of WR.t | Clo of closure | Tup of v list
   and binding = v Lazy.t
@@ -26,8 +27,8 @@ end = struct
 
   type universes = { events : Elts.t; lasso_events : Elts.t; rel : WR.t }
   type context = { universes : universes; builtins : env; with_overrides : env }
-  type state = { env : env }
-  type t = { ctx : context; env : env }
+  type state = { env : env; check_failures : string list }
+  type t = { ctx : context; env : env; check_failures : string list }
   type event_kind = Finite | Lasso
 
   let event_kind lasso_events ev =
@@ -67,7 +68,7 @@ end = struct
       (fun name rel -> add_env_binding name (lazy (Rel rel)))
       rels env
 
-  let empty_state = { env = StringMap.empty }
+  let empty_state = { env = StringMap.empty; check_failures = [] }
 
   let union_v v1 v2 =
     match (v1, v2) with
@@ -149,6 +150,17 @@ end = struct
     | v :: vs -> List.fold_left op v vs
 
   let rel_is_empty rel = WR.fold (fun _ _ -> false) rel true
+
+  let elt_equal x y = Elts.equal (Elts.singleton x) (Elts.singleton y)
+
+  let weight_contains_zero w =
+    not (W.is_empty (W.intersection w (W.singleton 0)))
+
+  let rel_has_zero_self_edge rel =
+    WR.fold
+      (fun (src, dst, w) found ->
+        found || (elt_equal src dst && weight_contains_zero w))
+      rel false
 
   let v_is_empty = function
     | Set s -> Elts.is_empty s
@@ -255,10 +267,10 @@ end = struct
       | If (_, cond, x, y) -> if eval_cond cond then go env x else go env y
       | ExplicitSet (_, []) -> Set Elts.empty
       | Bind (_, [ (_, AST.Pvar (Some name), rhs) ], body) ->
-          let env = eval_let_binding ctx { env } name rhs in
+          let env = eval_let_binding ctx { st with env } name rhs in
           go env body
       | BindRec (_, [ (_, AST.Pvar (Some name), rhs) ], body) ->
-          let env = eval_rec_binding ctx { env } name rhs in
+          let env = eval_rec_binding ctx { st with env } name rhs in
           go env body
       | exp ->
           let loc = ASTUtils.exp2loc exp in
@@ -277,6 +289,19 @@ end = struct
     | OpNot cond -> not (eval_variant_cond cond)
     | OpAnd (c1, c2) -> eval_variant_cond c1 && eval_variant_cond c2
     | OpOr (c1, c2) -> eval_variant_cond c1 || eval_variant_cond c2
+
+  and eval_irreflexive_check ctx st test exp =
+    let check () =
+      match eval_exp ctx st exp with
+      | Rel r -> not (rel_has_zero_self_edge r)
+      | Set _ | Clo _ | Tup _ -> failwith "irreflexive expects a relation"
+    in
+    match test with
+    | AST.Yes AST.Irreflexive -> Some (check ())
+    | AST.No AST.Irreflexive -> Some (not (check ()))
+    | AST.Yes (AST.Acyclic | AST.TestEmpty)
+    | AST.No (AST.Acyclic | AST.TestEmpty) ->
+        None
 
   and eval_let_binding ctx (st : state) name rhs =
     StringMap.add name
@@ -304,7 +329,9 @@ end = struct
                    (WeightedRel.Unsupported
                       "recursive relation fixpoint did not stabilize");
                let rec_st =
-                 { env = StringMap.add name (lazy (Rel current)) st.env }
+                 { st with
+                   env = StringMap.add name (lazy (Rel current)) st.env
+                 }
                in
                let next =
                  match eval_exp ctx rec_st rhs with
@@ -334,10 +361,16 @@ end = struct
     StringMap.add name binding st.env
 
   let eval_ins (ctx : context) (st : state) : AST.ins -> state = function
-    | Let (_, bds) -> { env = eval_let_bindings ctx st bds }
+    | Let (_, bds) -> { st with env = eval_let_bindings ctx st bds }
     | Rec (_, [ (_, AST.Pvar (Some name), rhs) ], None) ->
-        { env = eval_rec_binding ctx st name rhs }
-    | WithFrom (_, name, _) -> { env = eval_with_binding ctx st name }
+        { st with env = eval_rec_binding ctx st name rhs }
+    | WithFrom (_, name, _) -> { st with env = eval_with_binding ctx st name }
+    | Test ((_, _, test, exp, name), AST.Check) -> (
+        match eval_irreflexive_check ctx st test exp with
+        | None | Some true -> st
+        | Some false ->
+            let name = Option.value name ~default:"<unnamed>" in
+            { st with check_failures = name :: st.check_failures })
     | Test _ | Show _ | ShowAs _ | UnShow _ | Include _ | Procedure _ | Call _
     | Debug _ | Forall _ | Enum _ | InsMatch _ | Events _ | IfVariant _ ->
         st
@@ -353,7 +386,7 @@ end = struct
     let with_overrides = env_of_builtins StringMap.empty with_overrides in
     let ctx = { universes; builtins; with_overrides } in
     let st = eval_ins_list ctx empty_state inss in
-    { ctx; env = st.env }
+    { ctx; env = st.env; check_failures = List.rev st.check_failures }
 
   let force_rel t name =
     match find_v t.ctx t.env name with
@@ -364,4 +397,6 @@ end = struct
     List.fold_left
       (fun env name -> StringMap.add name (force_rel t name) env)
       StringMap.empty names
+
+  let check_failures t = t.check_failures
 end

@@ -52,10 +52,10 @@ let () =
   let module M = Loop_detection.Top.Make (R.M.S) in
   let model = parse_cat model_path in
   let execs = M.run ltest R.test R.result () in
-  List.iteri
-    (fun i ({ M.conc; lasso; rels } : M.infinite_exec) ->
+  List.iter
+    (fun ({ M.index; conc; lasso; rels } : M.infinite_exec) ->
       let force_rel = M.MC.check conc lasso.M.events rels model in
-      Format.printf "execution %d@." i;
+      Format.printf "execution %d@." index;
 
       print_rel M.E.pp_eiid M.WR.fold rels "po";
       print_rel M.E.pp_eiid M.WR.fold rels "co";

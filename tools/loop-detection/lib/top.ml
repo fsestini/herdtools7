@@ -6,6 +6,12 @@ module TR = Top_herd.TestResult
 
 exception Error of string
 
+let exn_message = function Error msg -> msg | exn -> Printexc.to_string exn
+
+let warn_skipped_execution i exn =
+  Printf.eprintf "Warning: skipping unsupported execution %d: %s\n%!" i
+    (exn_message exn)
+
 module Parser = ParseModel.Make (struct
   let debug = false
   let libfind file = file
@@ -35,8 +41,20 @@ and expand_ins dir ins =
 
 let parse_model file =
   let opts, name, ins = Parser.parse file in
-  let ins = expand_ins (Filename.dirname file) ins in
+  let dir = Filename.dirname file in
+  let stdlib =
+    let stdlib = Filename.concat dir "stdlib.cat" in
+    if String.equal (Filename.basename file) "stdlib.cat" then []
+    else if Sys.file_exists stdlib then parse_cat stdlib
+    else []
+  in
+  let ins = stdlib @ expand_ins dir ins in
   ((opts, name, ins), ins)
+
+type graph_rel = { name : string; endpoints : (string * string) option }
+
+let graph_rel name = { name; endpoints = None }
+let graph_rel_between name ev1 ev2 = { name; endpoints = Some (ev1, ev2) }
 
 module Make (S : SemExtra.S) = struct
   module E = S.E
@@ -64,8 +82,28 @@ module Make (S : SemExtra.S) = struct
 
   module MC = ModelChecker.Make (S) (WR)
 
+  module PrettySem (C : sig
+    val showevents : PrettyConf.showevents
+  end) =
+  struct
+    include S
+
+    module O = struct
+      include S.O
+
+      module PC = struct
+        include S.O.PC
+
+        let showevents = C.showevents
+      end
+    end
+  end
+
   let get_rel_or_empty lbl rels =
     List.assoc_opt lbl rels |> Option.value ~default:E.EventRel.empty
+
+  let non_cutoff_events (conc : S.concrete) =
+    E.EventSet.filter (fun ev -> not (E.is_cutoff ev)) conc.S.str.events
 
   let pp_rel ~lbl fmt rel =
     let rel_list, () = Util.Iter.to_list (fun f -> E.EventRel.iter f rel) in
@@ -190,29 +228,95 @@ module Make (S : SemExtra.S) = struct
   (* && Option.equal S.A.location_equal (E.location_of ev) *)
   (*      (E.location_of ev1) *)
 
-  type weighted_edges = { rf : WR.t; po : WR.t }
+  type weighted_edges = { rf : WR.t; po : WR.t; co : WR.t }
 
-  let build_lasso ~(rf_reg : E.event_rel) ~(rf : E.event_rel)
+  let is_event_in ev evs =
+    List.exists (fun ev' -> E.event_equal ev ev') evs
+
+  let validate_lasso_memory lasso_events =
+    let () =
+      lasso_events
+      |> List.iter (fun ev ->
+             if E.is_mem ev then begin
+               (match E.location_of ev with
+               | Some _ -> ()
+               | None -> failwith "Unsupported lasso memory event");
+               if E.is_atomic ev || E.is_amo ev then
+                 failwith "Unsupported lasso memory event";
+               if not (E.is_mem_load ev || E.is_mem_store ev) then
+                 failwith "Unsupported lasso memory event"
+             end)
+    in
+    let lasso_writes = List.filter E.is_mem_store lasso_events in
+    let rec check_unique_locations = function
+      | [] -> ()
+      | write :: writes ->
+          if List.exists (E.same_location write) writes then
+            failwith "Multiple lasso writes to same location";
+          check_unique_locations writes
+    in
+    check_unique_locations lasso_writes;
+    lasso_writes
+
+  let validate_lasso_write_co_maximality ~events ~co ~lasso_writes =
+    let writes =
+      events |> E.EventSet.to_list |> List.filter E.is_mem_store
+    in
+    List.iter
+      (fun lasso_write ->
+        List.iter
+          (fun write ->
+            if
+              (not (E.event_equal write lasso_write))
+              && E.same_location write lasso_write
+            then begin
+              if E.EventRel.mem (lasso_write, write) co then
+                failwith "Lasso write is not coherence-maximal";
+              if not (E.EventRel.mem (write, lasso_write) co) then
+                failwith "Lasso write is not coherence-maximal"
+            end)
+          writes)
+      lasso_writes
+
+  let build_weighted_co ~events ~co ~is_lasso_event ~lasso_writes =
+    validate_lasso_write_co_maximality ~events ~co ~lasso_writes;
+    let is_lasso_write ev = is_event_in ev lasso_writes in
+    let co =
+      E.EventRel.fold
+        (fun (ev1, ev2) acc ->
+          match (is_lasso_event ev1, is_lasso_event ev2) with
+          | false, false -> WR.add (ev1, ev2, W.singleton 0) acc
+          | false, true ->
+              if is_lasso_write ev2 then WR.add (ev1, ev2, W.at_least 1) acc
+              else failwith "Unexpected co edge into lasso"
+          | true, false -> failwith "Lasso write is not coherence-maximal"
+          | true, true -> failwith "Unexpected lasso-to-lasso co edge")
+        co WR.empty
+    in
+    List.fold_left
+      (fun co write -> WR.add (write, write, W.at_least 1) co)
+      co lasso_writes
+
+  let validate_no_rf_from_lasso_writes ~rf ~lasso_writes =
+    rf
+    |> E.EventRel.exists (fun (ev1, _) -> is_event_in ev1 lasso_writes)
+    |> fun lasso_source ->
+    if lasso_source then failwith "rf source is a lasso write"
+
+  let build_lasso ~(events : E.EventSet.t) ~(rf_reg : E.event_rel)
+      ~(rf : E.event_rel)
       ~(co : E.event_rel) ~(po : E.event_rel) ~(last_iteration : iteration)
       ~(before_last_iteration : iteration) : weighted_edges =
     Log.debug (fun m -> m "building lasso");
-    (* Check that the only memory events are loads *)
-    let () =
-      last_iteration.events
-      |> List.for_all (fun ev -> (not (E.is_mem ev)) || E.is_mem_load ev)
-      |> fun b -> if not b then failwith "Non-read memory event"
-    in
     (* Check that the two iterations are event-equal *)
     let () =
       List.combine before_last_iteration.events last_iteration.events
       |> List.for_all (fun (ev1, ev2) -> E.Act.equal ev1.E.action ev2.E.action)
       |> fun b -> if not b then failwith "Event mismatch in suffix iterations"
     in
+    let lasso_writes = validate_lasso_memory last_iteration.events in
     let is_lasso_event ev =
-      let last_iteration_eiids =
-        List.map (fun ev -> ev.E.eiid) last_iteration.events
-      in
-      List.mem ev.E.eiid last_iteration_eiids
+      is_event_in ev last_iteration.events
     in
     Log.debug (fun m -> m "check no cross-iteration rf-reg edges");
     (* Check that there are no cross-iteration rf-reg edges. *)
@@ -223,6 +327,7 @@ module Make (S : SemExtra.S) = struct
           || (is_lasso_event ev2 && not (is_lasso_event ev1)))
       |> fun cross_iter -> if cross_iter then failwith "Cross-iteration rf-reg"
     in
+    validate_no_rf_from_lasso_writes ~rf ~lasso_writes;
     Log.debug (fun m -> m "check uniqueness of rf edges");
     (* Check uniqueness of rf edges and assign weights *)
     let rf =
@@ -239,13 +344,11 @@ module Make (S : SemExtra.S) = struct
           else
             match (is_lasso_event ev1, is_lasso_event ev2) with
             | false, true -> WR.add (ev1, ev2, W.at_least 1) acc
-            | true, false ->
-                failwith "impossible: there should be no writes in the lasso"
-            | true, true ->
-                failwith "impossible: there should be no writes in the lasso"
+            | true, false | true, true -> failwith "rf source is a lasso write"
             | false, false -> WR.add (ev1, ev2, W.singleton 0) acc)
         rf WR.empty
     in
+    let co = build_weighted_co ~events ~co ~is_lasso_event ~lasso_writes in
     Log.debug (fun m -> m "assigning weights to existing po edges");
     (* Assign weights to existing po edges *)
     let finite_po = po in
@@ -284,34 +387,46 @@ module Make (S : SemExtra.S) = struct
     (* let po = WR.transitive_closure po in *)
     let po = WR.transitive_closure_exact po in
     Log.debug (fun m -> m "done building lasso");
-    { rf; po }
+    { rf; po; co }
 
   type infinite_exec = {
+    index : int;
     conc : S.concrete;
     lasso : iteration;
     rels : (string * WR.t) list;
   }
 
-  let run (ltest : LitmusTest.test) (test : S.test) (result : TRS.t) () =
+  let run ?(lenient = false) (ltest : LitmusTest.test) (test : S.test)
+      (result : TRS.t) () =
     (* Collect all executions with a single cutoff event *)
-    let execs_with_cutoff, _ =
-      result.exec_iter
-      |> Util.Iter.filter (fun exec ->
+    let execs, _ = result.exec_iter |> Util.Iter.to_list in
+    let execs_with_cutoff =
+      execs
+      |> List.mapi (fun i exec ->
+          let i = i + 1 in
           let conc = TR.concrete exec in
           let cutoffs = E.EventSet.filter E.is_cutoff conc.S.str.E.events in
           match E.EventSet.cardinal cutoffs with
-          | 0 -> false
-          | 1 -> true
-          | n -> failwith (Printf.sprintf "Execution with %d cutoff events" n))
-      |> Util.Iter.to_list
+          | 0 -> None
+          | 1 -> Some (i, exec)
+          | n ->
+              let exn =
+                Failure (Printf.sprintf "Execution with %d cutoff events" n)
+              in
+              if lenient then begin
+                warn_skipped_execution i exn;
+                None
+              end
+              else raise exn)
+      |> List.filter_map (fun x -> x)
     in
     execs_with_cutoff
-    |> List.map (fun exec ->
+    |> List.filter_map (fun (i, exec) ->
         let conc = TR.concrete exec in
         let rels = TR.relations exec in
         let es = conc.S.str in
 
-        try
+        let build () =
           (* Compute static loop bounds *)
           let proc, start_spoi, end_spoi = find_static_loop_boundaries es in
 
@@ -342,12 +457,13 @@ module Make (S : SemExtra.S) = struct
           let rf_reg = get_rel_or_empty "rf-reg" rels in
           let rf = get_rel_or_empty "rf" rels in
           let co = get_rel_or_empty "co" rels in
+          let events = non_cutoff_events conc in
           let po = conc.S.po in
           let po =
             E.EventRel.restrict_codomain (fun ev -> not (E.is_cutoff ev)) po
           in
-          let { rf; po } =
-            build_lasso ~rf_reg ~rf ~co ~po ~last_iteration
+          let { rf; po; co } =
+            build_lasso ~events ~rf_reg ~rf ~co ~po ~last_iteration
               ~before_last_iteration
           in
           let assign_zero_weight r =
@@ -355,18 +471,34 @@ module Make (S : SemExtra.S) = struct
               (fun (ev1, ev2) -> WR.add (ev1, ev2, W.singleton 0))
               r WR.empty
           in
-          let co = assign_zero_weight co in
           let rf_reg = assign_zero_weight rf_reg in
           let new_rels =
             [ ("po", po); ("rf", rf); ("co", co); ("rf-reg", rf_reg) ]
           in
-          { conc = TR.concrete exec; lasso = last_iteration; rels = new_rels }
-        with Error msg ->
-          Out_channel.with_open_bin "error.dot" (fun ch ->
-              PP.dump_es ch test es);
-          prerr_string msg;
-          prerr_string "\n";
-          exit 1)
+          {
+            index = i;
+            conc = TR.concrete exec;
+            lasso = last_iteration;
+            rels = new_rels;
+          }
+        in
+        try Some (build ()) with
+        | Sys.Break -> raise Sys.Break
+        | exn ->
+            if lenient then begin
+              warn_skipped_execution i exn;
+              None
+            end
+            else begin
+              Out_channel.with_open_bin "error.dot" (fun ch ->
+                  PP.dump_es ch test es);
+              match exn with
+              | Error msg ->
+                  prerr_string msg;
+                  prerr_string "\n";
+                  exit 1
+              | exn -> raise exn
+            end)
 
   (* let ev_poi (ev : E.event) = *)
   (*   match ev.iiid with *)
@@ -418,35 +550,60 @@ module Make (S : SemExtra.S) = struct
     in
     (label, E.EventRel.add (src, dst) rel) :: List.remove_assoc label vbs
 
-  let weighted_vbs name rel =
+  let endpoint_matches endpoints src dst =
+    match endpoints with
+    | None -> true
+    | Some (ev1, ev2) ->
+        String.equal (E.pp_eiid src) ev1 && String.equal (E.pp_eiid dst) ev2
+
+  let weighted_vbs { name; endpoints } rel =
     WR.fold
       (fun (src, dst, weight) vbs ->
-        let label =
-          if W.equal weight (W.singleton 0) then name
-          else Format.asprintf "%s %a" name W.pp weight
-        in
-        add_vb label src dst vbs)
+        if endpoint_matches endpoints src dst then
+          let label =
+            if W.equal weight (W.singleton 0) then name
+            else Format.asprintf "%s %a" name W.pp weight
+          in
+          add_vb label src dst vbs
+        else vbs)
       rel []
     |> List.rev
 
-  let dump_exec_graph graph_rels model test model_ins i exec =
-    let force_rel = MC.check exec.conc exec.lasso.events exec.rels model_ins in
+  let dump_exec_graph graph_rels showevents model test model_ins i exec =
+    let checked = MC.check_all exec.conc exec.lasso.events exec.rels model_ins in
+    let force_rel = checked.force_rel in
+    List.iter
+      (fun name ->
+        Printf.eprintf "Warning: execution %d violates %s\n%!" i name)
+      checked.failed_checks;
+    let graph_rel name =
+      let rel = force_rel name in
+      if String.equal name "co" then WR.transitive_reduction rel else rel
+    in
     let vbs =
       graph_rels
-      |> List.map (fun name -> weighted_vbs name (force_rel name))
+      |> List.map (fun spec -> weighted_vbs spec (graph_rel spec.name))
       |> List.concat
     in
     let path = Printf.sprintf "out-%d.dot" i in
     Out_channel.with_open_bin path (fun ch ->
+        let selected_showevents = showevents in
+        let module PP =
+          Pretty.Make (PrettySem (struct
+            let showevents = selected_showevents
+          end))
+        in
         PP.dump_legend ch model test PrettyConf.ShowAll exec.conc vbs);
     path
 
   (* result |> Iter.iteri (fun _i _exec -> ()) *)
 end
 
-let default_graph_rels = [ "co"; "fr"; "ob" ]
+let default_graph_rels = [ graph_rel "co"; graph_rel "fr" ]
 
-let top ?(graph_rels = default_graph_rels) ~libdir ~unroll file_path =
+let top ?(graph_rels = default_graph_rels)
+    ?(showevents = PrettyConf.NonRegEvents) ?(lenient = false) ~libdir ~unroll
+    file_path =
   let str = In_channel.with_open_text file_path In_channel.input_all in
   let ltest = T.parse_from_file file_path in
   let model_path =
@@ -459,11 +616,18 @@ let top ?(graph_rels = default_graph_rels) ~libdir ~unroll file_path =
   let simul = HerdDriver.top ~libdir ~unroll str in
   let module R : RunTest.Outcome = (val simul) in
   let module M = Make (R.M.S) in
-  let execs = M.run ltest R.test R.result () in
+  let execs = M.run ~lenient ltest R.test R.result () in
   execs
-  |> List.iteri (fun i exec ->
-         let path =
-           M.dump_exec_graph graph_rels model R.test model_ins i exec
-         in
-         Printf.printf "Wrote %s\n%!" path);
+  |> List.iter (fun exec ->
+         let i = exec.M.index in
+         try
+           let path =
+             M.dump_exec_graph graph_rels showevents model R.test model_ins i
+               exec
+           in
+           Printf.printf "Wrote %s\n%!" path
+         with
+         | Sys.Break -> raise Sys.Break
+         | exn ->
+             if lenient then warn_skipped_execution i exn else raise exn);
   print_endline "Done."

@@ -8,6 +8,11 @@ struct
   module E = S.E
   module I = LazyInterpreter.Make (S.E.EventSet) (W) (WR)
 
+  type result = {
+    force_rel : string -> WR.t;
+    failed_checks : string list;
+  }
+
   type event_kind = Finite | Lasso
 
   let event_kind lasso_events ev =
@@ -250,9 +255,8 @@ struct
       (fun rels name -> add_empty_rel name rels)
       rels default_empty_relations
 
-  let check (conc : S.concrete) (lasso_events : E.event list)
-      (builtins : (string * WR.t) list) (model : AST.ins list) : string -> WR.t
-      =
+  let check_all (conc : S.concrete) (lasso_events : E.event list)
+      (builtins : (string * WR.t) list) (model : AST.ins list) : result =
     let events =
       E.EventSet.filter (fun ev -> not (E.is_cutoff ev)) conc.S.str.events
     in
@@ -264,5 +268,11 @@ struct
       I.interpret ~lasso_events ~events ~builtins ~set_builtins ~with_overrides
         model
     in
-    fun sym -> I.force_rel interpreted sym
+    {
+      force_rel = (fun sym -> I.force_rel interpreted sym);
+      failed_checks = I.check_failures interpreted;
+    }
+
+  let check conc lasso_events builtins model =
+    (check_all conc lasso_events builtins model).force_rel
 end

@@ -296,35 +296,41 @@ end
 (*     !l *)
 (* end *)
 
-let top ~libdir ~unroll str =
-  (* let (splitted : Splitter.result) = SP.split "T" chan in *)
-  (* let dirty = DirtyBit.get splitted.Splitter.info in *)
-  let libfind =
-    let module ML = MyLib.Make (struct
-      let includes = []
-      let env = Some "HERDLIB"
+module MakeDriver (Config : module type of DefaultConfig) = struct
+  let top ~libdir ~unroll str =
+    (* let (splitted : Splitter.result) = SP.split "T" chan in *)
+    (* let dirty = DirtyBit.get splitted.Splitter.info in *)
+    let libfind =
+      let module ML = MyLib.Make (struct
+        let includes = []
+        let env = Some "HERDLIB"
 
-      let libdir =
-        match libdir with
-        | Some libdir -> libdir
-        | None -> Filename.concat Version.libdir "herd"
+        let libdir =
+          match libdir with
+          | Some libdir -> libdir
+          | None -> Filename.concat Version.libdir "herd"
 
-      let debug = false
-    end) in
-    ML.find
-  in
-  let module C = struct
-    include DefaultConfig
+        let debug = false
+      end) in
+      ML.find
+    in
+    let module C = struct
+      include Config
 
-    let libfind = libfind
-    let unroll = unroll
-    let collect_graph_data = true
-  end in
-  let module PT = ParseTest.Top (C) in
-  let _, results =
-    PT.from_string ~filename:None ~contents:str StringMap.empty
-  in
-  match results with None -> assert false | Some results -> results
+      let libfind = libfind
+      let unroll = unroll
+      let collect_graph_data = true
+    end in
+    let module PT = ParseTest.Top (C) in
+    let _, results =
+      PT.from_string ~filename:None ~contents:str StringMap.empty
+    in
+    match results with None -> assert false | Some results -> results
+end
+
+module AnalysisDriver = MakeDriver (DefaultConfig)
+
+let top = AnalysisDriver.top
 (* let module R = (val results) in *)
 (* let module Conv = Converter (R.M.S) in *)
 (* Conv.convert R.result *)

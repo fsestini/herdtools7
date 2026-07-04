@@ -1,0 +1,7 @@
+co =
+  (a,a,[1,+inf))
+  (e,a,[1,+inf))
+multiple_same_loc_writes = rejected
+same_loc_read = accepted
+rf_from_lasso_write = rejected
+not_co_maximal = rejected

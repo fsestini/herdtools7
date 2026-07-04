@@ -29,6 +29,10 @@ let co = rel [ (4, 1, zero) ]
 let fl = rel [ (1, 2, W.at_least 1) ]
 let lf = rel [ (2, 3, W.at_most (-1)) ]
 let ll = rel [ (2, 2, W.top) ]
+let ok = rel [ (1, 2, zero) ]
+let zself = rel [ (1, 1, zero) ]
+let posself = rel [ (1, 1, W.at_least 1) ]
+let topself = rel [ (2, 2, W.top) ]
 
 let builtins =
   StringMap.empty |> StringMap.add "r" r |> StringMap.add "s" s
@@ -37,6 +41,10 @@ let builtins =
 let lasso_builtins =
   StringMap.empty |> StringMap.add "fl" fl |> StringMap.add "lf" lf
   |> StringMap.add "ll" ll
+
+let check_builtins =
+  StringMap.empty |> StringMap.add "ok" ok |> StringMap.add "zself" zself
+  |> StringMap.add "posself" posself |> StringMap.add "topself" topself
 
 let with_overrides = StringMap.empty |> StringMap.add "co" co
 let pp_int = Format.pp_print_int
@@ -51,6 +59,13 @@ let print_force_failure env name =
     Format.printf "%s = <unexpected success>@." name
   with _ -> Format.printf "%s = <failed>@." name
 
+let print_failures env =
+  Format.printf "failures = [%a]@."
+    (Format.pp_print_list
+       ~pp_sep:(fun fmt () -> Format.fprintf fmt "; ")
+       Format.pp_print_string)
+    (I.check_failures env)
+
 let env = I.interpret ~events ~builtins ~with_overrides (parse_cat "lazy.cat")
 
 let lasso_sequence_env =
@@ -59,9 +74,13 @@ let lasso_sequence_env =
     ~builtins:lasso_builtins
     (parse_cat "lasso_sequence.cat")
 
+let check_env =
+  I.interpret ~events ~builtins:check_builtins (parse_cat "lazy_checks.cat")
+
 let () =
   print_rel env "good";
   print_rel env "ca";
   print_force_failure env "demanded_tlbi";
   print_rel lasso_sequence_env "finite_to_finite";
-  print_rel lasso_sequence_env "lasso_to_finite"
+  print_rel lasso_sequence_env "lasso_to_finite";
+  print_failures check_env

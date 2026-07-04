@@ -9,6 +9,7 @@
  (names
   weighted_rel_test
   interpreter_test
+  lasso_write_co_test
   lazy_interpreter_test
   top_relations_test)
  (libraries loop_detection herdtools herdlib)
@@ -17,6 +18,7 @@
   lasso_cartesian.cat
   lasso_sequence.cat
   lazy.cat
+  lazy_checks.cat
   (source_tree data)
   (source_tree libdir))
  (modes native))
