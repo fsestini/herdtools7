@@ -7,21 +7,46 @@ module Make
     (WR : WeightedRel.S with type elt = Elts.elt and type weight = W.t) : sig
   type env := WR.t StringMap.t
 
-  val interpret : events:Elts.t -> builtins:env -> AST.ins list -> env
+  val interpret :
+    ?lasso_events:Elts.t -> events:Elts.t -> builtins:env -> AST.ins list -> env
 end = struct
   type v = Set of Elts.t | Rel of WR.t | Clo of closure
   and closure = { param : string; body : AST.exp; env : v StringMap.t }
 
   type env = v StringMap.t
-  type universes = { events : Elts.t; rel : WR.t }
+  type universes = { events : Elts.t; lasso_events : Elts.t; rel : WR.t }
   type context = { universes : universes; builtins : env }
   type state = { env : env }
+  type event_kind = Finite | Lasso
 
-  let universes_of_events _events =
-    (* TODO: this needs to take lasso events into consideration *)
-    failwith "NIY"
-  (* let event_list = Elts.elements events in *)
-  (* { events; rel = WR.cartesian event_list event_list W.top } *)
+  let event_kind lasso_events ev =
+    if Elts.mem ev lasso_events then Lasso else Finite
+
+  let all_offsets lasso_events src dst =
+    match (event_kind lasso_events src, event_kind lasso_events dst) with
+    | Finite, Finite -> W.singleton 0
+    | Finite, Lasso -> W.at_least 1
+    | Lasso, Finite -> W.at_most (-1)
+    | Lasso, Lasso -> W.top
+
+  let cartesian_rel ~lasso_events srcs dsts =
+    Elts.fold
+      (fun src acc ->
+        Elts.fold
+          (fun dst acc ->
+            WR.add (src, dst, all_offsets lasso_events src dst) acc)
+          dsts acc)
+      srcs WR.empty
+
+  let identity_rel events =
+    Elts.fold (fun ev -> WR.add (ev, ev, W.singleton 0)) events WR.empty
+
+  let universes_of_events ~lasso_events events =
+    if not (Elts.subset lasso_events events) then
+      invalid_arg
+        "universes_of_events: lasso events must be included in all events";
+    let rel = cartesian_rel ~lasso_events events events in
+    { events; lasso_events; rel }
 
   let context universes builtins = { universes; builtins }
   let empty_state = { env = StringMap.empty }
@@ -49,12 +74,10 @@ end = struct
     | Rel r1, Rel r2 -> Rel (WR.diff r1 r2)
     | _ -> failwith "diff_v: type mismatch"
 
-  let cartesian_v v1 v2 =
+  let cartesian_v universes v1 v2 =
     match (v1, v2) with
-    | Set _s1, Set _s2 ->
-        (* TODO: this needs to take lasso events into consideration *)
-        failwith "NIY"
-        (* Rel (WR.cartesian (Elts.elements s1) (Elts.elements s2) W.top) *)
+    | Set s1, Set s2 ->
+        Rel (cartesian_rel ~lasso_events:universes.lasso_events s1 s2)
     | _ -> failwith "cartesian_v: type mismatch"
 
   let inverse_v v =
@@ -66,6 +89,22 @@ end = struct
     | Set s -> Set (Elts.diff universes.events s)
     | Rel r -> Rel (WR.diff universes.rel r)
     | Clo _ -> failwith "complement expects a set or relation"
+
+  let plus_v = function
+    | Rel r -> Rel (WR.transitive_closure_exact r)
+    | _ -> failwith "plus expects a relation"
+
+  let star_v universes = function
+    | Rel r ->
+        Rel
+          (WR.union
+             (identity_rel universes.events)
+             (WR.transitive_closure_exact r))
+    | _ -> failwith "star expects a relation"
+
+  let opt_v universes = function
+    | Rel r -> Rel (WR.union (identity_rel universes.events) r)
+    | _ -> failwith "optional expects a relation"
 
   let fold_nonempty op name = function
     | [] -> failwith (Format.sprintf "invalid %s" name)
@@ -137,10 +176,15 @@ end = struct
           List.map (go env) exps |> fold_nonempty inter_v "intersection"
       | Op (_, Diff, [ x; y ]) -> diff_v (go env x) (go env y)
       | Op (_, Seq, [ x; y ]) -> sequence_v (go env x) (go env y)
-      | Op (_, Cartesian, [ x; y ]) -> cartesian_v (go env x) (go env y)
-      | Op1 (_, ToId, exp) ->
-          let v = go env exp in
-          inter_v (cartesian_v v v) (StringMap.find "id" ctx.builtins)
+      | Op (_, Cartesian, [ x; y ]) ->
+          cartesian_v ctx.universes (go env x) (go env y)
+      | Op1 (_, Plus, exp) -> plus_v (go env exp)
+      | Op1 (_, Star, exp) -> star_v ctx.universes (go env exp)
+      | Op1 (_, Opt, exp) -> opt_v ctx.universes (go env exp)
+      | Op1 (_, ToId, exp) -> (
+          match go env exp with
+          | Set s -> Rel (identity_rel s)
+          | Rel _ | Clo _ -> failwith "set restriction expects a set")
       | Op1 (_, Inv, exp) -> inverse_v (go env exp)
       | Op1 (_, Comp, exp) -> complement_v ctx.universes (go env exp)
       | App (_, f, arg) -> (
@@ -172,7 +216,9 @@ end = struct
       failwith "recursive definitions must be monotone relation expressions";
     let rec fix iteration current =
       if iteration >= max_fixpoint_iterations then
-        failwith "recursive relation fixpoint did not stabilize";
+        raise
+          (WeightedRel.Unsupported
+             "recursive relation fixpoint did not stabilize");
       let rec_st = { env = StringMap.add name (Rel current) st.env } in
       let next =
         match eval_exp ctx rec_st rhs with
@@ -201,8 +247,8 @@ end = struct
 
   let eval_ins_list ctx st ins = List.fold_left (eval_ins ctx) st ins
 
-  let interpret ~events ~builtins inss =
-    let universes = universes_of_events events in
+  let interpret ?(lasso_events = Elts.empty) ~events ~builtins inss =
+    let universes = universes_of_events ~lasso_events events in
     let builtins = builtins |> StringMap.map (fun r -> Rel r) in
     let ctx = context universes builtins in
     let st = eval_ins_list ctx empty_state inss in

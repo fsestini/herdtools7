@@ -10,4 +10,7 @@ let without_id = (_ * _) \ id
 let empty_id = [~_]
 let compose_s x = x ; s
 let fun_seq = compose_s r
+let rplus = r+
+let rstar = r*
+let ropt = r?
 let rec tc = r | tc ; tc

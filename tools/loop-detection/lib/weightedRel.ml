@@ -5,6 +5,9 @@ module type Weight = sig
 
   val empty : t
   val top : t
+  val singleton : int -> t
+  val at_least : int -> t
+  val at_most : int -> t
   val is_empty : t -> bool
   val equal : t -> t -> bool
   val pp : Format.formatter -> t -> unit
@@ -31,6 +34,8 @@ module SetWeights = struct
   let empty = Int_set IntSet.empty
   let top = Z
   let singleton (n : int) : t = Int_set (IntSet.singleton n)
+  let at_least n = To_pos_inf n
+  let at_most n = From_neg_inf n
 
   let mem (n : int) (t : t) =
     match t with
@@ -419,7 +424,7 @@ module Make
     let max_iterations = 1000 in
     let rec loop iteration current =
       if iteration >= max_iterations then
-        failwith "weighted relation transitive closure did not stabilize";
+        raise (Unsupported "weighted relation transitive closure did not stabilize");
       let candidate = union current (sequence current current) in
       let next = widen current candidate in
       if equal current next then current else loop (iteration + 1) next

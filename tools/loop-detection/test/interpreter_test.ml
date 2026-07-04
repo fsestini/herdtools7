@@ -31,16 +31,24 @@ let builtins =
   StringMap.empty |> StringMap.add "r" r |> StringMap.add "s" s
   |> StringMap.add "id" id
 
-let env = I.interpret ~events ~builtins (parse_cat "toy.cat")
 let pp_int = Format.pp_print_int
 
-let print_binding name =
+let print_binding ?(prefix = "") env name =
   match StringMap.find_opt name env with
-  | None -> Format.printf "%s = <missing>@." name
-  | Some rel -> Format.printf "%s = %a@." name (WR.pp pp_int) rel
+  | None -> Format.printf "%s%s = <missing>@." prefix name
+  | Some rel -> Format.printf "%s%s = %a@." prefix name (WR.pp pp_int) rel
+
+let print_env_bindings ?prefix env names =
+  List.iter (print_binding ?prefix env) names
+
+let finite_env = I.interpret ~events ~builtins (parse_cat "toy.cat")
+
+let lasso_env =
+  I.interpret ~events ~lasso_events:(nodes [ 3; 4 ]) ~builtins:StringMap.empty
+    (parse_cat "lasso_cartesian.cat")
 
 let () =
-  List.iter print_binding
+  print_env_bindings finite_env
     [
       "seq";
       "fun_seq";
@@ -51,5 +59,9 @@ let () =
       "all_pairs";
       "without_id";
       "empty_id";
+      "rplus";
+      "rstar";
+      "ropt";
       "tc";
-    ]
+    ];
+  print_env_bindings ~prefix:"lasso." lasso_env [ "ids"; "all_pairs" ]
