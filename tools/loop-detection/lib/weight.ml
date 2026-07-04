@@ -16,5 +16,4 @@ module type S = sig
   val diff : t -> t -> t
   val inverse : t -> t
   val plus : t -> t -> t
-  val widen : t -> t -> t
 end

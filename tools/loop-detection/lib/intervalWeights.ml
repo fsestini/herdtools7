@@ -129,38 +129,6 @@ let plus t1 t2 =
     [] t1
   |> normalize
 
-let finite_bounds intervals =
-  if
-    List.for_all
-      (function { lo = Some _; hi = Some _ } -> true | _ -> false)
-      intervals
-  then
-    List.fold_left
-      (fun acc { lo; hi } ->
-        match (acc, lo, hi) with
-        | None, Some lo, Some hi -> Some (lo, hi)
-        | Some (min_lo, max_hi), Some lo, Some hi ->
-            Some (min min_lo lo, max max_hi hi)
-        | _, _, _ -> assert false)
-      None intervals
-  else None
-
-let widen old_w new_w =
-  if is_empty old_w then new_w
-  else
-    let joined = union old_w new_w in
-    if equal old_w joined then old_w
-    else
-      match (finite_bounds old_w, finite_bounds joined) with
-      | Some (old_min, old_max), Some (joined_min, joined_max) ->
-          let grows_down = joined_min < old_min in
-          let grows_up = joined_max > old_max in
-          if grows_down && grows_up then top
-          else if grows_down then at_most joined_max
-          else if grows_up then at_least joined_min
-          else joined
-      | _ -> joined
-
 let all_singletons t =
   List.for_all
     (function { lo = Some lo; hi = Some hi } -> Int.equal lo hi | _ -> false)

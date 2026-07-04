@@ -51,6 +51,12 @@ let print_fold r =
 let print_unary_rel name op r =
   Format.printf "%s %a = %a@." name pp_rel r pp_rel (op r)
 
+let print_unary_rel_or_exception name op r =
+  try Format.printf "%s %a = %a@." name pp_rel r pp_rel (op r) with
+  | WeightedRel.Unsupported msg ->
+      Format.printf "%s %a = Unsupported %S@." name pp_rel r msg
+  | exn -> Format.printf "%s %a = %s@." name pp_rel r (Printexc.to_string exn)
+
 let print_binary_rel name op r1 r2 =
   Format.printf "%a %s %a = %a@." pp_rel r1 name pp_rel r2 pp_rel (op r1 r2)
 
@@ -81,9 +87,6 @@ let () =
   print_unary_weight "inverse" W.inverse (W.at_least 3);
   print_binary_weight "plus" W.plus (finite [ 2; 4 ]) (W.at_least 3);
   print_binary_weight "plus" W.plus (W.at_least 0) (W.at_most 0);
-  print_binary_weight "widen" W.widen (finite [ 1; 2 ]) (finite [ 1; 2; 3 ]);
-  print_binary_weight "widen" W.widen (finite [ 1; 2 ]) (finite [ 0; 1; 2 ]);
-  print_binary_weight "widen" W.widen (finite [ 1; 2 ]) (finite [ 0; 1; 2; 3 ]);
   print_unary_weight_or_exception "inverse" W.inverse (finite [ min_int ]);
   print_binary_weight_or_exception "plus" W.plus (finite [ max_int ])
     (finite [ 1 ])
@@ -113,15 +116,12 @@ let () =
   print_binary_rel "sequence" WR.sequence
     (rel [ (1, 2, finite [ 0 ]); (2, 3, finite [ 0 ]) ])
     (rel [ (2, 3, finite [ 1 ]); (3, 4, finite [ 1 ]) ]);
-  print_binary_rel "widen" WR.widen
-    (rel [ (1, 2, finite [ 0 ]) ])
-    (rel [ (1, 2, finite [ 0; 1 ]) ]);
-  print_unary_rel "transitive_closure" WR.transitive_closure_widened WR.empty;
-  print_unary_rel "transitive_closure" WR.transitive_closure_widened
+  print_unary_rel "transitive_closure" WR.transitive_closure_exact WR.empty;
+  print_unary_rel "transitive_closure" WR.transitive_closure_exact
     (rel [ (1, 2, finite [ 0 ]); (2, 3, finite [ 0 ]) ]);
-  print_unary_rel "transitive_closure" WR.transitive_closure_widened
+  print_unary_rel "transitive_closure" WR.transitive_closure_exact
     (rel [ (1, 2, finite [ 1 ]); (2, 3, finite [ 2 ]) ]);
-  print_unary_rel "transitive_closure" WR.transitive_closure_widened
+  print_unary_rel "transitive_closure" WR.transitive_closure_exact
     (rel
        [
          (1, 2, finite [ 1 ]);
@@ -129,11 +129,11 @@ let () =
          (1, 3, finite [ 2 ]);
          (3, 4, finite [ 2 ]);
        ]);
-  print_unary_rel "transitive_closure" WR.transitive_closure_widened
+  print_unary_rel_or_exception "transitive_closure" WR.transitive_closure_exact
     (rel [ (1, 1, finite [ 1 ]) ]);
-  print_unary_rel "transitive_closure" WR.transitive_closure_widened
+  print_unary_rel_or_exception "transitive_closure" WR.transitive_closure_exact
     (rel [ (1, 1, finite [ -1 ]) ]);
-  print_unary_rel "transitive_closure" WR.transitive_closure_widened
+  print_unary_rel_or_exception "transitive_closure" WR.transitive_closure_exact
     (rel [ (1, 2, finite [ 1 ]); (2, 1, finite [ 1 ]); (3, 4, finite [ 1 ]) ]);
   print_unary_rel "transitive_reduction" WR.transitive_reduction WR.empty;
   print_unary_rel "transitive_reduction" WR.transitive_reduction

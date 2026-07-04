@@ -210,10 +210,8 @@ end = struct
         | Rel r -> r
         | _ -> failwith "recursive definitions must be relation-valued"
       in
-      (* let widened = WR.widen current next in *)
-      let widened = next in
-      if WR.equal current widened then StringMap.add name (Rel current) st.env
-      else fix (iteration + 1) widened
+      if WR.equal current next then StringMap.add name (Rel current) st.env
+      else fix (iteration + 1) next
     in
     fix 0 WR.empty
 

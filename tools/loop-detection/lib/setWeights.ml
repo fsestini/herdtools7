@@ -197,21 +197,3 @@ let plus w1 w2 =
   | To_pos_inf n1, To_pos_inf n2 -> To_pos_inf (add_int n1 n2)
   | From_neg_inf n1, From_neg_inf n2 -> From_neg_inf (add_int n1 n2)
   | To_pos_inf _, From_neg_inf _ | From_neg_inf _, To_pos_inf _ -> Z
-
-let widen w1 w2 =
-  match (w1, w2) with
-  | Int_set old_s, Int_set new_s ->
-      if IntSet.is_empty old_s then Int_set new_s
-      else
-        let joined = IntSet.union old_s new_s in
-        let old_min = IntSet.min_elt old_s in
-        let old_max = IntSet.max_elt old_s in
-        let joined_min = IntSet.min_elt joined in
-        let joined_max = IntSet.max_elt joined in
-        let grows_down = joined_min < old_min in
-        let grows_up = joined_max > old_max in
-        if grows_down && grows_up then Z
-        else if grows_down then From_neg_inf joined_max
-        else if grows_up then To_pos_inf joined_min
-        else Int_set joined
-  | _, _ -> union w1 w2

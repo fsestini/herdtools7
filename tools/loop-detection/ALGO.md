@@ -15,8 +15,8 @@
 
 - Sequencing two weighted relations adds their weights.
 - If several paths derive the same edge, their possible weights are unioned.
-- Transitive closure repeats this process to a fixed point, using widening when
-  weights become unbounded.
+- Transitive closure repeats this process to an exact fixed point, failing when
+  exactness cannot be guaranteed.
 - After closing `co`, cross-lasso edges are intersected with the required sign
   constraints again.
 

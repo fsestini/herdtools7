@@ -17,11 +17,6 @@ module type S = sig
   val sequence : t -> t -> t
   val filter : (elt -> elt -> weight -> bool) -> t -> t
 
-  val transitive_closure_widened : t -> t
-  (** Positive transitive closure. The returned edge set is exact w.r.t.
-      reachability in the input relation, but edge weights may be sound
-      overapproximations. *)
-
   val transitive_closure_exact : t -> t
 
   val transitive_reduction : t -> t
@@ -31,7 +26,6 @@ module type S = sig
 
   val equal : t -> t -> bool
   val pp : (Format.formatter -> elt -> unit) -> Format.formatter -> t -> unit
-  val widen : t -> t -> t
 end
 
 module Make
@@ -144,27 +138,17 @@ module Make
       rel1 EltMap.empty
 
   let equal rel1 rel2 = EltMap.equal (EltMap.equal W.equal) rel1 rel2
-  let widen rel1 rel2 = EltMap.union (EltMap.union W.widen) rel1 rel2
 
-  let transitive_closure_ ~widen rel =
+  let transitive_closure_exact rel =
     let max_iterations = 10 in
     let rec loop iteration current =
       if iteration >= max_iterations then
         raise
           (Unsupported "weighted relation transitive closure did not stabilize");
       let candidate = union current (sequence current current) in
-      let next = widen current candidate in
-      if equal current next then current else loop (iteration + 1) next
+      if equal current candidate then current else loop (iteration + 1) candidate
     in
     loop 0 rel
-
-  let transitive_closure_widened rel =
-    let widen rel1 rel2 = EltMap.union (EltMap.union W.widen) rel1 rel2 in
-    transitive_closure_ ~widen rel
-
-  let transitive_closure_exact rel =
-    let widen _ rel2 = rel2 in
-    transitive_closure_ ~widen rel
 
   let successors rel src =
     match EltMap.find_opt src rel with

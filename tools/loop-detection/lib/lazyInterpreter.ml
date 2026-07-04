@@ -338,9 +338,8 @@ end = struct
                  | Rel r -> r
                  | _ -> failwith "recursive definitions must be relation-valued"
                in
-               let widened = next in
-               if WR.equal current widened then Rel current
-               else fix (iteration + 1) widened
+               if WR.equal current next then Rel current
+               else fix (iteration + 1) next
              in
              fix 0 WR.empty))
     in
