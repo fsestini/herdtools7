@@ -6,7 +6,11 @@
 ;   %{bin:loop_detection}))
 
 (tests
- (names weighted_rel_test interpreter_test lazy_interpreter_test)
+ (names
+  weighted_rel_test
+  interpreter_test
+  lazy_interpreter_test
+  top_relations_test)
  (libraries loop_detection herdtools herdlib)
- (deps toy.cat lasso_cartesian.cat lazy.cat)
+ (deps toy.cat lasso_cartesian.cat lazy.cat (source_tree data) (source_tree libdir))
  (modes native))

@@ -10,7 +10,7 @@ module DefaultConfig = struct
 
   let model = None
   let archcheck = false
-  let through = Model.ThroughAll
+  let through = Model.ThroughNone
   let strictskip = false
   let cycles = StringSet.empty
   let bell_model_info = None

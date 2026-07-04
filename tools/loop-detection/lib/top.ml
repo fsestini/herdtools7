@@ -163,6 +163,7 @@ module Make (S : SemExtra.S) = struct
   let build_lasso ~(rf_reg : E.event_rel) ~(rf : E.event_rel)
       ~(co : E.event_rel) ~(po : E.event_rel) ~(last_iteration : iteration)
       ~(before_last_iteration : iteration) : weighted_edges =
+    Log.debug (fun m -> m "building lasso");
     (* Check that the only memory events are loads *)
     let () =
       last_iteration.events
@@ -181,6 +182,7 @@ module Make (S : SemExtra.S) = struct
       in
       List.mem ev.E.eiid last_iteration_eiids
     in
+    Log.debug (fun m -> m "check no cross-iteration rf-reg edges");
     (* Check that there are no cross-iteration rf-reg edges. *)
     let () =
       rf_reg
@@ -189,6 +191,7 @@ module Make (S : SemExtra.S) = struct
           || (is_lasso_event ev2 && not (is_lasso_event ev1)))
       |> fun cross_iter -> if cross_iter then failwith "Cross-iteration rf-reg"
     in
+    Log.debug (fun m -> m "check uniqueness of rf edges");
     (* Check uniqueness of rf edges and assign weights *)
     let rf =
       E.EventRel.fold
@@ -213,6 +216,7 @@ module Make (S : SemExtra.S) = struct
             | false, false -> WR.add (ev1, ev2, SW.singleton 0) acc)
         rf WR.empty
     in
+    Log.debug (fun m -> m "assigning weights to existing po edges");
     (* Assign weights to existing po edges *)
     let finite_po = po in
     let po =
@@ -230,6 +234,7 @@ module Make (S : SemExtra.S) = struct
           | false, false -> WR.add (ev1, ev2, SW.singleton 0) acc)
         po WR.empty
     in
+    Log.debug (fun m -> m "adding loop-back po edges");
     (* Add po edges to the next iteration *)
     let po =
       let branch_before_lasso = before_last_iteration.branch_event in
@@ -241,12 +246,14 @@ module Make (S : SemExtra.S) = struct
           finite_po []
       in
       List.fold_right
-        (fun ev2 -> WR.add (lasso_branch, ev2, SW.singleton 1))
+        (fun ev2 -> WR.add (lasso_branch, ev2, SW.To_pos_inf 1))
         back_po_targets po
     in
+    Log.debug (fun m -> m "computing transitive closure");
     (* Compute transitive closure *)
     (* let po = WR.transitive_closure po in *)
     let po = WR.transitive_closure_exact po in
+    Log.debug (fun m -> m "done building lasso");
     { rf; po }
 
   type infinite_exec = {

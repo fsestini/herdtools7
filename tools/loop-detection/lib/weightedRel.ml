@@ -421,10 +421,11 @@ module Make
   let widen rel1 rel2 = EltMap.union (EltMap.union W.widen) rel1 rel2
 
   let transitive_closure_ ~widen rel =
-    let max_iterations = 1000 in
+    let max_iterations = 10 in
     let rec loop iteration current =
       if iteration >= max_iterations then
-        raise (Unsupported "weighted relation transitive closure did not stabilize");
+        raise
+          (Unsupported "weighted relation transitive closure did not stabilize");
       let candidate = union current (sequence current current) in
       let next = widen current candidate in
       if equal current next then current else loop (iteration + 1) next
