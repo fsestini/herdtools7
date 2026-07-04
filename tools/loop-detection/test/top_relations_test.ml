@@ -2,9 +2,38 @@ open Herdlib
 module T = Loop_detection.LitmusTest
 module SW = Loop_detection.WeightedRel.SetWeights
 
+module Parser = ParseModel.Make (struct
+  let debug = false
+  let libfind file = file
+end)
+
 let file_path = "data/wait-flag.litmus"
 let libdir = Some "libdir"
+let libdir_path = "libdir"
 let unroll = None
+let model_path = Filename.concat libdir_path "aarch64.cat"
+
+let eval_variant_cond =
+  let rec go = function
+    | AST.Variant _ -> false
+    | AST.OpNot cond -> not (go cond)
+    | AST.OpAnd (c1, c2) -> go c1 && go c2
+    | AST.OpOr (c1, c2) -> go c1 || go c2
+  in
+  go
+
+let rec parse_cat file =
+  let _, _, ins = Parser.parse file in
+  expand_ins (Filename.dirname file) ins
+
+and expand_ins dir ins =
+  List.concat_map
+    (function
+      | AST.Include (_, file) -> parse_cat (Filename.concat dir file)
+      | AST.IfVariant (_, cond, then_ins, else_ins) ->
+          expand_ins dir (if eval_variant_cond cond then then_ins else else_ins)
+      | ins -> [ ins ])
+    ins
 
 let print_rel pp_eiid fold rels name =
   let rel = List.assoc name rels in
@@ -20,25 +49,19 @@ let () =
   let ltest = T.parse_from_file file_path in
   let simul = Loop_detection.HerdDriver.top ~libdir ~unroll str in
   let module R : RunTest.Outcome = (val simul) in
-  let module S = R.M.S in
-  let module E = S.E in
   let module M = Loop_detection.Top.Make (R.M.S) in
-  let module WR =
-    Loop_detection.WeightedRel.Make
-      (SW)
-      (struct
-        type t = E.event
-
-        let compare = E.event_compare
-      end)
-  in
-  let module MC = Loop_detection.ModelChecker.Make (R.M.S) (WR) in
+  let model = parse_cat model_path in
   let execs = M.run ltest R.test R.result () in
   List.iteri
-    (fun i ({ M.rels; _ } : M.infinite_exec) ->
+    (fun i ({ M.conc; lasso; rels } : M.infinite_exec) ->
+      let force_rel = M.MC.check conc lasso.M.events rels model in
       Format.printf "execution %d@." i;
 
       print_rel M.E.pp_eiid M.WR.fold rels "po";
       print_rel M.E.pp_eiid M.WR.fold rels "co";
-      print_rel M.E.pp_eiid M.WR.fold rels "rf")
+      print_rel M.E.pp_eiid M.WR.fold rels "rf";
+      match force_rel "ob" with
+      | ob -> print_rel M.E.pp_eiid M.WR.fold (("ob", ob) :: rels) "ob"
+      | exception Loop_detection.WeightedRel.Unsupported msg ->
+          Format.printf "ob unsupported: %s@." msg)
     execs

@@ -1,4 +1,5 @@
 open Herdlib
+module Extract = TxtLoc.Extract ()
 
 module Make
     (Elts : MySet.S)
@@ -10,6 +11,7 @@ module Make
     ?lasso_events:Elts.t ->
     events:Elts.t ->
     builtins:WR.t StringMap.t ->
+    ?set_builtins:Elts.t StringMap.t ->
     ?with_overrides:WR.t StringMap.t ->
     AST.ins list ->
     t
@@ -17,10 +19,10 @@ module Make
   val force_rel : t -> string -> WR.t
   val force_rels : t -> string list -> WR.t StringMap.t
 end = struct
-  type v = Set of Elts.t | Rel of WR.t | Clo of closure
+  type v = Set of Elts.t | Rel of WR.t | Clo of closure | Tup of v list
   and binding = v Lazy.t
   and env = binding StringMap.t
-  and closure = { param : string; body : AST.exp; env : env }
+  and closure = { param : AST.pat; body : AST.exp; env : env }
 
   type universes = { events : Elts.t; lasso_events : Elts.t; rel : WR.t }
   type context = { universes : universes; builtins : env; with_overrides : env }
@@ -57,7 +59,14 @@ end = struct
     let rel = cartesian_rel ~lasso_events events events in
     { events; lasso_events; rel }
 
-  let env_of_rels rels = StringMap.map (fun r -> lazy (Rel r)) rels
+  let add_env_binding name binding env = StringMap.add name binding env
+
+  let env_of_builtins sets rels =
+    let env = StringMap.map (fun s -> lazy (Set s)) sets in
+    StringMap.fold
+      (fun name rel -> add_env_binding name (lazy (Rel rel)))
+      rels env
+
   let empty_state = { env = StringMap.empty }
 
   let union_v v1 v2 =
@@ -96,7 +105,7 @@ end = struct
   let complement_v universes = function
     | Set s -> Set (Elts.diff universes.events s)
     | Rel r -> Rel (WR.diff universes.rel r)
-    | Clo _ -> failwith "complement expects a set or relation"
+    | Clo _ | Tup _ -> failwith "complement expects a set or relation"
 
   let plus_v = function
     | Rel r -> Rel (WR.transitive_closure_exact r)
@@ -118,13 +127,41 @@ end = struct
     | [] -> failwith (Format.sprintf "invalid %s" name)
     | v :: vs -> List.fold_left op v vs
 
-  let max_fixpoint_iterations = 1000
+  let rel_is_empty rel = WR.fold (fun _ _ -> false) rel true
 
-  let function_param : AST.pat -> string = function
-    | Pvar (Some name) -> name
-    | Pvar None -> failwith "function parameters must be named variables"
-    | Ptuple _ ->
-        failwith "only single-variable function parameters are supported"
+  let v_is_empty = function
+    | Set s -> Elts.is_empty s
+    | Rel r -> rel_is_empty r
+    | Clo _ | Tup _ -> false
+
+  let fold_exps_short op name go env = function
+    | [] -> failwith (Format.sprintf "invalid %s" name)
+    | exp :: exps ->
+        let rec loop acc = function
+          | [] -> acc
+          | _ when v_is_empty acc -> acc
+          | exp :: exps -> loop (op acc (go env exp)) exps
+        in
+        loop (go env exp) exps
+
+  let max_fixpoint_iterations = 10
+
+  let unsupported_in_binding name f =
+    try f ()
+    with WeightedRel.Unsupported msg ->
+      raise
+        (WeightedRel.Unsupported
+           (Format.sprintf "%s\nwhile evaluating cat binding %s" msg name))
+
+  let bind_pat0 name v env =
+    match name with None -> env | Some name -> StringMap.add name (lazy v) env
+
+  let bind_pat (pat : AST.pat) v env =
+    match (pat, v) with
+    | AST.Pvar name, v -> bind_pat0 name v env
+    | AST.Ptuple names, Tup vs ->
+        List.fold_left2 (fun env name v -> bind_pat0 name v env) env names vs
+    | AST.Ptuple _, _ -> failwith "function argument mismatch"
 
   let find_v ctx env var =
     match StringMap.find_opt var env with
@@ -144,67 +181,121 @@ end = struct
           match kind with
           | AST.SET -> Set ctx.universes.events
           | AST.RLN -> Rel ctx.universes.rel)
-      | Fun (_, pat, body, _, _) ->
-          let param = function_param pat in
-          Clo { param; body; env }
+      | Fun (_, pat, body, _, _) -> Clo { param = pat; body; env }
       | Var (_, var) -> find_v ctx env var
       | Op (_, Union, exps) ->
           List.map (go env) exps |> fold_nonempty union_v "union"
       | Op (_, Inter, exps) ->
-          List.map (go env) exps |> fold_nonempty inter_v "intersection"
+          fold_exps_short inter_v "intersection" go env exps
       | Op (_, Diff, [ x; y ]) -> diff_v (go env x) (go env y)
-      | Op (_, Seq, [ x; y ]) -> sequence_v (go env x) (go env y)
+      | Op (_, Seq, exps) -> fold_exps_short sequence_v "sequence" go env exps
       | Op (_, Cartesian, [ x; y ]) ->
           cartesian_v ctx.universes (go env x) (go env y)
+      | Op (_, Tuple, exps) -> Tup (List.map (go env) exps)
       | Op1 (_, Plus, exp) -> plus_v (go env exp)
       | Op1 (_, Star, exp) -> star_v ctx.universes (go env exp)
       | Op1 (_, Opt, exp) -> opt_v ctx.universes (go env exp)
       | Op1 (_, ToId, exp) -> (
           match go env exp with
           | Set s -> Rel (identity_rel s)
-          | Rel _ | Clo _ -> failwith "set restriction expects a set")
+          | Rel _ | Clo _ | Tup _ -> failwith "set restriction expects a set")
       | Op1 (_, Inv, exp) -> inverse_v (go env exp)
-      | Op1 (_, Comp, exp) -> complement_v ctx.universes (go env exp)
+      | Op1 (_, Comp, exp) -> (
+          try complement_v ctx.universes (go env exp)
+          with WeightedRel.Unsupported msg ->
+            let loc = ASTUtils.exp2loc exp in
+            let exp_str = Extract.extract loc in
+            raise
+              (WeightedRel.Unsupported
+                 (Format.sprintf "%s\nwhile evaluating cat complement ~%s" msg
+                    exp_str)))
+      | App (_, Var (_, "range"), arg) -> (
+          match go env arg with
+          | Rel r ->
+              let s =
+                WR.fold (fun (_, dst, _) acc -> Elts.add dst acc) r Elts.empty
+              in
+              Set s
+          | _ -> failwith "range expects a relation")
+      | App (_, Var (_, "domain"), arg) -> (
+          match go env arg with
+          | Rel r ->
+              let s =
+                WR.fold (fun (src, _, _) acc -> Elts.add src acc) r Elts.empty
+              in
+              Set s
+          | _ -> failwith "domain expects a relation")
       | App (_, f, arg) -> (
           match go env f with
           | Clo { param; body; env = closure_env } ->
-              let arg = lazy (go env arg) in
-              go (StringMap.add param arg closure_env) body
-          | Set _ | Rel _ -> failwith "application expects a function")
-      | Bind (_, [ (_, Pvar (Some name), rhs) ], body) ->
+              let env = bind_pat param (go env arg) closure_env in
+              go env body
+          | Set _ | Rel _ | Tup _ -> failwith "application expects a function")
+      | Try (_, x, y) -> ( try go env x with _ -> go env y)
+      | If (_, cond, x, y) -> if eval_cond cond then go env x else go env y
+      | ExplicitSet (_, []) -> Set Elts.empty
+      | Bind (_, [ (_, AST.Pvar (Some name), rhs) ], body) ->
           let env = eval_let_binding ctx { env } name rhs in
           go env body
-      | BindRec (_, [ (_, Pvar (Some name), rhs) ], body) ->
+      | BindRec (_, [ (_, AST.Pvar (Some name), rhs) ], body) ->
           let env = eval_rec_binding ctx { env } name rhs in
           go env body
-      | _ -> failwith "expression not supported"
+      | exp ->
+          let loc = ASTUtils.exp2loc exp in
+          let exp_str = Extract.extract loc in
+          let msg = Format.sprintf "expression not supported: %s" exp_str in
+          failwith msg
     in
     go st.env
 
+  and eval_cond : AST.cond -> bool = function
+    | AST.VariantCond cond -> eval_variant_cond cond
+    | AST.Eq _ | AST.Subset _ | AST.In _ -> failwith "condition not supported"
+
+  and eval_variant_cond = function
+    | AST.Variant _ -> false
+    | OpNot cond -> not (eval_variant_cond cond)
+    | OpAnd (c1, c2) -> eval_variant_cond c1 && eval_variant_cond c2
+    | OpOr (c1, c2) -> eval_variant_cond c1 || eval_variant_cond c2
+
   and eval_let_binding ctx (st : state) name rhs =
-    StringMap.add name (lazy (eval_exp ctx st rhs)) st.env
+    StringMap.add name
+      (lazy (unsupported_in_binding name (fun () -> eval_exp ctx st rhs)))
+      st.env
+
+  and eval_let_bindings ctx (st : state) bds =
+    List.fold_left
+      (fun env -> function
+        | _, AST.Pvar (Some name), rhs ->
+            StringMap.add name
+              (lazy
+                (unsupported_in_binding name (fun () -> eval_exp ctx st rhs)))
+              env
+        | _ -> failwith "let binding not supported")
+      st.env bds
 
   and eval_rec_binding ctx (st : state) name rhs =
     let rec_binding =
       lazy
-        (let rec fix iteration current =
-           if iteration >= max_fixpoint_iterations then
-             raise
-               (WeightedRel.Unsupported
-                  "recursive relation fixpoint did not stabilize");
-           let rec_st =
-             { env = StringMap.add name (lazy (Rel current)) st.env }
-           in
-           let next =
-             match eval_exp ctx rec_st rhs with
-             | Rel r -> r
-             | _ -> failwith "recursive definitions must be relation-valued"
-           in
-           let widened = next in
-           if WR.equal current widened then Rel current
-           else fix (iteration + 1) widened
-         in
-         fix 0 WR.empty)
+        (unsupported_in_binding name (fun () ->
+             let rec fix iteration current =
+               if iteration >= max_fixpoint_iterations then
+                 raise
+                   (WeightedRel.Unsupported
+                      "recursive relation fixpoint did not stabilize");
+               let rec_st =
+                 { env = StringMap.add name (lazy (Rel current)) st.env }
+               in
+               let next =
+                 match eval_exp ctx rec_st rhs with
+                 | Rel r -> r
+                 | _ -> failwith "recursive definitions must be relation-valued"
+               in
+               let widened = next in
+               if WR.equal current widened then Rel current
+               else fix (iteration + 1) widened
+             in
+             fix 0 WR.empty))
     in
     StringMap.add name rec_binding st.env
 
@@ -215,26 +306,31 @@ end = struct
       | None -> (
           match StringMap.find_opt name ctx.builtins with
           | Some v -> v
-          | None -> lazy (failwith "with binding not supplied"))
+          | None ->
+              lazy
+                (unsupported_in_binding name (fun () ->
+                     failwith "with binding not supplied")))
     in
     StringMap.add name binding st.env
 
   let eval_ins (ctx : context) (st : state) : AST.ins -> state = function
-    | Let (_, [ (_, Pvar (Some name), rhs) ]) ->
-        { env = eval_let_binding ctx st name rhs }
-    | Rec (_, [ (_, Pvar (Some name), rhs) ], None) ->
+    | Let (_, bds) -> { env = eval_let_bindings ctx st bds }
+    | Rec (_, [ (_, AST.Pvar (Some name), rhs) ], None) ->
         { env = eval_rec_binding ctx st name rhs }
     | WithFrom (_, name, _) -> { env = eval_with_binding ctx st name }
-    | Test _ | Show _ | ShowAs _ | UnShow _ | Include _ -> st
+    | Test _ | Show _ | ShowAs _ | UnShow _ | Include _ | Procedure _ | Call _
+    | Debug _ | Forall _ | Enum _ | InsMatch _ | Events _ | IfVariant _ ->
+        st
     | _ -> failwith "instruction not supported"
 
   let eval_ins_list ctx st ins = List.fold_left (eval_ins ctx) st ins
 
   let interpret ?(lasso_events = Elts.empty) ~events ~builtins
-      ?(with_overrides = StringMap.empty) inss =
+      ?(set_builtins = StringMap.empty) ?(with_overrides = StringMap.empty) inss
+      =
     let universes = universes_of_events ~lasso_events events in
-    let builtins = env_of_rels builtins in
-    let with_overrides = env_of_rels with_overrides in
+    let builtins = env_of_builtins set_builtins builtins in
+    let with_overrides = env_of_builtins StringMap.empty with_overrides in
     let ctx = { universes; builtins; with_overrides } in
     let st = eval_ins_list ctx empty_state inss in
     { ctx; env = st.env }
@@ -242,7 +338,7 @@ end = struct
   let force_rel t name =
     match find_v t.ctx t.env name with
     | Rel r -> r
-    | Set _ | Clo _ -> failwith "relation expected"
+    | Set _ | Clo _ | Tup _ -> failwith "relation expected"
 
   let force_rels t names =
     List.fold_left
