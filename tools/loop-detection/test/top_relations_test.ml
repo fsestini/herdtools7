@@ -20,11 +20,24 @@ let () =
   let ltest = T.parse_from_file file_path in
   let simul = Loop_detection.HerdDriver.top ~libdir ~unroll str in
   let module R : RunTest.Outcome = (val simul) in
+  let module S = R.M.S in
+  let module E = S.E in
   let module M = Loop_detection.Top.Make (R.M.S) in
+  let module WR =
+    Loop_detection.WeightedRel.Make
+      (SW)
+      (struct
+        type t = E.event
+
+        let compare = E.event_compare
+      end)
+  in
+  let module MC = Loop_detection.ModelChecker.Make (R.M.S) (WR) in
   let execs = M.run ltest R.test R.result () in
   List.iteri
     (fun i ({ M.rels; _ } : M.infinite_exec) ->
       Format.printf "execution %d@." i;
+
       print_rel M.E.pp_eiid M.WR.fold rels "po";
       print_rel M.E.pp_eiid M.WR.fold rels "co";
       print_rel M.E.pp_eiid M.WR.fold rels "rf")

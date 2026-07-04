@@ -330,7 +330,6 @@ module Make (S : SemExtra.S) = struct
           let new_rels =
             [ ("po", po); ("rf", rf); ("co", co); ("rf-reg", rf_reg) ]
           in
-          let new_rels = MC.check conc new_rels in
           { conc = TR.concrete exec; lasso = last_iteration; rels = new_rels }
         with Error msg ->
           Out_channel.with_open_bin "error.dot" (fun ch ->
