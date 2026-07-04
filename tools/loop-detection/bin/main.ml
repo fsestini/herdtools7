@@ -5,12 +5,26 @@ let () =
   let libdir = ref None in
   let unroll = ref None in
   let debug = ref false in
+  let graph_rels = ref [] in
+  let add_graph_rels s =
+    let rels =
+      s |> String.split_on_char ',' |> List.map String.trim
+      |> List.filter (fun s -> not (String.equal s ""))
+    in
+    graph_rels := !graph_rels @ rels
+  in
   let options =
     [
       ( "-set-libdir",
         Arg.String (fun s -> libdir := Some s),
         "<path> set libdir" );
       ("--unroll", Arg.Int (fun i -> unroll := Some i), "set unrolling limit");
+      ( "--doshow",
+        Arg.String add_graph_rels,
+        "<rel>[,<rel>...] relation(s) to print in execution graphs" );
+      ( "-doshow",
+        Arg.String add_graph_rels,
+        "<rel>[,<rel>...] alias for --doshow" );
       ("--debug", Arg.Unit (fun () -> debug := true), "enable debugging");
     ]
   in
@@ -38,4 +52,8 @@ let () =
     Logs.set_reporter (Logs.format_reporter ());
     Logs.set_level (Some Logs.Debug)
   end;
-  Loop_detection.Top.top ~libdir:!libdir ~unroll:!unroll file_path
+  match !graph_rels with
+  | [] -> Loop_detection.Top.top ~libdir:!libdir ~unroll:!unroll file_path
+  | graph_rels ->
+      Loop_detection.Top.top ~graph_rels ~libdir:!libdir ~unroll:!unroll
+        file_path

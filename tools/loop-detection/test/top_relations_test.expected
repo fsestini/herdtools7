@@ -131,10 +131,11 @@ rf =
   (e,b,{0})
   (e,c,{0})
   (e,d,[1,+inf))
-ob unsupported: SetWeights.diff: result is not representable
-while evaluating cat complement ~same-instance
-while evaluating cat binding pick-dep
-while evaluating cat binding pick-lob
-while evaluating cat binding local-hw-reqs
-while evaluating cat binding hw-reqs
-while evaluating cat binding ob
+ob =
+  (b,a,{0})
+  (c,a,{0})
+  (d,a,(-inf,-1])
+  (e,a,{0})
+  (e,b,{0})
+  (e,c,{0})
+  (e,d,[1,+inf))

@@ -1,6 +1,6 @@
 open Herdlib
 module T = Loop_detection.LitmusTest
-module SW = Loop_detection.WeightedRel.SetWeights
+module W = Loop_detection.IntervalWeights
 
 module Parser = ParseModel.Make (struct
   let debug = false
@@ -41,7 +41,7 @@ let print_rel pp_eiid fold rels name =
   Format.printf "%s =@." name;
   List.iter
     (fun (src, dst, weight) ->
-      Format.printf "  (%s,%s,%a)@." (pp_eiid src) (pp_eiid dst) SW.pp weight)
+      Format.printf "  (%s,%s,%a)@." (pp_eiid src) (pp_eiid dst) W.pp weight)
     edges
 
 let () =

@@ -12,5 +12,11 @@
   lazy_interpreter_test
   top_relations_test)
  (libraries loop_detection herdtools herdlib)
- (deps toy.cat lasso_cartesian.cat lazy.cat (source_tree data) (source_tree libdir))
+ (deps
+  toy.cat
+  lasso_cartesian.cat
+  lasso_sequence.cat
+  lazy.cat
+  (source_tree data)
+  (source_tree libdir))
  (modes native))

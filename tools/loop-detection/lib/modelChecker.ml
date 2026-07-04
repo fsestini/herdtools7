@@ -1,12 +1,12 @@
 open Herdlib
-module SW = WeightedRel.SetWeights
+module W = IntervalWeights
 
 module Make
     (S : SemExtra.S)
-    (WR : WeightedRel.S with type elt = S.E.event and type weight = SW.t) =
+    (WR : WeightedRel.S with type elt = S.E.event and type weight = W.t) =
 struct
   module E = S.E
-  module I = LazyInterpreter.Make (S.E.EventSet) (SW) (WR)
+  module I = LazyInterpreter.Make (S.E.EventSet) (W) (WR)
 
   type event_kind = Finite | Lasso
 
@@ -15,10 +15,10 @@ struct
 
   let all_offsets lasso_events src dst =
     match (event_kind lasso_events src, event_kind lasso_events dst) with
-    | Finite, Finite -> SW.singleton 0
-    | Finite, Lasso -> SW.at_least 1
-    | Lasso, Finite -> SW.at_most (-1)
-    | Lasso, Lasso -> SW.top
+    | Finite, Finite -> W.singleton 0
+    | Finite, Lasso -> W.at_least 1
+    | Lasso, Finite -> W.at_most (-1)
+    | Lasso, Lasso -> W.top
 
   let add_if_absent name value map =
     if StringMap.mem name map then map else StringMap.add name value map
@@ -27,7 +27,7 @@ struct
     E.EventRel.fold
       (fun (src, dst) acc ->
         if E.EventSet.mem src events && E.EventSet.mem dst events then
-          WR.add (src, dst, SW.singleton 0) acc
+          WR.add (src, dst, W.singleton 0) acc
         else acc)
       rel WR.empty
 
@@ -47,13 +47,13 @@ struct
       (fun src acc ->
         E.EventSet.fold
           (fun dst acc ->
-            if pred src dst then WR.add (src, dst, SW.singleton 0) acc else acc)
+            if pred src dst then WR.add (src, dst, W.singleton 0) acc else acc)
           events acc)
       events WR.empty
 
   let identity_rel events =
     E.EventSet.fold
-      (fun ev acc -> WR.add (ev, ev, SW.singleton 0) acc)
+      (fun ev acc -> WR.add (ev, ev, W.singleton 0) acc)
       events WR.empty
 
   let restrict_weighted_rel events rel =

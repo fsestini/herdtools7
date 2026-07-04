@@ -1,10 +1,42 @@
 module Log = (val Logs.src_log (Logs.Src.create "top") : Logs.LOG)
 open Herdlib
 module T = LitmusTest
-module SW = WeightedRel.SetWeights
+module W = IntervalWeights
 module TR = Top_herd.TestResult
 
 exception Error of string
+
+module Parser = ParseModel.Make (struct
+  let debug = false
+  let libfind file = file
+end)
+
+let eval_variant_cond =
+  let rec go = function
+    | AST.Variant _ -> false
+    | AST.OpNot cond -> not (go cond)
+    | AST.OpAnd (c1, c2) -> go c1 && go c2
+    | AST.OpOr (c1, c2) -> go c1 || go c2
+  in
+  go
+
+let rec parse_cat file =
+  let _, _, ins = Parser.parse file in
+  expand_ins (Filename.dirname file) ins
+
+and expand_ins dir ins =
+  List.concat_map
+    (function
+      | AST.Include (_, file) -> parse_cat (Filename.concat dir file)
+      | AST.IfVariant (_, cond, then_ins, else_ins) ->
+          expand_ins dir (if eval_variant_cond cond then then_ins else else_ins)
+      | ins -> [ ins ])
+    ins
+
+let parse_model file =
+  let opts, name, ins = Parser.parse file in
+  let ins = expand_ins (Filename.dirname file) ins in
+  ((opts, name, ins), ins)
 
 module Make (S : SemExtra.S) = struct
   module E = S.E
@@ -12,18 +44,18 @@ module Make (S : SemExtra.S) = struct
 
   module D = Dot.Make (struct
     type node = E.event
-    type edge = string * E.event * E.event * SW.t
+    type edge = string * E.event * E.event * W.t
 
     let node_id ev = Format.sprintf "eiid%d" ev.E.eiid
     let node_cluster ev = E.proc_of ev
     let endpoints (_, x, y, _) = (x, y)
     let node_label ev = Format.sprintf "%s: %s" (E.pp_eiid ev) (E.pp_action ev)
-    let edge_label (r, _, _, w) = Format.asprintf "%s %a" r SW.pp w
+    let edge_label (r, _, _, w) = Format.asprintf "%s %a" r W.pp w
   end)
 
   module WR =
     WeightedRel.Make
-      (SW)
+      (W)
       (struct
         type t = E.event
 
@@ -206,14 +238,12 @@ module Make (S : SemExtra.S) = struct
             failwith "rf is not uniquely determined"
           else
             match (is_lasso_event ev1, is_lasso_event ev2) with
-            | false, true -> WR.add (ev1, ev2, SW.To_pos_inf 1) acc
+            | false, true -> WR.add (ev1, ev2, W.at_least 1) acc
             | true, false ->
-                (* WR.add (ev1, ev2, SW.From_neg_inf (-1)) acc *)
                 failwith "impossible: there should be no writes in the lasso"
             | true, true ->
-                (* WR.add (ev1, ev2, SW.singleton 0) acc *)
                 failwith "impossible: there should be no writes in the lasso"
-            | false, false -> WR.add (ev1, ev2, SW.singleton 0) acc)
+            | false, false -> WR.add (ev1, ev2, W.singleton 0) acc)
         rf WR.empty
     in
     Log.debug (fun m -> m "assigning weights to existing po edges");
@@ -223,15 +253,15 @@ module Make (S : SemExtra.S) = struct
       E.EventRel.fold
         (fun (ev1, ev2) acc ->
           match (is_lasso_event ev1, is_lasso_event ev2) with
-          | false, true -> WR.add (ev1, ev2, SW.To_pos_inf 1) acc
+          | false, true -> WR.add (ev1, ev2, W.at_least 1) acc
           | true, false ->
               let msg =
                 Printf.sprintf "lasso to outside po edge: %s -> %s"
                   (E.pp_eiid ev1) (E.pp_eiid ev2)
               in
               raise (Error msg)
-          | true, true -> WR.add (ev1, ev2, SW.singleton 0) acc
-          | false, false -> WR.add (ev1, ev2, SW.singleton 0) acc)
+          | true, true -> WR.add (ev1, ev2, W.singleton 0) acc
+          | false, false -> WR.add (ev1, ev2, W.singleton 0) acc)
         po WR.empty
     in
     Log.debug (fun m -> m "adding loop-back po edges");
@@ -246,7 +276,7 @@ module Make (S : SemExtra.S) = struct
           finite_po []
       in
       List.fold_right
-        (fun ev2 -> WR.add (lasso_branch, ev2, SW.To_pos_inf 1))
+        (fun ev2 -> WR.add (lasso_branch, ev2, W.at_least 1))
         back_po_targets po
     in
     Log.debug (fun m -> m "computing transitive closure");
@@ -322,7 +352,7 @@ module Make (S : SemExtra.S) = struct
           in
           let assign_zero_weight r =
             E.EventRel.fold
-              (fun (ev1, ev2) -> WR.add (ev1, ev2, SW.singleton 0))
+              (fun (ev1, ev2) -> WR.add (ev1, ev2, W.singleton 0))
               r WR.empty
           in
           let co = assign_zero_weight co in
@@ -367,7 +397,6 @@ module Make (S : SemExtra.S) = struct
     (*     po *)
     (* in *)
     let reduced_po = po in
-    (* let reduced_po = WR.filter (fun _ _ w -> SW.mem 0 w) reduced_po in *)
     let reduced_po = WR.transitive_reduction reduced_po in
     (* let reduced_po = WR.union reduced_po branch_po in *)
     let to_edge r (ev1, ev2, w) = (r, ev1, ev2, w) in
@@ -381,14 +410,60 @@ module Make (S : SemExtra.S) = struct
     in
     D.pp_dot_graph fmt ~all_nodes ~is_lasso_node edges
 
+  let add_vb label src dst vbs =
+    let rel =
+      match List.assoc_opt label vbs with
+      | None -> E.EventRel.empty
+      | Some rel -> rel
+    in
+    (label, E.EventRel.add (src, dst) rel) :: List.remove_assoc label vbs
+
+  let weighted_vbs name rel =
+    WR.fold
+      (fun (src, dst, weight) vbs ->
+        let label =
+          if W.equal weight (W.singleton 0) then name
+          else Format.asprintf "%s %a" name W.pp weight
+        in
+        add_vb label src dst vbs)
+      rel []
+    |> List.rev
+
+  let dump_exec_graph graph_rels model test model_ins i exec =
+    let force_rel = MC.check exec.conc exec.lasso.events exec.rels model_ins in
+    let vbs =
+      graph_rels
+      |> List.map (fun name -> weighted_vbs name (force_rel name))
+      |> List.concat
+    in
+    let path = Printf.sprintf "out-%d.dot" i in
+    Out_channel.with_open_bin path (fun ch ->
+        PP.dump_legend ch model test PrettyConf.ShowAll exec.conc vbs);
+    path
+
   (* result |> Iter.iteri (fun _i _exec -> ()) *)
 end
 
-let top ~libdir ~unroll file_path =
+let default_graph_rels = [ "co"; "fr"; "ob" ]
+
+let top ?(graph_rels = default_graph_rels) ~libdir ~unroll file_path =
   let str = In_channel.with_open_text file_path In_channel.input_all in
   let ltest = T.parse_from_file file_path in
+  let model_path =
+    match libdir with
+    | None -> "aarch64.cat"
+    | Some dir -> Filename.concat dir "aarch64.cat"
+  in
+  let model_ast, model_ins = parse_model model_path in
+  let model = Model.Generic (model_path, model_ast) in
   let simul = HerdDriver.top ~libdir ~unroll str in
   let module R : RunTest.Outcome = (val simul) in
   let module M = Make (R.M.S) in
-  let _ = M.run ltest R.test R.result () in
+  let execs = M.run ltest R.test R.result () in
+  execs
+  |> List.iteri (fun i exec ->
+         let path =
+           M.dump_exec_graph graph_rels model R.test model_ins i exec
+         in
+         Printf.printf "Wrote %s\n%!" path);
   print_endline "Done."

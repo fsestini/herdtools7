@@ -3,7 +3,7 @@ module Extract = TxtLoc.Extract ()
 
 module Make
     (Elts : MySet.S)
-    (W : WeightedRel.Weight)
+    (W : Weight.S)
     (WR : WeightedRel.S with type elt = Elts.elt and type weight = W.t) : sig
   type t
 
@@ -81,9 +81,14 @@ end = struct
     | Rel r1, Rel r2 -> Rel (WR.intersection r1 r2)
     | _ -> failwith "inter_v: type mismatch"
 
-  let sequence_v v1 v2 =
+  let normalize_rel universes rel = WR.intersection rel universes.rel
+
+  let sequence_rel universes r1 r2 =
+    normalize_rel universes (WR.sequence r1 r2)
+
+  let sequence_v universes v1 v2 =
     match (v1, v2) with
-    | Rel r1, Rel r2 -> Rel (WR.sequence r1 r2)
+    | Rel r1, Rel r2 -> Rel (sequence_rel universes r1 r2)
     | _ -> failwith "sequence_v: type mismatch"
 
   let diff_v v1 v2 =
@@ -107,8 +112,24 @@ end = struct
     | Rel r -> Rel (WR.diff universes.rel r)
     | Clo _ | Tup _ -> failwith "complement expects a set or relation"
 
-  let plus_v = function
-    | Rel r -> Rel (WR.transitive_closure_exact r)
+  let max_fixpoint_iterations = 10
+
+  let transitive_closure_exact universes rel =
+    let rec loop iteration current =
+      if iteration >= max_fixpoint_iterations then
+        raise
+          (WeightedRel.Unsupported
+             "weighted relation transitive closure did not stabilize");
+      let candidate =
+        WR.union current (sequence_rel universes current current)
+      in
+      let next = normalize_rel universes candidate in
+      if WR.equal current next then current else loop (iteration + 1) next
+    in
+    loop 0 (normalize_rel universes rel)
+
+  let plus_v universes = function
+    | Rel r -> Rel (transitive_closure_exact universes r)
     | _ -> failwith "plus expects a relation"
 
   let star_v universes = function
@@ -116,7 +137,7 @@ end = struct
         Rel
           (WR.union
              (identity_rel universes.events)
-             (WR.transitive_closure_exact r))
+             (transitive_closure_exact universes r))
     | _ -> failwith "star expects a relation"
 
   let opt_v universes = function
@@ -143,8 +164,6 @@ end = struct
           | exp :: exps -> loop (op acc (go env exp)) exps
         in
         loop (go env exp) exps
-
-  let max_fixpoint_iterations = 10
 
   let unsupported_in_binding name f =
     try f ()
@@ -188,11 +207,12 @@ end = struct
       | Op (_, Inter, exps) ->
           fold_exps_short inter_v "intersection" go env exps
       | Op (_, Diff, [ x; y ]) -> diff_v (go env x) (go env y)
-      | Op (_, Seq, exps) -> fold_exps_short sequence_v "sequence" go env exps
+      | Op (_, Seq, exps) ->
+          fold_exps_short (sequence_v ctx.universes) "sequence" go env exps
       | Op (_, Cartesian, [ x; y ]) ->
           cartesian_v ctx.universes (go env x) (go env y)
       | Op (_, Tuple, exps) -> Tup (List.map (go env) exps)
-      | Op1 (_, Plus, exp) -> plus_v (go env exp)
+      | Op1 (_, Plus, exp) -> plus_v ctx.universes (go env exp)
       | Op1 (_, Star, exp) -> star_v ctx.universes (go env exp)
       | Op1 (_, Opt, exp) -> opt_v ctx.universes (go env exp)
       | Op1 (_, ToId, exp) -> (
