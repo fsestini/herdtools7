@@ -18,8 +18,8 @@ let negate i =
     invalid_arg "IntervalWeights.negate: cannot negate min_int"
   else -i
 
-let succ i = if i = max_int then None else Some (i + 1)
-let pred i = if i = min_int then None else Some (i - 1)
+let succ i = if i = max_int then failwith "overflow" else i + 1
+let pred i = if i = min_int then failwith "overflow" else i - 1
 
 let compare_lo lo1 lo2 =
   match (lo1, lo2) with
@@ -44,11 +44,12 @@ let interval_compare i j =
   let c = compare_lo i.lo j.lo in
   if c <> 0 then c else compare_hi i.hi j.hi
 
+(* Assumes [left] comes before [right] in lower-bound order. Over integer
+   intervals, adjacent ranges such as [1,3] and [4,5] can be merged exactly. *)
 let can_merge left right =
   match (left.hi, right.lo) with
   | None, _ | _, None -> true
-  | Some hi, Some lo -> (
-      match succ hi with None -> true | Some next -> lo <= next)
+  | Some hi, Some lo -> lo <= succ hi
 
 let max_hi hi1 hi2 = if compare_hi hi1 hi2 >= 0 then hi1 else hi2
 
@@ -91,16 +92,10 @@ let subtract_interval i j =
   | None -> [ i ]
   | Some _ ->
       let left =
-        match j.lo with
-        | None -> None
-        | Some lo -> (
-            match pred lo with None -> None | Some hi -> make i.lo (Some hi))
+        match j.lo with None -> None | Some lo -> make i.lo (Some (pred lo))
       in
       let right =
-        match j.hi with
-        | None -> None
-        | Some hi -> (
-            match succ hi with None -> None | Some lo -> make (Some lo) i.hi)
+        match j.hi with None -> None | Some hi -> make (Some (succ hi)) i.hi
       in
       List.filter_map (fun x -> x) [ left; right ]
 
@@ -129,22 +124,26 @@ let plus t1 t2 =
     [] t1
   |> normalize
 
-let all_singletons t =
-  List.for_all
-    (function { lo = Some lo; hi = Some hi } -> Int.equal lo hi | _ -> false)
-    t
+let is_singleton = function
+  | { lo = Some lo; hi = Some hi } -> Int.equal lo hi
+  | _ -> false
 
-let pp_singletons fmt t =
-  let ints =
-    List.map
-      (function { lo = Some n; hi = Some _ } -> n | _ -> assert false)
-      t
-  in
-  Format.fprintf fmt "{%a}"
-    (Format.pp_print_list
-       ~pp_sep:(fun fmt () -> Format.fprintf fmt ", ")
-       Format.pp_print_int)
-    ints
+let try_collect_singletons t =
+  try
+    Some
+      (List.fold_left
+         (fun acc -> function
+           | { lo = Some lo; hi = Some hi } when Int.equal lo hi ->
+               IntSet.add lo acc
+           | _ -> raise Exit)
+         IntSet.empty t)
+  with Exit -> None
+
+let pp_int_set fmt (s : IntSet.t) =
+  Format.(
+    fprintf fmt "{%a}"
+      (pp_print_list ~pp_sep:(fun fmt () -> fprintf fmt ", ") pp_print_int)
+      (IntSet.elements s))
 
 let pp_interval fmt = function
   | { lo = None; hi = None } -> Format.fprintf fmt "Z"
@@ -156,8 +155,10 @@ let pp_interval fmt = function
 
 let pp fmt = function
   | [] -> Format.fprintf fmt "{}"
-  | t when all_singletons t -> pp_singletons fmt t
-  | t ->
-      Format.pp_print_list
-        ~pp_sep:(fun fmt () -> Format.fprintf fmt " U ")
-        pp_interval fmt t
+  | t -> (
+      match try_collect_singletons t with
+      | Some s -> pp_int_set fmt s
+      | None ->
+          Format.pp_print_list
+            ~pp_sep:(fun fmt () -> Format.fprintf fmt " U ")
+            pp_interval fmt t)
