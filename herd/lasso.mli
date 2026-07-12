@@ -7,6 +7,11 @@ type ('ev, 'rel) lasso = {
   initial_weights : 'rel lasso_rels;
 }
 
+type 'a weighted_lasso =
+  Lasso : (module WeightedRel.S with type t = 'rel and type elt = 'a)
+        * ('a, 'rel) lasso
+       -> 'ev weighted_lasso
+
 module Make (S : SemExtra.S) (WR : WeightedRel.S with type elt = S.E.event) : sig
   module E := S.E
 
