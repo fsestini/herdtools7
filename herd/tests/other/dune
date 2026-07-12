@@ -2,3 +2,7 @@
  (deps
   (source_tree libdir)
   %{bin:herd7}))
+
+(tests
+ (names weighted_rel_test)
+ (libraries herd_core))
