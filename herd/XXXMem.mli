@@ -20,12 +20,18 @@ module type S = sig
   val model : Model.t
   module S : Sem.Semantics
 
+  (**
+      [check_event_structure test conc kfail kont res] checks [conc] against
+      the model [O.m] for [test]. [kfail] handles a failed candidate;
+      [kont] handles each successful candidate. [res] is the caller's
+      accumulator threaded through both continuations.
+  *)
   val check_event_structure :
       S.test -> S.concrete ->
-        ('a -> 'a) ->
-	(S.concrete ->  S.A.state * S.A.FaultSet.t ->
-         (S.set_pp Lazy.t * S.rel_pp Lazy.t) ->
-          Flag.Set.t (* Flags set during that execution *) -> 'a -> 'a) ->
-              'a -> 'a
+      ('a -> 'a) ->
+      (S.concrete ->  S.A.state * S.A.FaultSet.t ->
+       (S.set_pp Lazy.t * S.rel_pp Lazy.t) ->
+       Flag.Set.t (* Flags set during that execution *) -> 'a -> 'a) ->
+       'a -> 'a
 
 end
