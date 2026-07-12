@@ -33,9 +33,7 @@ module Make
     let do_deps = O.variant Variant.Deps
     let morello = O.variant Variant.Morello
     let mixed = O.variant Variant.Mixed || morello
-    let memtag = O.variant Variant.MemTag
     let kvm = O.variant Variant.VMSA
-    let self = O.variant Variant.Ifetch
     let asl = S.A.arch = `ASL
     let optacetrue =
       let open OptAce in
@@ -306,7 +304,7 @@ module Make
            annots [])
 
 (* Intepreter call *)
-    let (opts,_,prog) = O.m
+    let (opts,_,_) = O.m
     let withco = opts.ModelOption.co
     let catdep = opts.ModelOption.catdep
     let run_interpret test  kfail =
