@@ -178,6 +178,10 @@ module Make
     module I = Interpreter.Make(IConfig)(S)(IUtils)
     module Equiv = EquivSpec.Make(S)
     module E = S.E
+    module WR = WeightedRel.Make (struct
+      type t = E.event
+      let compare = E.event_compare
+    end)
 
     (* Fast "loc" relation computation *)
 
@@ -317,7 +321,8 @@ module Make
               not O.strictskip || StringSet.equal st.I.out_skipped O.skipchecks
             then
               let conc = ks.I.conc in
-              kont conc conc.S.fs (st.I.out_sets,st.I.out_show) st.I.out_flags res
+              kont conc conc.S.fs (st.I.out_sets,st.I.out_show) None
+                st.I.out_flags res
             else res)
           res
 

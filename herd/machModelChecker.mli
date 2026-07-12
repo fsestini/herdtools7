@@ -25,17 +25,20 @@ end
 
 module Make :
   functor (O : Config) (S : Sem.Semantics) -> sig
+  type lasso := S.E.event Lasso.weighted_lasso
+
     (**
         [check_event_structure test conc kfail kont res] checks [conc] against
         the model [O.m] for [test]. [kfail] handles a failed candidate;
-        [kont] handles each successful candidate. [res] is the caller's
-        accumulator threaded through both continuations.
+        [kont] handles each successful candidate, including its optional lasso.
+        [res] is the caller's accumulator threaded through both continuations.
     *)
     val check_event_structure :
       S.test -> S.concrete ->
       ('a -> 'a) ->
       (S.concrete -> S.A.state * S.A.FaultSet.t ->
        (S.set_pp Lazy.t * S.rel_pp Lazy.t) ->
+       lasso option ->
        Flag.Set.t -> 'a -> 'a) ->
       'a -> 'a
   end

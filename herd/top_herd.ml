@@ -340,7 +340,7 @@ module Make(O:Config)(M:XXXMem.S) =
       let cstr = T.find_our_constraint test in
       let check = check_prop solver test in
 
-      fun conc (st,flts) (set_pp,vbpp) flags c ->
+      fun conc (st,flts) (set_pp,vbpp) _lasso flags c ->
         if do_observed && not (all_observed test conc) then c
         else if
           match O.throughflag with
@@ -435,7 +435,7 @@ module Make(O:Config)(M:XXXMem.S) =
     let check_failed_model_kont
           cutoff cs solver
           emit_exec test do_restrict
-          conc (st,flts) (set_pp,vbpp) flags c  =
+          conc (st,flts) (set_pp,vbpp) _lasso flags c  =
 
       let open S.M.VC in
       match cs with
@@ -444,7 +444,7 @@ module Make(O:Config)(M:XXXMem.S) =
           if O.debug.Debug_herd.top then
             model_kont solver
               emit_exec test do_restrict
-              conc (st,flts) (set_pp,vbpp) flags c
+              conc (st,flts) (set_pp,vbpp) _lasso flags c
           else raise e
       | Some (Warn msg) ->
          (* Warn and ignore *)
@@ -455,7 +455,7 @@ module Make(O:Config)(M:XXXMem.S) =
           else
             model_kont solver
               emit_exec test do_restrict
-              conc (st,flts) (set_pp,vbpp) flags c
+              conc (st,flts) (set_pp,vbpp) _lasso flags c
 
     type test_results = TestResult.Make(M.S).t
 
