@@ -1,18 +1,22 @@
+exception Unsupported of string
+
 type loop_boundaries = { proc : int; start_spoi : int; end_spoi : int }
 type 'rel lasso_rels = { rf : 'rel; po : 'rel; co : 'rel; rf_reg : 'rel }
 type 'ev iteration = { events : 'ev list; branch_event : 'ev }
 
-type ('ev, 'rel) lasso = {
+type 'ev lasso = {
+  predecessor : 'ev iteration;
   iteration : 'ev iteration;
-  initial_weights : 'rel lasso_rels;
 }
 
-type 'a weighted_lasso =
-  Lasso : (module WeightedRel.S with type t = 'rel and type elt = 'a)
-        * ('a, 'rel) lasso
-       -> 'ev weighted_lasso
+let lasso_events lasso = lasso.iteration.events
 
-exception Unsupported of string
+type 'rel lazy_env = (string * 'rel Lazy.t) list
+
+(* type 'a weighted_lasso = *)
+(*   Lasso : (module WeightedRel.S with type t = 'rel and type elt = 'a) *)
+(*         * ('a, 'rel) lasso *)
+(*        -> 'ev weighted_lasso *)
 
 let unsupported msg = raise (Unsupported msg)
 
@@ -24,7 +28,10 @@ struct
   module A = S.A
 
   type nonrec iteration = E.event iteration
-  type nonrec lasso = (E.event, WR.t) lasso
+
+  (***********************************************************)
+  (*     Detecting lassos                                    *)
+  (***********************************************************)
 
   let find_static_loop_boundaries ~(cutoff : E.event) (es : E.event_structure) =
     let events = es.E.events |> E.EventSet.to_list in
@@ -87,13 +94,14 @@ struct
     | [ ev ] when E.is_cutoff ev -> List.rev iters
     | _evs -> failwith "cannot determine loop iterations"
 
-  let assign_zero_weight r =
-    E.EventRel.fold
-      (fun (ev1, ev2) -> WR.add (ev1, ev2, W.singleton 0))
-      r WR.empty
-
-  let compute_lasso_weights ~lasso_candidate ~predecessor input_rels =
-    let { rf; po; co; rf_reg } = input_rels in
+  let build_lasso es cutoff =
+    let loop = find_static_loop_boundaries ~cutoff es in
+    let iterations = iterations_of_loop loop es.E.events in
+    let lasso_candidate, predecessor =
+      match List.rev iterations with
+      | x :: y :: _ -> (x, y)
+      | _ -> unsupported "need at least two iterations"
+    in
     (* Check that the two iterations are event-equal *)
     let () =
       List.combine predecessor.events lasso_candidate.events
@@ -107,43 +115,99 @@ struct
           if E.is_mem ev && not (E.is_mem_load ev) then
             unsupported "non-read memory event in lasso")
     in
-    let is_lasso_event ev =
-      List.exists (fun ev' -> E.event_equal ev ev') lasso_candidate.events
-    in
+    { iteration = lasso_candidate; predecessor }
+
+  let find_lasso es =
+    let cutoffs = E.EventSet.filter E.is_cutoff es.E.events in
+    match E.EventSet.to_list cutoffs with
+    | [] -> `Finite
+    | [ cutoff ] -> (
+        try
+          let lasso = build_lasso es cutoff in
+          `Infinite lasso
+        with Unsupported str -> `Unsupported str)
+    | cutoffs ->
+        let n = List.length cutoffs in
+        let msg = Printf.sprintf "Execution with %d cutoff events" n in
+        `Unsupported msg
+
+  (***********************************************************)
+  (*     Computing lasso weights                             *)
+  (***********************************************************)
+
+  type event_kind = Finite | Lasso
+
+  let event_kind lasso_events ev =
+    if E.EventSet.mem ev lasso_events then Lasso else Finite
+
+  let all_offsets lasso_events src dst =
+    match (event_kind lasso_events src, event_kind lasso_events dst) with
+    | Finite, Finite -> W.singleton 0
+    | Finite, Lasso -> W.at_least 1
+    | Lasso, Finite -> W.at_most (-1)
+    | Lasso, Lasso -> W.top
+
+  let assign_weights (w : E.event -> E.event -> Weight.t) (r : E.event_rel) : WR.t
+      =
+    E.EventRel.fold
+      (fun (src, dst) acc -> WR.add (src, dst, w src dst) acc)
+      r WR.empty
+
+  let assign_zero_weight = assign_weights (fun _ _ -> Weight.singleton 0)
+  let assign_max_weights lasso_events = assign_weights (all_offsets lasso_events)
+
+  let is_lasso_event lasso ev =
+    List.exists (fun ev' -> E.event_equal ev ev') (lasso_events lasso)
+
+  (* let find_init_rel name (init_env : E.event_rel lazy_env) = *)
+  (*   match List.assoc_opt name init_env with *)
+  (*   | Some v -> Lazy.force v *)
+  (*   | None -> *)
+  (*       unsupported (Printf.sprintf "expected relation in initial env: %s" name) *)
+
+  let check_assign_rf_reg lasso rf_reg =
+    let is_lasso_evt = is_lasso_event lasso in
     (* Check that there are no cross-iteration rf-reg edges. *)
     let () =
       rf_reg
       |> E.EventRel.exists (fun (ev1, ev2) ->
-          (is_lasso_event ev1 && not (is_lasso_event ev2))
-          || (is_lasso_event ev2 && not (is_lasso_event ev1)))
+          (is_lasso_evt ev1 && not (is_lasso_evt ev2))
+          || (is_lasso_evt ev2 && not (is_lasso_evt ev1)))
       |> fun cross_iter ->
       if cross_iter then unsupported "cross-iteration rf-reg"
     in
+    assign_zero_weight rf_reg
+
+  let check_assign_rf lasso rf =
     (* Check uniqueness of rf edges and assign weights *)
-    let rf =
       E.EventRel.fold
         (fun (ev1, ev2) acc ->
           let is_not_uniquely_determined =
-            lasso_candidate.events
+            lasso.iteration.events
             |> List.exists (fun ev ->
-                E.EventRel.mem (ev1, ev) co
+                not (Int.equal ev1.E.eiid ev.E.eiid)
+                && Option.equal E.A.location_equal (E.location_of ev) (E.location_of ev1)
                 && Option.equal E.A.V.equal (E.value_of ev) (E.value_of ev1))
           in
           if is_not_uniquely_determined then
             unsupported "rf is not uniquely determined"
           else
-            match (is_lasso_event ev1, is_lasso_event ev2) with
+            match (is_lasso_event lasso ev1, is_lasso_event lasso ev2) with
             | false, true -> WR.add (ev1, ev2, W.at_least 1) acc
             | true, false | true, true -> failwith "unexpected lasso write"
             | false, false -> WR.add (ev1, ev2, W.singleton 0) acc)
         rf WR.empty
+
+  let assign_po lasso po =
+    let po =
+      E.EventRel.restrict_codomain (fun ev -> not (E.is_cutoff ev)) po
     in
     (* Assign weights to existing po edges *)
     let finite_po = po in
     let po =
       E.EventRel.fold
         (fun (ev1, ev2) acc ->
-          match (is_lasso_event ev1, is_lasso_event ev2) with
+          match (is_lasso_event lasso ev1, is_lasso_event lasso ev2) with
           | false, true -> WR.add (ev1, ev2, W.at_least 1) acc
           | true, false -> failwith "po edge going outside the lasso"
           | true, true -> WR.add (ev1, ev2, W.singleton 0) acc
@@ -152,8 +216,8 @@ struct
     in
     (* Add po edges to the next iteration *)
     let po =
-      let branch_before_lasso = predecessor.branch_event in
-      let lasso_branch = lasso_candidate.branch_event in
+      let branch_before_lasso = lasso.predecessor.branch_event in
+      let lasso_branch = lasso.iteration.branch_event in
       let back_po_targets =
         E.EventRel.fold
           (fun (ev1, ev2) l ->
@@ -165,44 +229,29 @@ struct
         back_po_targets po
     in
     (* Compute transitive closure *)
-    let po =
-      match WR.transitive_closure po with
-      | Some po -> po
-      | None -> unsupported "could not compute transitive closure of po"
-    in
-    let co = assign_zero_weight co in
-    let rf_reg = assign_zero_weight rf_reg in
-    { rf; po; co; rf_reg }
+    match WR.transitive_closure po with
+    | Some po -> po
+    | None -> unsupported "could not compute transitive closure of po"
 
-  let build_lasso es cutoff ~rf_reg ~rf ~co ~po =
-    let loop = find_static_loop_boundaries ~cutoff es in
-    let iterations = iterations_of_loop loop es.E.events in
-    let lasso_candidate, predecessor =
-      match List.rev iterations with
-      | x :: y :: _ -> (x, y)
-      | _ -> unsupported "need at least two iterations"
-    in
-    let initial_weights =
-      compute_lasso_weights { rf_reg; rf; co; po } ~lasso_candidate ~predecessor
-    in
-    { iteration = lasso_candidate; initial_weights }
+  let check_assign_si_sm r =
+    if E.EventRel.for_all (fun (ev1, ev2) -> E.event_equal ev1 ev2) r then
+      assign_zero_weight r
+    else unsupported "si/sm"
 
-  let find_lasso conc ~rf_reg ~rf ~co =
-    let cutoffs = E.EventSet.filter E.is_cutoff conc.S.str.E.events in
-    match E.EventSet.to_list cutoffs with
-    | [] -> `Finite
-    | [ cutoff ] -> (
-        let es = conc.S.str in
-        let po = conc.S.po in
-        let po =
-          E.EventRel.restrict_codomain (fun ev -> not (E.is_cutoff ev)) po
-        in
-        try
-          let lasso = build_lasso es cutoff ~rf_reg ~rf ~co ~po in
-          `Infinite lasso
-        with Unsupported str -> `Unsupported str)
-    | cutoffs ->
-        let n = List.length cutoffs in
-        let msg = Printf.sprintf "Execution with %d cutoff events" n in
-        `Unsupported msg
+  let compute_initial_weights lasso (init_env : E.event_rel lazy_env) : WR.t lazy_env =
+    let lasso_evs = E.EventSet.of_list (lasso_events lasso) in
+    let with_lazy_rel f r = lazy (f (Lazy.force r)) in
+    init_env |> List.map (fun (name, rel) ->
+      match name with
+      | "rf-reg" -> (name, with_lazy_rel (check_assign_rf_reg lasso) rel)
+      | "rf" -> (name, with_lazy_rel (check_assign_rf lasso) rel)
+      | "po" -> (name, with_lazy_rel (assign_po lasso) rel)
+      | "int" | "ext" | "loc" -> (name, with_lazy_rel (assign_max_weights lasso_evs) rel)
+      | "iico_data" | "iico_ctrl" | "iico_order" | "same-instance" ->
+          (name, with_lazy_rel assign_zero_weight rel)
+      | "si" | "sm" -> (name, with_lazy_rel check_assign_si_sm rel)
+      | _ ->
+        let msg = Printf.sprintf "unhandled initial relation `%s`" name in
+        unsupported msg)
+
 end
