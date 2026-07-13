@@ -1,4 +1,3 @@
-open Herdlib
 module Extract = TxtLoc.Extract ()
 
 module Make
