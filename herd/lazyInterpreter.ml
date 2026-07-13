@@ -3,15 +3,17 @@ exception Unsupported of string
 module Extract = TxtLoc.Extract ()
 module W = Weight
 
+type 'a lazy_env = (string * 'a Lazy.t) list
+
 module Make (Elts : MySet.S) (WR : WeightedRel.S with type elt = Elts.elt) : sig
   type state
 
   val interpret :
     ?lasso_events:Elts.t ->
     events:Elts.t ->
-    builtins:WR.t StringMap.t ->
-    ?set_builtins:Elts.t StringMap.t ->
-    ?with_overrides:WR.t StringMap.t ->
+    builtins:(string * WR.t) list ->
+    ?set_builtins:(string * Elts.t) list ->
+    ?overrides:(string * WR.t) list ->
     AST.ins list ->
     state
 
@@ -29,7 +31,7 @@ end = struct
   and env = binding StringMap.t
 
   type universes = { events : Elts.t; lasso_events : Elts.t; rel : WR.t }
-  type context = { universes : universes; builtins : env; with_overrides : env }
+  type context = { universes : universes; builtins : env; overrides : env }
 
   type state = { env : env; check_failures : string list }
 
@@ -75,13 +77,10 @@ end = struct
     let rel = cartesian_rel ~lasso_events events events in
     { events; lasso_events; rel }
 
-  let add_env_binding name binding env = StringMap.add name binding env
-
   let env_of_builtins sets rels =
-    let env = StringMap.map (fun s -> lazy (Set s)) sets in
-    StringMap.fold
-      (fun name rel -> add_env_binding name (lazy (Rel rel)))
-      rels env
+    List.map (fun (k, v) -> (k, lazy (Set v))) sets
+    @ List.map (fun (k, v) -> (k, lazy (Rel v))) rels
+    |> StringMap.of_list
 
   let empty_state = { env = StringMap.empty; check_failures = [] }
 
@@ -297,7 +296,7 @@ end = struct
 
   let eval_with_binding ctx (st : state) name =
     let binding =
-      match StringMap.find_opt name ctx.with_overrides with
+      match StringMap.find_opt name ctx.overrides with
       | Some v -> v
       | None ->
           lazy
@@ -340,12 +339,12 @@ end = struct
   let eval_ins_list ctx st ins = List.fold_left (eval_ins ctx) st ins
 
   let interpret ?(lasso_events = Elts.empty) ~events ~builtins
-      ?(set_builtins = StringMap.empty) ?(with_overrides = StringMap.empty) inss
+      ?(set_builtins = []) ?(overrides = []) inss
       =
     let universes = universes_of_events ~lasso_events events in
     let builtins = env_of_builtins set_builtins builtins in
-    let with_overrides = env_of_builtins StringMap.empty with_overrides in
-    let ctx = { universes; builtins; with_overrides } in
+    let overrides = env_of_builtins [] overrides in
+    let ctx = { universes; builtins; overrides } in
     let inss = ASTUtils.rec2plus inss in
     let st = eval_ins_list ctx empty_state inss in
     { st with check_failures = List.rev st.check_failures }
