@@ -384,7 +384,6 @@ module List : sig
 
   val apply : ('a -> 'b) t -> 'a t -> 'b t
   val empty : 'a t
-  val concat_map : ('a -> 'b list) -> 'a list -> 'b list
   val is_empty : 'a list -> bool
   val singleton : 'a -> 'a t
   (** [singleton x] returns the one-element list [[x]].
