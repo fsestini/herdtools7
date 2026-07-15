@@ -21,10 +21,8 @@ let unsupported msg = raise (Unsupported msg)
 
 module W = Weight
 
-module Make (S : SemExtra.S) (WR : WeightedRel.S with type elt = S.E.event) =
-struct
-  module E = S.E
-  module A = S.A
+module Builder (E : Event.S) = struct
+  module A = E.A
 
   (***********************************************************)
   (*     Detecting lassos                                    *)
@@ -127,7 +125,10 @@ struct
         let n = List.length cutoffs in
         let msg = Printf.sprintf "Execution with %d cutoff events" n in
         `Unsupported msg
+end
 
+module Weights (E : Event.S) (WR : WeightedRel.S with type elt = E.event) =
+struct
   (***********************************************************)
   (*     Computing lasso weights                             *)
   (***********************************************************)
