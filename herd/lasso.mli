@@ -1,29 +1,12 @@
-(* exception Unsupported of string *)
-
-(* type loop_boundaries = { proc : int; start_spoi : int; end_spoi : int } *)
-(* type 'rel lasso_rels = { rf : 'rel; po : 'rel; co : 'rel; rf_reg : 'rel } *)
-(* type 'ev iteration = { events : 'ev list; branch_event : 'ev } *)
-
 type 'ev lasso
-
-val lasso_events : 'ev lasso -> 'ev list
-
 type 'rel lazy_env = (string * 'rel Lazy.t) list
 
-(* type 'a weighted_lasso = *)
-(*   Lasso : (module WeightedRel.S with type t = 'rel and type elt = 'a) *)
-(*         * ('a, 'rel) lasso *)
-(*        -> 'ev weighted_lasso *)
+val lasso_events : 'ev lasso -> 'ev list
 
 module Make (S : SemExtra.S) (WR : WeightedRel.S with type elt = S.E.event) : sig
   module E := S.E
 
   type lasso := E.event lasso
-
-  (* val find_static_loop_boundaries : *)
-  (*   cutoff:E.event -> E.event_structure -> loop_boundaries *)
-
-  (* val iterations_of_loop : loop_boundaries -> E.EventSet.t -> iteration list *)
 
   val find_lasso :
     E.event_structure -> [ `Finite | `Infinite of lasso | `Unsupported of string ]
