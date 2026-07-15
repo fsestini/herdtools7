@@ -58,10 +58,9 @@ module Make (Elt : Set.OrderedType) : S with type elt = Elt.t = struct
   let cartesian srcs dsts w =
     if W.is_empty w then EltMap.empty
     else
-      List.fold_left
-        (fun rel src ->
-          List.fold_left (fun rel dst -> add (src, dst, w) rel) rel dsts)
-        EltMap.empty srcs
+      Misc.List.cartesian srcs dsts
+      |> List.map (fun (src,dst) -> (src,dst,w))
+      |> of_list
 
   let union rel1 rel2 = EltMap.union (EltMap.union W.union) rel1 rel2
 
