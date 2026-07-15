@@ -394,6 +394,8 @@ module List : sig
       Complexity is quadratic in the length of the list, but the order
       of elements is preserved. *)
 
+  val cartesian : 'a list -> 'b list -> ('a * 'b) list
+
   module Syntax : sig
     val (let*) : 'a list -> ('a -> 'b list) -> 'b list
   end

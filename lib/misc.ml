@@ -876,6 +876,12 @@ module List = struct
     let* f = fs in
     let* x = xs in
     [ f x ]
+
+  let cartesian : 'a list -> 'b list -> ('a * 'b) list = fun xs ys ->
+    let open Syntax in
+    let* x = xs in
+    let* y = ys in
+    [ x, y ]
 end
 
 module Option = struct
