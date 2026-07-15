@@ -1,7 +1,6 @@
 exception Unsupported of string
 
 type loop_boundaries = { proc : int; start_spoi : int; end_spoi : int }
-type 'rel lasso_rels = { rf : 'rel; po : 'rel; co : 'rel; rf_reg : 'rel }
 type 'ev iteration = { events : 'ev list; branch_event : 'ev }
 
 type 'ev lasso = {
@@ -26,8 +25,6 @@ module Make (S : SemExtra.S) (WR : WeightedRel.S with type elt = S.E.event) =
 struct
   module E = S.E
   module A = S.A
-
-  type nonrec iteration = E.event iteration
 
   (***********************************************************)
   (*     Detecting lassos                                    *)
@@ -238,20 +235,26 @@ struct
       assign_zero_weight r
     else unsupported "si/sm"
 
-  let compute_initial_weights lasso (init_env : E.event_rel lazy_env) : WR.t lazy_env =
+  let compute_initial_weights lasso (init_env : E.event_rel lazy_env) :
+      (WR.t lazy_env, string) result =
     let lasso_evs = E.EventSet.of_list (lasso_events lasso) in
     let with_lazy_rel f r = lazy (f (Lazy.force r)) in
-    init_env |> List.map (fun (name, rel) ->
-      match name with
-      | "rf-reg" -> (name, with_lazy_rel (check_assign_rf_reg lasso) rel)
-      | "rf" -> (name, with_lazy_rel (check_assign_rf lasso) rel)
-      | "po" -> (name, with_lazy_rel (assign_po lasso) rel)
-      | "int" | "ext" | "loc" -> (name, with_lazy_rel (assign_max_weights lasso_evs) rel)
-      | "iico_data" | "iico_ctrl" | "iico_order" | "same-instance" ->
-          (name, with_lazy_rel assign_zero_weight rel)
-      | "si" | "sm" -> (name, with_lazy_rel check_assign_si_sm rel)
-      | _ ->
-        let msg = Printf.sprintf "unhandled initial relation `%s`" name in
-        unsupported msg)
+    try
+      Ok
+        (init_env
+        |> List.map (fun (name, rel) ->
+            match name with
+            | "rf-reg" -> (name, with_lazy_rel (check_assign_rf_reg lasso) rel)
+            | "rf" -> (name, with_lazy_rel (check_assign_rf lasso) rel)
+            | "po" -> (name, with_lazy_rel (assign_po lasso) rel)
+            | "int" | "ext" | "loc" ->
+                (name, with_lazy_rel (assign_max_weights lasso_evs) rel)
+            | "iico_data" | "iico_ctrl" | "iico_order" | "same-instance" ->
+                (name, with_lazy_rel assign_zero_weight rel)
+            | "si" | "sm" -> (name, with_lazy_rel check_assign_si_sm rel)
+            | _ ->
+                let msg = Printf.sprintf "unhandled initial relation `%s`" name in
+                unsupported msg))
+    with Unsupported msg -> Error msg
 
 end
