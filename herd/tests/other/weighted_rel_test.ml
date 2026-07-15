@@ -1,6 +1,30 @@
 open Herd_core
 module W = Weight
-module WR = WeightedRel.Make (Int)
+
+module UnrestrictedInt = struct
+  include Int
+
+  let restrict_weight _src _dst w = w
+end
+
+module WR = WeightedRel.Make (UnrestrictedInt)
+
+module LassoInt = struct
+  include Int
+
+  let is_lasso x = Int.equal (x mod 2) 1
+
+  let restrict_weight src dst w =
+    let allowed =
+      match is_lasso src, is_lasso dst with
+      | false, false -> W.singleton 0
+      | false, true -> W.at_least 1
+      | true, false -> W.at_most (-1)
+      | true, true -> W.top in
+    W.intersection w allowed
+end
+
+module LassoWR = WeightedRel.Make (LassoInt)
 
 let finite xs =
   List.fold_left (fun acc x -> W.union acc (W.singleton x)) W.empty xs
@@ -36,6 +60,9 @@ let print_unary_rel_or_none name op r =
 
 let print_binary_rel name op r1 r2 =
   Format.printf "%a %s %a = %a@." pp_rel r1 name pp_rel r2 pp_rel (op r1 r2)
+
+let print_lasso_rel name r =
+  Format.printf "%s = %a@." name (LassoWR.pp pp_int) r
 
 let () =
   print_binary_weight "union" W.union (finite [ 1; 3 ]) (finite [ 2; 3 ]);
@@ -101,3 +128,27 @@ let () =
     (rel [ (1, 1, finite [ -1 ]) ]);
   print_unary_rel_or_none "transitive_closure" WR.transitive_closure
     (rel [ (1, 2, finite [ 1 ]); (2, 1, finite [ 1 ]); (3, 4, finite [ 1 ]) ])
+
+let () =
+  let rel edges = LassoWR.of_list edges in
+  print_lasso_rel "restricted of_list"
+    (rel
+       [
+         (0, 2, finite [ -1; 0; 1 ]);
+         (0, 1, finite [ 0; 1; 2 ]);
+         (1, 2, finite [ -2; -1; 0 ]);
+         (1, 3, finite [ -1; 0; 1 ]);
+       ]);
+  print_lasso_rel "impossible edge" (rel [ (0, 2, finite [ 1 ]) ]);
+  print_lasso_rel "restricted cartesian"
+    (LassoWR.cartesian [ 0; 1 ] [ 2; 3 ] W.top);
+  print_lasso_rel "restricted sequence"
+    (LassoWR.sequence
+       (rel [ (0, 1, W.at_least 1) ])
+       (rel [ (1, 2, W.at_most (-1)) ]));
+  match
+    LassoWR.transitive_closure
+      (rel [ (0, 1, W.at_least 1); (1, 2, W.at_most (-1)) ])
+  with
+  | Some r -> print_lasso_rel "restricted transitive_closure" r
+  | None -> Format.printf "restricted transitive_closure = None@."

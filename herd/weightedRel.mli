@@ -21,4 +21,11 @@ module type S = sig
   val pp : (Format.formatter -> elt -> unit) -> Format.formatter -> t -> unit
 end
 
-module Make (Elt : Set.OrderedType) : S with type elt = Elt.t
+module Make
+    (Elt : sig
+      include Set.OrderedType
+
+      (** Restrict the weights permitted on an edge between two elements. *)
+      val restrict_weight : t -> t -> Weight.t -> Weight.t
+    end) :
+  S with type elt = Elt.t

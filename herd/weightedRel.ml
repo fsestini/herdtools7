@@ -23,7 +23,13 @@ end
 
 module W = Weight
 
-module Make (Elt : Set.OrderedType) : S with type elt = Elt.t = struct
+module Make
+    (Elt : sig
+      include Set.OrderedType
+
+      val restrict_weight : t -> t -> Weight.t -> Weight.t
+    end) :
+  S with type elt = Elt.t = struct
   type elt = Elt.t
   type weight = W.t
 
@@ -34,6 +40,7 @@ module Make (Elt : Set.OrderedType) : S with type elt = Elt.t = struct
   let empty = EltMap.empty
 
   let add (src, dst, w) rel =
+    let w = Elt.restrict_weight src dst w in
     if W.is_empty w then rel
     else
       EltMap.update src
