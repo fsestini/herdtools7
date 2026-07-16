@@ -168,3 +168,70 @@ let () =
     (LassoRel.is_irreflexive zero_self);
   Format.printf "adapter zero cycle acyclic = %b@."
     (LassoRel.is_acyclic zero_cycle)
+
+let () =
+  Format.printf "adapter empty domain = %b@."
+    (IntSet.is_empty (LassoRel.domain LassoRel.empty));
+  Format.printf "adapter empty codomain = %b@."
+    (IntSet.is_empty (LassoRel.codomain LassoRel.empty))
+
+let () =
+  let rel =
+    LassoWR.of_list [ (0, 1, W.top); (0, 3, W.top); (2, 1, W.top) ]
+  in
+  let restricted =
+    LassoRel.restrict_domains (Int.equal 0) (Int.equal 1) rel
+  and restricted_domain = LassoRel.restrict_domain (Int.equal 0) rel
+  and restricted_codomain = LassoRel.restrict_codomain (Int.equal 1) rel
+  and restricted_codomain_to_set =
+    LassoRel.restrict_codomain_to_set (IntSet.singleton 1) rel
+  and restricted_to_sets =
+    LassoRel.restrict_domains_to_sets
+      (IntSet.singleton 0) (IntSet.singleton 1) rel
+  in
+  print_lasso_rel "adapter restrict_domain" restricted_domain;
+  print_lasso_rel "adapter restrict_codomain" restricted_codomain;
+  print_lasso_rel "adapter restrict_codomain_to_set" restricted_codomain_to_set;
+  print_lasso_rel "adapter restrict_domains" restricted;
+  print_lasso_rel "adapter restrict_domains_to_sets" restricted_to_sets
+
+let () =
+  let events = IntSet.of_list [ 0; 2 ]
+  and rel = LassoWR.of_list [ (0, 2, W.singleton 0) ] in
+  let expected = LassoWR.of_list [ (0, 2, W.singleton 0) ] in
+  let zero_orders =
+    LassoRel.all_topos_kont_rel events rel
+      (fun _ -> false)
+      (fun order _ -> LassoWR.equal order expected)
+      false
+  in
+  let nonzero_orders_rejected =
+    try
+      ignore
+        (LassoRel.all_topos_kont_rel
+           (IntSet.of_list [ 0; 1 ])
+           (LassoWR.of_list [ (0, 1, W.top) ])
+           (fun _ -> ())
+           (fun _ () -> ())
+           ());
+      false
+    with WeightedRel.Unsupported _ -> true
+  in
+  let zero_compare = LassoRel.compare rel expected in
+  let nonzero_lasso_rel = LassoWR.of_list [ (1, 3, W.top) ] in
+  let nonzero_compare =
+    Int.equal (LassoRel.compare nonzero_lasso_rel nonzero_lasso_rel) 0
+    && LassoRel.compare rel nonzero_lasso_rel <> 0
+  in
+  Format.printf "adapter zero all_topos = %b@." zero_orders;
+  Format.printf "adapter nonzero all_topos rejected = %b@."
+    nonzero_orders_rejected;
+  Format.printf "adapter zero compare = %d@." zero_compare;
+  Format.printf "adapter nonzero compare = %b@." nonzero_compare
+
+let () =
+  let rel =
+    LassoWR.of_list [ (0, 2, W.singleton 0); (2, 4, W.singleton 0) ]
+  in
+  print_lasso_rel "adapter restrict_domain_transitive_closure"
+    (LassoRel.restrict_domain_transitive_closure (IntSet.singleton 0) rel)
