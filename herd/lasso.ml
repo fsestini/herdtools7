@@ -33,7 +33,7 @@ module Builder (E : Event.S) = struct
     let iiid =
       match cutoff.E.iiid with
       | E.IdSome iiid -> iiid
-      | _ -> failwith "expected cutoff event with iiid"
+      | _ -> unsupported "expected cutoff event with iiid"
     in
     let cutoff_proc = iiid.A.proc in
     let start_spoi = iiid.A.static_poi in
@@ -87,7 +87,7 @@ module Builder (E : Event.S) = struct
     in
     match current with
     | [ ev ] when E.is_cutoff ev -> List.rev iters
-    | _evs -> failwith "cannot determine loop iterations"
+    | _ -> unsupported "cannot determine loop iterations"
 
   let build_lasso es cutoff =
     let loop = find_static_loop_boundaries ~cutoff es in
@@ -192,7 +192,7 @@ struct
           else
             match (is_lasso_event lasso ev1, is_lasso_event lasso ev2) with
             | false, true -> WR.add (ev1, ev2, W.at_least 1) acc
-            | true, false | true, true -> failwith "unexpected lasso write"
+            | true, false | true, true -> unsupported "unexpected lasso write"
             | false, false -> WR.add (ev1, ev2, W.singleton 0) acc)
         rf WR.empty
 
@@ -207,7 +207,7 @@ struct
         (fun (ev1, ev2) acc ->
           match (is_lasso_event lasso ev1, is_lasso_event lasso ev2) with
           | false, true -> WR.add (ev1, ev2, W.at_least 1) acc
-          | true, false -> failwith "po edge going outside the lasso"
+          | true, false -> unsupported "po edge going outside the lasso"
           | true, true -> WR.add (ev1, ev2, W.singleton 0) acc
           | false, false -> WR.add (ev1, ev2, W.singleton 0) acc)
         po WR.empty
