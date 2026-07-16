@@ -49,6 +49,7 @@ type t =
   | MTEStoreOnly
   | FaultHandling of Fault.Handling.t (* Fault handling *)
   | CutOff
+  | Infinite
   | Morello
   | Neon
   | SVE (* Specify SVE *)
@@ -148,6 +149,7 @@ let (mode_variants, arch_variants) : t list * t list =
   | MTEStoreOnly -> MTEStoreOnly
   | FaultHandling p -> FaultHandling p
   | CutOff -> CutOff
+  | Infinite -> Infinite
   | Morello -> Morello
   | ShadowStack -> ShadowStack
   | Neon -> Neon
@@ -203,7 +205,7 @@ let (mode_variants, arch_variants) : t list * t list =
         SwitchDepScResult; LrScDiffOk;
         NotWeakPredicated;
         LKMMVersion `lkmmv1; LKMMVersion `lkmmv2;
-        CutOff; Morello; Deps; Instances;
+        CutOff; Infinite; Morello; Deps; Instances;
         OptRfRMW; ConstrainedUnpredictable;
         Exp; CosOpt; Test; T 0;
         ASL; ASL_AArch64; ASLVersion `ASLv0; ASLVersion `ASLv1;
@@ -258,6 +260,7 @@ let parse s = match Misc.lowercase s with
 | "tagmem"|"memtag"|"mte" -> Some MemTag
 | "store-only" -> Some MTEStoreOnly
 | "cutoff" -> Some CutOff
+| "infinite" -> Some Infinite
 | "morello" -> Some Morello
 | "neon" -> Some Neon
 | "sve" -> Some SVE
@@ -367,6 +370,7 @@ let pp = function
   | MTEStoreOnly -> "store-only"
   | FaultHandling p -> Fault.Handling.pp p
   | CutOff -> "CutOff"
+  | Infinite -> "infinite"
   | Morello -> "Morello"
   | Neon -> "Neon"
   | SVE -> "sve"
@@ -451,6 +455,7 @@ let pp = function
             "Configure fault handling to be %s"
             opt
   | CutOff -> "Check for cutoff in executions (AArch64+ASL only)"
+  | Infinite -> "Interpret cutoff executions as lassos when possible"
   | Morello -> ""
   | ShadowStack -> "Enable support for shadow stack (FEAT_GCS for AArch64)"
   | Neon -> "Enable Advanced SIMD instructions (AArch64 only)"

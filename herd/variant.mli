@@ -47,6 +47,7 @@ type t =
   | MTEStoreOnly     (* Load instructions are Tag Unchecked *)
   | FaultHandling of Fault.Handling.t (* Fault handling *)
   | CutOff
+  | Infinite
   | Morello
   | Neon
   | SVE (* Specify SVE *)
@@ -145,4 +146,3 @@ val set_fault_handling : Fault.Handling.t ref -> t -> bool
 val set_sve_length : int ref -> t -> t option
 val set_sme_length : int ref -> t -> t option
 val check_tag : t -> t list
-
