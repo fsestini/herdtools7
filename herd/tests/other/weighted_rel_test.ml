@@ -25,6 +25,8 @@ module LassoInt = struct
 end
 
 module LassoWR = WeightedRel.Make (LassoInt)
+module IntSet = MySet.Make (Int)
+module LassoRel = WeightedRel.MakeInnerRel (IntSet) (LassoWR)
 
 let finite xs =
   List.fold_left (fun acc x -> W.union acc (W.singleton x)) W.empty xs
@@ -152,3 +154,17 @@ let () =
   with
   | Some r -> print_lasso_rel "restricted transitive_closure" r
   | None -> Format.printf "restricted transitive_closure = None@."
+
+let () =
+  let positive_self = LassoWR.of_list [ (1, 1, W.singleton 1) ] in
+  let zero_self = LassoWR.of_list [ (0, 0, W.singleton 0) ] in
+  let zero_cycle =
+    LassoWR.of_list
+      [ (0, 1, W.at_least 1); (1, 0, W.at_most (-1)) ]
+  in
+  Format.printf "adapter positive self acyclic = %b@."
+    (LassoRel.is_acyclic positive_self);
+  Format.printf "adapter zero self irreflexive = %b@."
+    (LassoRel.is_irreflexive zero_self);
+  Format.printf "adapter zero cycle acyclic = %b@."
+    (LassoRel.is_acyclic zero_cycle)
