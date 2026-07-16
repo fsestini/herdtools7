@@ -114,11 +114,14 @@ module Make
       val add_rels : init_env -> S.event_rel Lazy.t Misc.Simple.bds -> init_env
       val add_sets : init_env -> S.event_set Lazy.t Misc.Simple.bds -> init_env
       val get_set : init_env -> string -> S.event_set Lazy.t option
+      val get_rels : init_env -> S.event_rel Lazy.t Misc.Simple.bds
+      val get_sets : init_env -> S.event_set Lazy.t Misc.Simple.bds
 
 (* Subset of interpreter state used by the caller *)
       type st_out = {
           out_show : S.rel_pp Lazy.t ;
           out_sets : S.set_pp Lazy.t ;
+          out_all_rels : S.rel_pp Lazy.t ;
           out_skipped : StringSet.t ;
           out_flags : Flag.Set.t ;
           out_bell_info :  BellModel.info ;
@@ -522,6 +525,9 @@ module Make
             else f_rec sets in
       f_rec sets
 
+    let get_rels (_, rels) = rels
+    let get_sets (sets, _) = sets
+
 (* Go on *)
     let add_vals_once mk =
       List.fold_right
@@ -585,6 +591,7 @@ module Make
     type st_out = {
         out_show : S.event_rel Misc.Simple.bds Lazy.t ;
         out_sets : S.event_set StringMap.t Lazy.t ;
+        out_all_rels : S.event_rel Misc.Simple.bds Lazy.t ;
         out_skipped : StringSet.t ;
         out_flags : Flag.Set.t ;
         out_bell_info :  BellModel.info ;
@@ -613,9 +620,20 @@ module Make
         | Shown.Set v -> StringMap.add tag v k)
         (Lazy.force st.show) StringMap.empty
 
+    let env_to_all_rels st =
+      StringMap.fold
+        (fun name value rels ->
+          match Lazy.force value with
+          | V.Rel rel -> (name, rel) :: rels
+          | V.TransRel rel ->
+              (name, E.EventRel.transitive_closure rel) :: rels
+          | _ -> rels)
+        st.env.vals []
+
     let st2out st =
       {out_show = lazy (show_to_vbpp st) ;
        out_sets = lazy (show_to_sets st) ;
+       out_all_rels = lazy (env_to_all_rels st) ;
        out_skipped = st.skipped ;
        out_flags = st.flags ;
        out_bell_info = st.bell_info ; }

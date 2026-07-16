@@ -24,6 +24,9 @@ module type S = sig
   module S : SemExtra.S
   open S
 
+  type weighted_rel_pp =
+    (string * (S.event * S.event * Weight.t) list) list
+
   val init_pretty : unit -> unit
 
   val pp_no_solutions :  out_channel -> S.test -> string -> unit
@@ -39,7 +42,8 @@ module type S = sig
 
   val dump_legend :
       out_channel -> Model.t -> S.test -> PrettyConf.show ->
-        S.concrete -> ?sets : S.set_pp -> S.rel_pp -> unit
+        S.concrete -> ?sets : S.set_pp -> ?weighted_rels : weighted_rel_pp ->
+        S.rel_pp -> unit
 
 (* Simpler function, just to dump event structures with and without rfmaps *)
   val dump_es :
@@ -66,6 +70,9 @@ module Make (S:SemExtra.S) : S with module S = S  = struct
   module E = S.E
   module PC = S.O.PC
   let dbg = false
+
+  type weighted_rel_pp =
+    (string * (S.event * S.event * Weight.t) list) list
 
   let pc_symetric = StringSet.union PC.symetric PC.noid
 
@@ -591,7 +598,7 @@ module Make (S:SemExtra.S) : S with module S = S  = struct
   module PairSet = MySet.Make(StringPair)
   module PairMap = MyMap.Make(StringPair)
 
-  type info = { ikey:string; icolor:string; }
+  type info = { ikey:string; ilabel:string; icolor:string; }
 
   let edges = ref PairMap.empty
   let edges_seen = ref StringMap.empty
@@ -666,7 +673,7 @@ module Make (S:SemExtra.S) : S with module S = S  = struct
     String.concat ":" (do_rec cs)
 
   let fmt_merged_label fst i =
-    let pp_label = escape_html i.ikey in
+    let pp_label = escape_html i.ilabel in
     let pp_label = pp_edge_label false pp_label in
     sprintf "<font color=\"%s\">%s%s</font>" i.icolor
       (if fst then "" else "") pp_label
@@ -700,29 +707,29 @@ module Make (S:SemExtra.S) : S with module S = S  = struct
 
   let add_pair p i = edges := do_add_pair p i !edges
 
-  let do_merge_edge n1 n2 lbl def_color =
+  let do_merge_edge n1 n2 key text def_color =
     let color =
       try
-        DotEdgeAttr.find lbl "color" PC.edgeattrs
+        DotEdgeAttr.find key "color" PC.edgeattrs
       with Not_found ->
-        let {color;_} = get_ea def_color lbl in
+        let {color;_} = get_ea def_color key in
         color in
-    add_pair (n1,n2) {ikey=lbl; icolor=color; }
+    add_pair (n1,n2) {ikey=key; ilabel=text; icolor=color; }
 
   let real_do_pp_edge
-      chan n1 n2 lbl def_color override_style extra_attr backwards
+      chan n1 n2 key text def_color override_style extra_attr backwards
       movelbl
       =
 
     let backwards = match PC.graph with
     | Graph.Cluster|Graph.Free -> false
     | Graph.Columns ->
-        if lbl = "po" then false
+        if key = "po" then false
         else backwards in
 
     let overridden a =
       try
-        ignore (DotEdgeAttr.find lbl a PC.edgeattrs) ; true
+        ignore (DotEdgeAttr.find key a PC.edgeattrs) ; true
       with Not_found -> false in
 
     let checklabel a =
@@ -733,15 +740,15 @@ module Make (S:SemExtra.S) : S with module S = S  = struct
       end with
       | Not_found -> "label" in
 
-    let {color=color ; style=style; } = get_ea def_color lbl in
+    let {color=color ; style=style; } = get_ea def_color key in
     fprintf chan "%s -> %s [%s=\"%s\""
       (if backwards then n2 else n1)
       (if backwards then n1 else n2)
       (if not (overridden "label") && PC.movelabel && movelbl then "taillabel"
-      else checklabel lbl)
-      (pp_edge_label movelbl lbl) ;
+      else checklabel key)
+      (pp_edge_label movelbl text) ;
 
-    if StringSet.mem lbl pc_symetric then pp_attr chan "arrowhead" "none" ;
+    if StringSet.mem key pc_symetric then pp_attr chan "arrowhead" "none" ;
     if not (overridden "color") then begin
       pp_attr chan "color" color ;
       if not (PC.tikz) then
@@ -766,7 +773,7 @@ module Make (S:SemExtra.S) : S with module S = S  = struct
       | "label" -> ()
       | _ ->
           pp_attr chan a v)
-      (DotEdgeAttr.find_all lbl PC.edgeattrs) ;
+      (DotEdgeAttr.find_all key PC.edgeattrs) ;
     fprintf chan "];\n" ;
     ()
 
@@ -781,21 +788,22 @@ module Make (S:SemExtra.S) : S with module S = S  = struct
     edges_seen := StringMap.add lbl (PairSet.add (n1,n2) seen) !edges_seen
 
   let do_pp_edge
-      chan n1 n2 lbl def_color override_style extra_attr backwards
+      chan n1 n2 key ?(text=key) def_color override_style extra_attr backwards
       movelbl
       =
     try
-      if StringSet.mem lbl PC.unshow then raise Exit ;
-      let is_symetric = StringSet.mem lbl pc_symetric in
+      if StringSet.mem key PC.unshow then raise Exit ;
+      let is_symetric = StringSet.mem key pc_symetric in
       if is_symetric then begin
-        if known_edge n1 n2 lbl then raise Exit ;
-        record_edge_seen n1 n2 lbl
+        if known_edge n1 n2 key then raise Exit ;
+        record_edge_seen n1 n2 key
       end ;
       if PC.edgemerge then
-        do_merge_edge n1 n2 lbl def_color
+        do_merge_edge n1 n2 key text def_color
       else
         real_do_pp_edge
-          chan n1 n2 lbl def_color override_style extra_attr (backwards && not is_symetric)
+          chan n1 n2 key text def_color override_style extra_attr
+          (backwards && not is_symetric)
           movelbl
     with Exit -> ()
 
@@ -845,7 +853,7 @@ module Make (S:SemExtra.S) : S with module S = S  = struct
 
  *)
 
-  let do_pp_dot_event_structure chan _test legend es rfmap sets vbss mark =
+  let do_pp_dot_event_structure ?(weighted_rels=[]) chan _test legend es rfmap sets vbss mark =
     if dbg then begin
       prerr_endline "SETS:" ;
       StringMap.iter
@@ -881,6 +889,24 @@ module Make (S:SemExtra.S) : S with module S = S  = struct
               else r in
             (tag,r)::k)
         vbss [] in
+    let weight_of tag src dst =
+      match List.assoc_opt tag weighted_rels with
+      | None -> None
+      | Some edges ->
+          List.find_map
+            (fun (src', dst', weight) ->
+              if E.event_equal src src' && E.event_equal dst dst' then
+                Some weight
+              else None)
+            edges
+    in
+    let edge_label tag src dst =
+      match weight_of tag src dst with
+      | None -> tag
+      | Some weight ->
+          let tag = if PC.relabel then relabel tag else tag in
+          Format.asprintf "%s@%a" tag Weight.pp weight
+    in
     let pl = fprintf chan "%s\n"
     and pf fmt = fprintf chan fmt in
 
@@ -1477,6 +1503,7 @@ module Make (S:SemExtra.S) : S with module S = S  = struct
         E.EventRel.pp chan ""
           (fun chan (e,e') ->
             do_pp_edge chan (pp_node_eiid e) (pp_node_eiid e') label
+              ~text:(edge_label label e e')
 (* Overides default color... *)
               (fun s -> { s with color="brown" ; })
 (* Overides any style given *)
@@ -1551,7 +1578,7 @@ module Make (S:SemExtra.S) : S with module S = S  = struct
       | S.Final _,S.Init -> k)
       rfm S.RFMap.empty
 
-  let pp_dot_event_structure chan test legend es rfmap sets vbss _conc =
+  let pp_dot_event_structure ?(weighted_rels=[]) chan test legend es rfmap sets vbss _conc =
 
     let obs =
       if PC.showobserved then
@@ -1559,7 +1586,7 @@ module Make (S:SemExtra.S) : S with module S = S  = struct
       else
         E.EventSet.empty in
 
-    do_pp_dot_event_structure chan
+    do_pp_dot_event_structure ~weighted_rels chan
       test
       legend
       (select_es es)
@@ -1572,7 +1599,9 @@ module Make (S:SemExtra.S) : S with module S = S  = struct
 
 
 
-  let dump_legend chan model test show_mode conc ?(sets=StringMap.empty) vbs =
+  let dump_legend
+      chan model test show_mode conc ?(sets=StringMap.empty) ?(weighted_rels=[])
+      vbs =
     let cstr = test.Test_herd.cond in
     let legend =
       let pp_flag =
@@ -1611,7 +1640,7 @@ module Make (S:SemExtra.S) : S with module S = S  = struct
             pp_flag
       end
     in
-    pp_dot_event_structure
+    pp_dot_event_structure ~weighted_rels
       chan test (if PC.showlegend then Some legend else None)
       conc.S.str conc.S.rfmap sets vbs S.conc_zero
 

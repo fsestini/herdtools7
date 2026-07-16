@@ -72,6 +72,7 @@ let normalize intervals =
   loop [] intervals
 
 let equal t1 t2 = List.equal ( = ) t1 t2
+let compare t1 t2 = List.compare interval_compare t1 t2
 let union t1 t2 = normalize (t1 @ t2)
 let max_lo lo1 lo2 = if compare_lo lo1 lo2 >= 0 then lo1 else lo2
 let min_hi hi1 hi2 = if compare_hi hi1 hi2 <= 0 then hi1 else hi2

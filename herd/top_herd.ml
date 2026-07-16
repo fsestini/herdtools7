@@ -230,8 +230,14 @@ module Printer (O : PrinterConfig) (S : SemExtra.S) = struct
 
   let dump_exec_graph model test exec chan =
     TestResult.(
+      let rels = relations exec in
+      let weighted_rels =
+        match lasso exec with
+        | None -> None
+        | Some lasso -> Some (Lazy.force lasso.Lasso.shown_rels)
+      in
       PP.dump_legend chan model test O.show (concrete exec)
-        ~sets:(sets exec) (relations exec))
+        ~sets:(sets exec) ?weighted_rels rels)
 end
 
 module Make(O:Config)(M:XXXMem.S) =

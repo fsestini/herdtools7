@@ -11,6 +11,15 @@ type 'ev lasso = {
 let lasso_events lasso = lasso.iteration.events
 
 type 'rel lazy_env = (string * 'rel Lazy.t) list
+type 'ev weighted_edge = 'ev * 'ev * Weight.t
+
+type 'ev result = {
+  lasso_events : 'ev list;
+  (** Relations selected for display, with their lasso weights. *)
+  shown_rels : (string * 'ev weighted_edge list) list Lazy.t;
+  (** All final named relation bindings, with their lasso weights. *)
+  rels : (string * 'ev weighted_edge list) list Lazy.t;
+}
 
 (* type 'a weighted_lasso = *)
 (*   Lasso : (module WeightedRel.S with type t = 'rel and type elt = 'a) *)
@@ -23,6 +32,23 @@ module W = Weight
 
 module Builder (E : Event.S) = struct
   module A = E.A
+
+  type event_kind = Finite | Lasso
+
+  let event_kind lasso ev =
+    if List.exists (fun lasso_ev -> E.event_equal ev lasso_ev) (lasso_events lasso)
+    then Lasso
+    else Finite
+
+  let restrict_weight lasso src dst weight =
+    let allowed =
+      match (event_kind lasso src, event_kind lasso dst) with
+      | Finite, Finite -> W.singleton 0
+      | Finite, Lasso -> W.at_least 1
+      | Lasso, Finite -> W.at_most (-1)
+      | Lasso, Lasso -> W.top
+    in
+    W.intersection weight allowed
 
   (***********************************************************)
   (*     Detecting lassos                                    *)
@@ -99,9 +125,18 @@ module Builder (E : Event.S) = struct
     in
     (* Check that the two iterations are event-equal *)
     let () =
-      List.combine predecessor.events lasso_candidate.events
-      |> List.for_all (fun (ev1, ev2) -> E.Act.equal ev1.E.action ev2.E.action)
-      |> fun b -> if not b then unsupported "last two iterations do not match"
+      let same_length =
+        Int.equal
+          (List.length predecessor.events)
+          (List.length lasso_candidate.events)
+      in
+      let same_actions =
+        same_length
+        && List.for_all2
+             (fun ev1 ev2 -> E.Act.equal ev1.E.action ev2.E.action)
+             predecessor.events lasso_candidate.events
+      in
+      if not same_actions then unsupported "last two iterations do not match"
     in
     (* Check that all lasso memory events are reads *)
     let () =
@@ -133,17 +168,7 @@ struct
   (*     Computing lasso weights                             *)
   (***********************************************************)
 
-  type event_kind = Finite | Lasso
-
-  let event_kind lasso_events ev =
-    if E.EventSet.mem ev lasso_events then Lasso else Finite
-
-  let all_offsets lasso_events src dst =
-    match (event_kind lasso_events src, event_kind lasso_events dst) with
-    | Finite, Finite -> W.singleton 0
-    | Finite, Lasso -> W.at_least 1
-    | Lasso, Finite -> W.at_most (-1)
-    | Lasso, Lasso -> W.top
+  module B = Builder (E)
 
   let assign_weights (w : E.event -> E.event -> Weight.t) (r : E.event_rel) : WR.t
       =
@@ -152,7 +177,8 @@ struct
       r WR.empty
 
   let assign_zero_weight = assign_weights (fun _ _ -> Weight.singleton 0)
-  let assign_max_weights lasso_events = assign_weights (all_offsets lasso_events)
+  let assign_max_weights lasso =
+    assign_weights (fun src dst -> B.restrict_weight lasso src dst W.top)
 
   let is_lasso_event lasso ev =
     List.exists (fun ev' -> E.event_equal ev ev') (lasso_events lasso)
@@ -183,6 +209,7 @@ struct
           let is_not_uniquely_determined =
             lasso.iteration.events
             |> List.exists (fun ev ->
+                E.is_store ev &&
                 not (Int.equal ev1.E.eiid ev.E.eiid)
                 && Option.equal E.A.location_equal (E.location_of ev) (E.location_of ev1)
                 && Option.equal E.A.V.equal (E.value_of ev) (E.value_of ev1))
@@ -237,25 +264,28 @@ struct
     else unsupported "si/sm"
 
   let compute_initial_weights lasso (init_env : E.event_rel lazy_env) :
-      (WR.t lazy_env, string) result =
-    let lasso_evs = E.EventSet.of_list (lasso_events lasso) in
+      WR.t lazy_env =
     let with_lazy_rel f r = lazy (f (Lazy.force r)) in
-    try
-      Ok
-        (init_env
-        |> List.map (fun (name, rel) ->
-            match name with
-            | "rf-reg" -> (name, with_lazy_rel (check_assign_rf_reg lasso) rel)
-            | "rf" -> (name, with_lazy_rel (check_assign_rf lasso) rel)
-            | "po" -> (name, with_lazy_rel (assign_po lasso) rel)
-            | "int" | "ext" | "loc" ->
-                (name, with_lazy_rel (assign_max_weights lasso_evs) rel)
-            | "iico_data" | "iico_ctrl" | "iico_order" | "same-instance" ->
-                (name, with_lazy_rel assign_zero_weight rel)
-            | "si" | "sm" -> (name, with_lazy_rel check_assign_si_sm rel)
-            | _ ->
-                let msg = Printf.sprintf "unhandled initial relation `%s`" name in
-                unsupported msg))
-    with Unsupported msg -> Error msg
+    init_env
+    |> List.map (fun (name, rel) ->
+        match name with
+        | "rf-reg" -> (name, with_lazy_rel (check_assign_rf_reg lasso) rel)
+        | "rf" -> (name, with_lazy_rel (check_assign_rf lasso) rel)
+        | "po" -> (name, with_lazy_rel (assign_po lasso) rel)
+        | "int" | "ext" | "loc" ->
+            (name, with_lazy_rel (assign_max_weights lasso) rel)
+        | "id" | "iico_data" | "iico_ctrl" | "iico_order" | "same-instance" ->
+            (name, with_lazy_rel assign_zero_weight rel)
+        | "si" | "sm" -> (name, with_lazy_rel check_assign_si_sm rel)
+        | _ ->
+            (name,
+             lazy begin
+               let raw = Lazy.force rel in
+               if E.EventRel.is_empty raw then WR.empty
+               else
+                 unsupported
+                   (Printf.sprintf
+                      "unhandled non-empty initial relation `%s`" name)
+             end))
 
 end
