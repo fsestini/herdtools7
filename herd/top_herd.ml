@@ -62,12 +62,13 @@ module TestResult = struct
     | None -> false
     | Some f -> Flag.Map.mem (Flag.Flag f) c.flagged)
 
-  type ('conc, 'sets, 'rels) execution =
+  type ('conc, 'sets, 'rels, 'lasso) execution =
     { concrete : 'conc;
       passes_check : bool;
       flags : Flag.Set.t;
       sets : 'sets Lazy.t;
       rels : 'rels Lazy.t;
+      lasso : 'lasso option;
     }
 
   let concrete x = x.concrete
@@ -75,6 +76,7 @@ module TestResult = struct
   let flags x = x.flags
   let sets x = Lazy.force x.sets
   let relations x = Lazy.force x.rels
+  let lasso x = x.lasso
 
   type ('es, 'exec, 'stats) t =
     { event_structures : 'es list;
@@ -85,7 +87,8 @@ module TestResult = struct
     module T = Test_herd.Make (S.A)
 
     type nonrec stats = S.A.StateSet.t stats
-    type nonrec execution = (S.concrete, S.set_pp, S.rel_pp) execution
+    type nonrec execution =
+      (S.concrete, S.set_pp, S.rel_pp, S.event Lasso.result) execution
     type nonrec t = (S.event_structure, execution, stats) t
 
     let count_prop ~byte test c =
@@ -340,7 +343,7 @@ module Make(O:Config)(M:XXXMem.S) =
       let cstr = T.find_our_constraint test in
       let check = check_prop solver test in
 
-      fun conc (st,flts) (set_pp,vbpp) flags c ->
+      fun conc (st,flts) (set_pp,vbpp) lasso flags c ->
         if do_observed && not (all_observed test conc) then c
         else if
           match O.throughflag with
@@ -389,6 +392,7 @@ module Make(O:Config)(M:XXXMem.S) =
                   flags;
                   sets = set_pp;
                   rels = vbpp;
+                  lasso;
                 }
               in
               emit_exec exec
@@ -435,7 +439,7 @@ module Make(O:Config)(M:XXXMem.S) =
     let check_failed_model_kont
           cutoff cs solver
           emit_exec test do_restrict
-          conc (st,flts) (set_pp,vbpp) flags c  =
+          conc (st,flts) (set_pp,vbpp) lasso flags c  =
 
       let open S.M.VC in
       match cs with
@@ -444,7 +448,7 @@ module Make(O:Config)(M:XXXMem.S) =
           if O.debug.Debug_herd.top then
             model_kont solver
               emit_exec test do_restrict
-              conc (st,flts) (set_pp,vbpp) flags c
+              conc (st,flts) (set_pp,vbpp) lasso flags c
           else raise e
       | Some (Warn msg) ->
          (* Warn and ignore *)
@@ -455,7 +459,7 @@ module Make(O:Config)(M:XXXMem.S) =
           else
             model_kont solver
               emit_exec test do_restrict
-              conc (st,flts) (set_pp,vbpp) flags c
+              conc (st,flts) (set_pp,vbpp) lasso flags c
 
     type test_results = TestResult.Make(M.S).t
 

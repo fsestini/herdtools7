@@ -68,18 +68,21 @@ module TestResult : sig
       undefined execution, or an execution carrying [badflag] when one is
       configured. *)
 
-  type ('conc, 'sets, 'rels) execution
+  type ('conc, 'sets, 'rels, 'lasso) execution
 
-  val concrete : ('conc, 'sets, 'rels) execution -> 'conc
+  val concrete : ('conc, 'sets, 'rels, 'lasso) execution -> 'conc
 
-  val passes_check : ('conc, 'sets, 'rels) execution -> bool
+  val passes_check : ('conc, 'sets, 'rels, 'lasso) execution -> bool
   (** Whether the execution satisfies the test proposition. *)
 
-  val flags : ('conc, 'sets, 'rels) execution -> Flag.Set.t
+  val flags : ('conc, 'sets, 'rels, 'lasso) execution -> Flag.Set.t
 
-  val sets : ('conc, 'sets, 'rels) execution -> 'sets
+  val sets : ('conc, 'sets, 'rels, 'lasso) execution -> 'sets
 
-  val relations : ('conc, 'sets, 'rels) execution -> 'rels
+  val relations : ('conc, 'sets, 'rels, 'lasso) execution -> 'rels
+
+  val lasso : ('conc, 'sets, 'rels, 'lasso) execution -> 'lasso option
+  (** Lossless weighted lasso data, when this execution used infinite mode. *)
 
   type ('es, 'exec, 'stats) t =
     { event_structures : 'es list;
@@ -98,7 +101,8 @@ module TestResult : sig
         {!TestResult} module. *)
 
     type nonrec stats = S.A.StateSet.t stats
-    type nonrec execution = (S.concrete, S.set_pp, S.rel_pp) execution
+    type nonrec execution =
+      (S.concrete, S.set_pp, S.rel_pp, S.event Lasso.result) execution
     type nonrec t = (S.event_structure, execution, stats) t
 
     val count_prop : byte:MachSize.Tag.t -> S.test -> stats -> int
