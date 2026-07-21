@@ -328,7 +328,7 @@ module Make
           type t = E.event
 
           let compare = E.event_compare
-          let restrict_weight = L.restrict_weight lasso
+          let kind = L.kind lasso
         end in
         let module WR = WeightedRel.Make (Elt) in
         let module R = WeightedRel.MakeInnerRel (E.EventSet) (WR) in

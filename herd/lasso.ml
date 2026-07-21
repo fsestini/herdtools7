@@ -33,22 +33,10 @@ module W = Weight
 module Builder (E : Event.S) = struct
   module A = E.A
 
-  type event_kind = Finite | Lasso
-
-  let event_kind lasso ev =
+  let kind lasso ev =
     if List.exists (fun lasso_ev -> E.event_equal ev lasso_ev) (lasso_events lasso)
-    then Lasso
-    else Finite
-
-  let restrict_weight lasso src dst weight =
-    let allowed =
-      match (event_kind lasso src, event_kind lasso dst) with
-      | Finite, Finite -> W.singleton 0
-      | Finite, Lasso -> W.at_least 1
-      | Lasso, Finite -> W.at_most (-1)
-      | Lasso, Lasso -> W.top
-    in
-    W.intersection weight allowed
+    then `Infinite
+    else `Finite
 
   (***********************************************************)
   (*     Detecting lassos                                    *)
@@ -177,11 +165,10 @@ struct
       r WR.empty
 
   let assign_zero_weight = assign_weights (fun _ _ -> Weight.singleton 0)
-  let assign_max_weights lasso =
-    assign_weights (fun src dst -> B.restrict_weight lasso src dst W.top)
+  let assign_max_weights = assign_weights (fun _ _ -> W.top)
 
   let is_lasso_event lasso ev =
-    List.exists (fun ev' -> E.event_equal ev ev') (lasso_events lasso)
+    match B.kind lasso ev with `Finite -> false | `Infinite -> true
 
   (* let find_init_rel name (init_env : E.event_rel lazy_env) = *)
   (*   match List.assoc_opt name init_env with *)
@@ -273,7 +260,7 @@ struct
         | "rf" -> (name, with_lazy_rel (check_assign_rf lasso) rel)
         | "po" -> (name, with_lazy_rel (assign_po lasso) rel)
         | "int" | "ext" | "loc" ->
-            (name, with_lazy_rel (assign_max_weights lasso) rel)
+            (name, with_lazy_rel assign_max_weights rel)
         | "id" | "iico_data" | "iico_ctrl" | "iico_order" | "same-instance" ->
             (name, with_lazy_rel assign_zero_weight rel)
         | "si" | "sm" -> (name, with_lazy_rel check_assign_si_sm rel)

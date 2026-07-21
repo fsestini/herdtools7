@@ -1,9 +1,13 @@
 exception Unsupported of string
 
+type kind = [ `Finite | `Infinite ]
+
 module type S = sig
   type elt
   type weight = Weight.t
   type t
+
+  val kind : elt -> kind
 
   val equal : t -> t -> bool
   val compare : t -> t -> int
@@ -56,14 +60,17 @@ module MakeInnerRel
 
   let zero = W.singleton 0
 
-  let plain_rel_of_zero_weights operation rel =
+  let is_finite elt = match WR.kind elt with `Finite -> true | `Infinite -> false
+
+  let plain_rel_of_finite_endpoints operation rel =
     WR.fold
-      (fun (src, dst, weight) plain_rel ->
-        if W.equal weight zero then PlainRel.add (src, dst) plain_rel
+      (fun (src, dst, _) plain_rel ->
+        if is_finite src && is_finite dst then
+          PlainRel.add (src, dst) plain_rel
         else
           unsupported
             (Printf.sprintf
-               "%s requires every edge to have weight {0}"
+               "%s requires every relation endpoint to be finite"
                operation))
       rel PlainRel.empty
 
@@ -221,7 +228,11 @@ module MakeInnerRel
   let all_topos_kont _ _ _ _ = unsupported "all_topos_kont"
 
   let all_topos_kont_rel events rel kfail kont init =
-    let plain_rel = plain_rel_of_zero_weights "all_topos_kont_rel" rel in
+    let operation = "all_topos_kont_rel" in
+    if not (Elts.for_all is_finite events) then
+      unsupported
+        (Printf.sprintf "%s requires every requested node to be finite" operation);
+    let plain_rel = plain_rel_of_finite_endpoints operation rel in
     let plain_events = PlainRel.Elts.of_list (Elts.elements events) in
     let weighted_rel plain_rel =
       PlainRel.fold
@@ -264,7 +275,7 @@ module Make
     (Elt : sig
       include Set.OrderedType
 
-      val restrict_weight : t -> t -> Weight.t -> Weight.t
+      val kind : t -> kind
     end) :
   S with type elt = Elt.t = struct
   type elt = Elt.t
@@ -274,10 +285,22 @@ module Make
 
   type t = weight EltMap.t EltMap.t
 
+  let kind = Elt.kind
+
   let empty = EltMap.empty
 
+  let normalize_weight src dst w =
+    let allowed =
+      match (Elt.kind src, Elt.kind dst) with
+      | `Finite, `Finite -> W.singleton 0
+      | `Finite, `Infinite -> W.at_least 1
+      | `Infinite, `Finite -> W.at_most (-1)
+      | `Infinite, `Infinite -> W.top
+    in
+    W.intersection w allowed
+
   let add (src, dst, w) rel =
-    let w = Elt.restrict_weight src dst w in
+    let w = normalize_weight src dst w in
     if W.is_empty w then rel
     else
       EltMap.update src
@@ -308,45 +331,28 @@ module Make
 
   let union rel1 rel2 = EltMap.union (EltMap.union W.union) rel1 rel2
 
-  let intersection rel1 rel2 =
-    EltMap.fold
-      (fun src dsts1 acc ->
-        match EltMap.find_opt src rel2 with
-        | None -> acc
-        | Some dsts2 ->
-            let dsts =
-              EltMap.fold
-                (fun dst w1 acc ->
-                  match EltMap.find_opt dst dsts2 with
-                  | None -> acc
-                  | Some w2 ->
-                      let w = W.intersection w1 w2 in
-                      if W.is_empty w then acc else EltMap.add dst w acc)
-                dsts1 EltMap.empty
-            in
-            if EltMap.is_empty dsts then acc else EltMap.add src dsts acc)
-      rel1 EltMap.empty
-
-  let diff rel1 rel2 =
-    EltMap.fold
-      (fun src dsts1 acc ->
-        let dsts2 = EltMap.find_opt src rel2 in
+  (* Relations are normalized sparse maps: absent bindings denote [W.empty].
+     [f] must preserve endpoint restrictions and satisfy
+     [f W.empty W.empty = W.empty]. Empty results are omitted. *)
+  let pointwise f rel1 rel2 =
+    EltMap.merge
+      (fun _src dsts1 dsts2 ->
+        let dsts1 = Option.value dsts1 ~default:EltMap.empty
+        and dsts2 = Option.value dsts2 ~default:EltMap.empty in
         let dsts =
-          EltMap.fold
-            (fun dst w1 acc ->
-              let w =
-                match dsts2 with
-                | None -> w1
-                | Some dsts2 -> (
-                    match EltMap.find_opt dst dsts2 with
-                    | None -> w1
-                    | Some w2 -> W.diff w1 w2)
-              in
-              if W.is_empty w then acc else EltMap.add dst w acc)
-            dsts1 EltMap.empty
+          EltMap.merge
+            (fun _dst w1 w2 ->
+              let w1 = Option.value w1 ~default:W.empty
+              and w2 = Option.value w2 ~default:W.empty in
+              let w = f w1 w2 in
+              if W.is_empty w then None else Some w)
+            dsts1 dsts2
         in
-        if EltMap.is_empty dsts then acc else EltMap.add src dsts acc)
-      rel1 EltMap.empty
+        if EltMap.is_empty dsts then None else Some dsts)
+      rel1 rel2
+
+  let intersection = pointwise W.intersection
+  let diff = pointwise W.diff
 
   let inverse rel =
     EltMap.fold

@@ -20,9 +20,9 @@ module Builder (E : Event.S) : sig
     E.event_structure ->
     [ `Finite | `Infinite of E.event lasso | `Unsupported of string ]
 
-  (** Restrict an edge's offsets to those allowed by its lasso endpoints. *)
-  val restrict_weight :
-    E.event lasso -> E.event -> E.event -> Weight.t -> Weight.t
+  (** Classify an event as finite or as a representative of infinitely many
+      lasso iterations. *)
+  val kind : E.event lasso -> E.event -> WeightedRel.kind
 end
 
 module Weights

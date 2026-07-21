@@ -4,7 +4,7 @@ module W = Weight
 module UnrestrictedInt = struct
   include Int
 
-  let restrict_weight _src _dst w = w
+  let kind _ = `Infinite
 end
 
 module WR = WeightedRel.Make (UnrestrictedInt)
@@ -13,15 +13,7 @@ module LassoInt = struct
   include Int
 
   let is_lasso x = Int.equal (x mod 2) 1
-
-  let restrict_weight src dst w =
-    let allowed =
-      match is_lasso src, is_lasso dst with
-      | false, false -> W.singleton 0
-      | false, true -> W.at_least 1
-      | true, false -> W.at_most (-1)
-      | true, true -> W.top in
-    W.intersection w allowed
+  let kind x = if is_lasso x then `Infinite else `Finite
 end
 
 module LassoWR = WeightedRel.Make (LassoInt)
@@ -205,12 +197,35 @@ let () =
       (fun order _ -> LassoWR.equal order expected)
       false
   in
-  let nonzero_orders_rejected =
+  let infinite_edge_rejected =
     try
       ignore
         (LassoRel.all_topos_kont_rel
-           (IntSet.of_list [ 0; 1 ])
-           (LassoWR.of_list [ (0, 1, W.top) ])
+           (IntSet.of_list [ 1; 3 ])
+           (LassoWR.of_list [ (1, 3, W.singleton 0) ])
+           (fun _ -> ())
+           (fun _ () -> ())
+           ());
+      false
+    with WeightedRel.Unsupported _ -> true
+  in
+  let infinite_node_rejected =
+    try
+      ignore
+        (LassoRel.all_topos_kont_rel
+           (IntSet.singleton 1) LassoRel.empty
+           (fun _ -> ())
+           (fun _ () -> ())
+           ());
+      false
+    with WeightedRel.Unsupported _ -> true
+  in
+  let outside_infinite_edge_rejected =
+    try
+      ignore
+        (LassoRel.all_topos_kont_rel
+           events
+           (LassoWR.of_list [ (1, 3, W.singleton 0) ])
            (fun _ -> ())
            (fun _ () -> ())
            ());
@@ -224,8 +239,12 @@ let () =
     && LassoRel.compare rel nonzero_lasso_rel <> 0
   in
   Format.printf "adapter zero all_topos = %b@." zero_orders;
-  Format.printf "adapter nonzero all_topos rejected = %b@."
-    nonzero_orders_rejected;
+  Format.printf "adapter infinite-edge all_topos rejected = %b@."
+    infinite_edge_rejected;
+  Format.printf "adapter infinite-node all_topos rejected = %b@."
+    infinite_node_rejected;
+  Format.printf "adapter outside-infinite-edge all_topos rejected = %b@."
+    outside_infinite_edge_rejected;
   Format.printf "adapter zero compare = %d@." zero_compare;
   Format.printf "adapter nonzero compare = %b@." nonzero_compare
 

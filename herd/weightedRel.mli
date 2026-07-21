@@ -1,9 +1,14 @@
 exception Unsupported of string
 
+type kind = [ `Finite | `Infinite ]
+
 module type S = sig
   type elt
   type weight = Weight.t
   type t
+
+  (** The copy semantics of an endpoint. *)
+  val kind : elt -> kind
 
   val equal : t -> t -> bool
   val compare : t -> t -> int
@@ -28,20 +33,27 @@ module Make
     (Elt : sig
       include Set.OrderedType
 
-      (** Restrict the weights permitted on an edge between two elements. *)
-      val restrict_weight : t -> t -> Weight.t -> Weight.t
+      (** Classify an element as a single event or an infinite family of
+          copies. The classification must be stable. *)
+      val kind : t -> kind
     end) :
   S with type elt = Elt.t
 
 (** View a weighted relation as an [InnerRel.S] relation.
 
+    Every relation satisfying [S] contains only non-empty weights permitted by
+    its endpoint kinds: finite-to-finite edges have weight [{0}], edges from a
+    finite to an infinite endpoint have a strictly positive weight, edges in
+    the reverse direction have a strictly negative weight, and
+    infinite-to-infinite edges may have any weight.
+
     Only weighted algebra, Cartesian construction, orbit-saturated endpoint
     restrictions, zero-offset identity and zero-offset cycle checks are
     defined. Comparison is structural and works for all weighted relations;
-    [all_topos_kont_rel] is available when every edge has weight [{0}], by
-    delegating to [InnerRel]. Legacy pair-set operations, such as membership,
-    traversal and projection to event sets, raise [Unsupported] until their
-    lasso semantics is defined. *)
+    [all_topos_kont_rel] is available when all requested nodes and all relation
+    endpoints are finite, by delegating to [InnerRel]. Legacy pair-set
+    operations, such as membership, traversal and projection to event sets,
+    raise [Unsupported] until their lasso semantics is defined. *)
 module MakeInnerRel
     (Elts : MySet.S)
     (WR : S with type elt = Elts.elt) :
