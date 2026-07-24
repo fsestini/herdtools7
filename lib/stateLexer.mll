@@ -75,6 +75,7 @@ rule token = parse
 | "locations" { LOCATIONS }
 | "filter" { FILTER }
 | "fault"|"Fault" { FAULT }
+| "diverges"|"Diverges" { DIVERGES }
 | "tag"|"TAG" { TOK_TAG }
 (* Distinguished  PteVal fields *)
 | "attrs"|"Attrs" { ATTRS }

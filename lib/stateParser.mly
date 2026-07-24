@@ -65,7 +65,7 @@ let mk_tag_mask t =
 %token TRUE FALSE
 %token EQUAL NOTEQUAL EQUALEQUAL
 %token FINAL FORALL EXISTS OBSERVED TOKAND NOT AND OR IMPLIES WITH FILTER
-%token LOCATIONS FAULT STAR PLUS
+%token LOCATIONS FAULT DIVERGES STAR PLUS
 %token LBRK RBRK LPAR RPAR LCURLY RCURLY SEMI COLON AMPER COMMA
 %token ATOMIC
 %token ATOMICINIT
@@ -537,6 +537,8 @@ atom_prop:
    Delitng it is not a real problem by symetry of equal */
 /* | loc1=location_reg  equal loc2=loc_brk
     { Atom (LL (loc1,loc2)) } */
+| DIVERGES LPAR p=PROC RPAR
+    { Atom (Diverges p) }
 | fault { Atom (FF $1) }
 
 prop:
