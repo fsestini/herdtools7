@@ -74,6 +74,8 @@ module type S =  sig
   val is_acyclic : t -> bool
   val is_cyclic : t -> bool
 
+  val infinite_predecessors : t -> t
+
 (* Transformation 'order' like lists into relations *)
   (* without transitive closure *)
   val order_to_succ : elt0 list -> t

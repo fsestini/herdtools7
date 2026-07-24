@@ -73,6 +73,8 @@ module type S =  sig
   val is_acyclic : t -> bool
   val is_cyclic : t -> bool
 
+  val infinite_predecessors : t -> t
+
 (* Transformation 'order' like lists into relations *)
   (* without transitive closure *)
   val order_to_succ : elt0 list -> t
@@ -452,6 +454,8 @@ module Make(O:MySet.OrderedType) : S
     | Some _ -> false
 
   let is_cyclic m = not (is_acyclic m)
+
+  let infinite_predecessors _ = empty
 
   (* Build relations from orders given as lists *)
 
