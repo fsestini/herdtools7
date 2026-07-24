@@ -271,7 +271,7 @@ module Make(O:Config)(M:XXXMem.S) =
       let p = ConstrGen.prop_of c in
       let senv = S.size_env test
       and tenv = S.type_env test in
-      fun st -> CM.check_prop solver p tenv senv st
+      fun ~diverges st -> CM.check_prop ~diverges solver p tenv senv st
 
 (* Test result *)
     module Count = struct
@@ -366,6 +366,16 @@ module Make(O:Config)(M:XXXMem.S) =
             else A.map_state (A.V.map_const Constant.make_canonical) st in
           let st = A.map_state A.V.printable st in
           let fsc = st,flts in
+          let diverges proc =
+            match lasso with
+            | None -> false
+            | Some lasso ->
+                List.exists
+                  (fun ev ->
+                    match S.E.proc_of ev with
+                    | Some ev_proc -> Proc.equal ev_proc proc
+                    | None -> false)
+                  lasso.Lasso.lasso_events in
           (* Fold over all the possible results of hash collisions *)
           List.fold_right (fun (ok, solver) c ->
             let st = A.map_state
@@ -439,7 +449,7 @@ module Make(O:Config)(M:XXXMem.S) =
                   | ForallStates _ -> not ok
                   end in
             if stop_now then raise (Over r) else r
-        ) (check fsc) c
+        ) (check ~diverges fsc) c
 
     (* Performed delayed checks and warnings *)
     let check_failed_model_kont

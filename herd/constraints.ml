@@ -43,6 +43,7 @@ module type S = sig
   module Mixed : functor (SZ: ByteSize.S) -> sig
 (* Check state *)
     val check_prop :
+      ?diverges:(Proc.t -> bool) ->
       A.CS.arch_solver_state -> prop -> A.type_env -> A.size_env
       -> A.state * A.FaultSet.t -> (bool * A.CS.arch_solver_state) list
     val check_prop_rlocs : prop -> A.type_env -> final_state -> bool
@@ -187,7 +188,10 @@ module Make (C:Config) (A : Arch_herd.S) :
             let compare = A.CS.compare_solver_state
           end)
 
-          let do_check_prop solver look_type look_val flts =
+          let unsupported_diverges _ =
+            Warn.user_error "Predicate 'Diverges' cannot be evaluated"
+
+          let do_check_prop ~diverges solver look_type look_val flts =
             let rec do_rec sign p : unit msolver = match p with
               | Atom (LV (rloc,v0)) ->
                  let t = look_type rloc in
@@ -209,9 +213,8 @@ module Make (C:Config) (A : Arch_herd.S) :
                   let* flts = normalize_flts flts in
                   let c = A.check_fatom flts f in
                   test_cond (if sign then c else not c)
-              | Atom (Diverges _) ->
-                  Warn.user_error
-                    "Predicate 'Diverges' cannot be evaluated as final-state predicate"
+              | Atom (Diverges p) ->
+                  test_cond (if sign then diverges p else not (diverges p))
               | Not p ->
                   do_rec (not sign) p
               | Or ps ->
@@ -231,17 +234,21 @@ module Make (C:Config) (A : Arch_herd.S) :
               List.map (fun s -> true,s) (SolverSet.elements (solver_set true)) @
               List.map (fun s -> false,s) (SolverSet.elements (solver_set false))
 
-          let check_prop solver p tenv senv (state,flts) =
+          let check_prop ?(diverges = unsupported_diverges) solver p tenv senv
+              (state,flts) =
             let look_val rloc =
               A.val_of_rloc
                 (AM.look_in_state senv state)
                 tenv rloc in
-            do_check_prop solver (A.look_rloc_type tenv) look_val flts p
+            do_check_prop ~diverges solver (A.look_rloc_type tenv) look_val flts p
 
           let check_prop_rlocs p tenv (state,flts,solver) =
             let look_val rloc =
               AM.look_in_state_rlocs state rloc in
-            match do_check_prop solver (A.look_rloc_type tenv) look_val flts p with
+            match
+              do_check_prop ~diverges:unsupported_diverges solver
+                (A.look_rloc_type tenv) look_val flts p
+            with
             | [result,_] -> result
             | _ -> Warn.fatal "check_prop_rlocs return multiple solutions"
         end
