@@ -204,20 +204,16 @@ module MakeInnerRel
   let infinite_predecessors =
     WR.filter (fun _ _ w -> Weight.is_negative_unbounded w)
 
-  let order_to_succ (_ : elt0 list) : t = unsupported "order_to_succ"
-  let order_to_rel (_ : elt0 list) : t = unsupported "order_to_rel"
-  let cycle_to_rel (_ : elt0 list) : t = unsupported "cycle_to_rel"
-  let cycle_option_to_rel (_ : elt0 list option) : t =
-    unsupported "cycle_option_to_rel"
+  let order_to_succ _ = unsupported "order_to_succ"
+  let order_to_rel _ = unsupported "order_to_rel"
+  let cycle_to_rel _ = unsupported "cycle_to_rel"
+  let cycle_option_to_rel _ = unsupported "cycle_option_to_rel"
 
   exception Cyclic
 
-  let exists_path (_ : elt0 * elt0) (_ : t) : bool = unsupported "exists_path"
-  let reachable (_ : elt0) (_ : t) : Elts.t = unsupported "reachable"
-
-  let reachable_from_set (_ : Elts.t) (_ : t) : Elts.t =
-    unsupported "reachable_from_set"
-
+  let exists_path _ _ = unsupported "exists_path"
+  let reachable _ _ = unsupported "reachable"
+  let reachable_from_set _ _ = unsupported "reachable_from_set"
   let path (_ : elt0) (_ : elt0) (_ : t) : elt0 list = unsupported "path"
   let leaves (_ : t) : Elts.t = unsupported "leaves"
   let leaves_from (_ : elt0) (_ : t) : Elts.t = unsupported "leaves_from"
