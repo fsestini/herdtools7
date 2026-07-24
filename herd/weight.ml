@@ -8,6 +8,12 @@ let at_least n = [ { lo = Some n; hi = None } ]
 let at_most n = [ { lo = None; hi = Some n } ]
 let is_empty = function [] -> true | _ :: _ -> false
 
+(* Weights are normalized in increasing lower-bound order, so an interval
+   unbounded below, if present, is necessarily first. *)
+let is_negative_unbounded = function
+  | { lo = None; _ } :: _ -> true
+  | _ -> false
+
 let add_int i j =
   if (j > 0 && i > max_int - j) || (j < 0 && i < min_int - j) then
     invalid_arg "IntervalWeights.plus: integer overflow"

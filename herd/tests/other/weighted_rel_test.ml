@@ -41,6 +41,10 @@ let print_unary_weight name op w =
 let print_binary_weight name op w1 w2 =
   Format.printf "%a %s %a = %a@." W.pp w1 name W.pp w2 W.pp (op w1 w2)
 
+let print_is_negative_unbounded w =
+  Format.printf "is_negative_unbounded %a = %b@." W.pp w
+    (W.is_negative_unbounded w)
+
 let print_of_list edges =
   Format.printf "of_list %a = %a@." pp_edge_list edges pp_rel (rel edges)
 
@@ -78,7 +82,10 @@ let () =
   print_unary_weight "inverse" W.inverse (finite [ -2; 0; 3 ]);
   print_unary_weight "inverse" W.inverse (W.at_least 3);
   print_binary_weight "plus" W.plus (finite [ 2; 4 ]) (W.at_least 3);
-  print_binary_weight "plus" W.plus (W.at_least 0) (W.at_most 0)
+  print_binary_weight "plus" W.plus (W.at_least 0) (W.at_most 0);
+  print_is_negative_unbounded
+    (W.union (W.singleton 1) (W.at_most (-1)));
+  print_is_negative_unbounded (W.at_least (-1))
 
 let () =
   print_of_list [ (1, 2, W.empty) ];
