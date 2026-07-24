@@ -1214,6 +1214,14 @@ module Make
       | V.TransRel _ as v -> v
       | _ -> arg_mismatch ()
 
+    let infinite_predecessors =
+      function
+      | V.Empty -> V.Empty
+      | V.Rel r -> V.Rel (E.EventRel.infinite_predecessors r)
+      | V.TransRel tr ->
+        V.Rel E.EventRel.(infinite_predecessors (transitive_closure tr))
+      | _ -> arg_mismatch ()
+
     let add_primitives ks m =
       add_prims m
         [
@@ -1238,6 +1246,7 @@ module Make
          "range",range;
          "fail",fail;
          "as_transitive", as_transitive;
+         "infinite-predecessors", infinite_predecessors;
        ]
 
 
