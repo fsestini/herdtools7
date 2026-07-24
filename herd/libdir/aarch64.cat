@@ -189,3 +189,9 @@ let CMODX-unordered-conflicts =
   CMODX-conflicts \ (CMODX-ordering | CMODX-ordering^-1)
 
 flag ~empty CMODX-unordered-conflicts as violates-CMODX-requirements
+
+let inf-ca-preds = infinite-predecessors([Exp & R]; ca; [Exp & W])
+
+empty inf-ca-preds as finite-time-completion
+
+show inf-ca-preds
