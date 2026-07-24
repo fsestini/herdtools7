@@ -126,7 +126,8 @@ module Make(A:Arch_herd.S) =
                   StringSet.add name acc in
             (match loc_opt with
             | None -> acc
-            | Some c -> add_constant_symbols acc c) in
+            | Some c -> add_constant_symbols acc c)
+        | Diverges _ -> acc in
       ConstrGen.fold_constr add_atom constr acc
 
     let locs_in_ins =
@@ -186,11 +187,12 @@ module Make(A:Arch_herd.S) =
       | LV (loc,_v) -> A.RLocSet.add loc r
       | LL (l1,l2) -> A.RLocSet.add (Loc l1) (A.RLocSet.add (Loc l2) r)
       | FF _ ->  r
+      | Diverges _ -> r
 
     let collect_atom_fault a r =
       let open ConstrGen in
       match a with
-      | (LV _|LL _) -> r
+      | (LV _|LL _|Diverges _) -> r
       | FF f -> f::r
 
 

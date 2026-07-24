@@ -51,6 +51,7 @@ type ('loc,'v,'ftype) atom =
   | LV of 'loc rloc * 'v
   | LL of 'loc * 'loc
   | FF of ('v,'ftype) Fault.atom
+  | Diverges of Proc.t
 
 let dump_atom pp_loc pp_loc_brk pp_v pp_ft a =
   match a with
@@ -67,6 +68,7 @@ let dump_atom pp_loc pp_loc_brk pp_v pp_ft a =
   | LL (loc1,loc2) ->
       sprintf "%s=%s" (pp_loc_brk loc1) (pp_loc_brk loc2)
   | FF f -> Fault.pp_fatom pp_v pp_ft f
+  | Diverges p -> sprintf "Diverges(%s)" (Proc.pp p)
 
 type ('l,'v,'ftype) prop =
   | Atom of ('l, 'v, 'ftype) atom

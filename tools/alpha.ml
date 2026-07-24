@@ -71,6 +71,7 @@ struct
     | LL (loc1,loc2) ->  collect_location loc1 (collect_location loc2 regs)
     | FF (_,None,_) -> regs
     | FF (_,Some x,_) -> collect_location (A.Location_global x) regs
+    | Diverges _ -> regs
 
   let collect_state st = List.fold_right collect_state_atom st
 
@@ -117,6 +118,7 @@ struct
     | LL (loc1,loc2) -> LL (alpha_location f loc1,alpha_location f loc2)
     | FF (_,None,_) -> a
     | FF (_,Some x,_) -> ignore (Constant.check_sym x) ; a
+    | Diverges _ -> a
 
   let alpha_state_atom f (loc,x) = alpha_location f loc,x
 
@@ -271,6 +273,7 @@ struct
       | FF (_,None,_) -> k
       | FF (_,Some x,_) ->
           collect_location f (A.Location_global x) k
+      | Diverges _ -> k
 
     let map_state_atom f (loc,(t,v)) = map_location f loc,(t,map_value f v)
 
@@ -286,6 +289,7 @@ struct
       | LL (loc1,loc2) ->
           LL (map_location f loc1,map_location f loc2)
       | FF(p,x,ft) -> FF (p,Misc.map_opt (map_global f) x,ft)
+      | Diverges _ as a -> a
 
     let collect_state f = List.fold_right (collect_state_atom f)
 

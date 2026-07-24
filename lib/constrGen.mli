@@ -42,6 +42,8 @@ type ('loc,'v,'ftype) atom =
   | LV of 'loc rloc * 'v
   | LL of 'loc * 'loc
   | FF of ('v,'ftype) Fault.atom
+  | Diverges of Proc.t
+      (** [Diverges p] states that process [p] diverges. *)
 
 val dump_atom :
   ('loc -> string) ->  ('loc -> string) -> (('c,'d,'e,'f) Constant.t -> string) ->

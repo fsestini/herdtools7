@@ -30,7 +30,7 @@ module Make (O:Indent.S) (I:CompCondUtils.I) =
         ConstrGen.map_prop
         (function
          | LV (loc,v) -> LV (loc,cast loc v)
-         | LL _|FF _ as a -> a)
+         | LL _|FF _|Diverges _ as a -> a)
 
       (* Simply print proposition, when optimized
          printing as a cascade of switch constructs
@@ -71,6 +71,8 @@ module Make (O:Indent.S) (I:CompCondUtils.I) =
            | Some ft -> I.C.FaultType.pp ft in
            O.fprintf "exists_fault(&p->th_faults[%d], %s, %s, %s)"
              proc (SkelUtil.instr_symb_id lbl) (SkelUtil.data_symb_id loc) (SkelUtil.fault_id ft) ;
+        | Atom (Diverges _) ->
+            Warn.user_error "Predicate `Diverges` is not supported in litmus7"
         | Not p ->
             O.output "!(" ;
             dump_prop p ;

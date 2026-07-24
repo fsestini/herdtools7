@@ -36,6 +36,7 @@ end =
     | LV (loc,v) -> LV (perm_rloc p loc,v)
     | LL (l1,l2) -> LL (perm_location p l1,perm_location p l2)
     | FF ((i,lbls),x,ft) -> FF ((p.(i),lbls),x,ft)
+    | Diverges i -> Diverges p.(i)
 
     let perm_constr p = ConstrGen.map_constr (perm_atom p)
 

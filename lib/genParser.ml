@@ -226,6 +226,7 @@ module Make
                       | Location_global x -> FF (p,Some x,ft)
                       | _ -> assert false
                       end
+                  | Diverges _ as a -> a
                 in
                 ConstrGen.map_constr map_atom cond
               with Not_found -> cond in

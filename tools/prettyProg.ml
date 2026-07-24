@@ -335,6 +335,8 @@ module Make(O:Config)(A:Arch_tools.S) =
               pp_mbox (pp_location_brk l2) ;
           | FF f ->
               pp_mbox (Fault.pp_fatom pp_asm_v pp_asm_ft f)
+          | Diverges p ->
+              pp_mbox (sprintf "Diverges(%s)" (Proc.pp p))
         }
 
       let enddollar = sprintf "$%s$"

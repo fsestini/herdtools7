@@ -105,6 +105,7 @@ and type fault_type = A.FaultType.t
     | LL (l1,l2) -> LL (finish_location f_reg l1,finish_location f_reg l2)
     | FF (p,v,fr) ->
        FF (p,Misc.map_opt A.maybevToV v, Misc.map_opt A.FaultType.parse fr)
+    | Diverges _ as a -> a
 
 
    let finish_prop f_reg = ConstrGen.map_prop (finish_atom f_reg)
@@ -173,6 +174,7 @@ and type fault_type = A.FaultType.t
     | LL (loc1,loc2) ->
         fun c -> collect_location loc1 (collect_location loc2 c)
     | FF _ -> Misc.identity
+    | Diverges _ -> Misc.identity
 
    let collect_prop = ConstrGen.fold_prop collect_atom
 

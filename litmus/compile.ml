@@ -172,7 +172,7 @@ module Generic
               env
             with Not_found ->  A.LocMap.add loc (typeof v) env end
         | LV (Deref _,_)
-        | LL _|FF _ -> env
+        | LL _|FF _|Diverges _ -> env
 
       let type_final final env =
         ConstrGen.fold_constr type_atom_final final env

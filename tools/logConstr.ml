@@ -40,6 +40,7 @@ let tr_atom = function
   | LV(loc,v) ->  LV(loc,tr_v v)
   | LL (loc1,loc2) -> LL(loc1,loc2)
   | FF (p,x,ft) -> FF (p,Misc.map_opt tr_v x,ft)
+  | Diverges _ as a -> a
 
 let tr_cond c = ConstrGen.map_constr tr_atom c
 
@@ -70,6 +71,8 @@ module Dump(O:DumpConfig) = struct
       sprintf "%s=%s" (pp_loc l1) (pp_loc l2)
   | FF f ->
       Fault.pp_fatom ToolsConstant.pp_v (fun x -> x) f
+  | Diverges p ->
+      sprintf "Diverges(%s)" (Proc.pp p)
 
   let dump_prop chan = ConstrGen.dump_prop pp_atom chan
   let dump chan = ConstrGen.dump_constraints chan pp_atom
@@ -85,6 +88,7 @@ let get_locs_atom a =
       (fun k -> LocSet.add loc1 (LocSet.add loc2 k))
   | FF (_,Some x,_) -> LocSet.add (MiscParser.Location_global x)
   | FF (_,None,_) -> Misc.identity
+  | Diverges _ -> Misc.identity
 
 let get_locs c = fold_constr get_locs_atom c LocSet.empty
 
@@ -157,6 +161,9 @@ end  =
     | Atom (LV (x,v)) -> I.state_mem state x v
     | Atom (LL (l1,l2)) -> I.state_eqloc state l1 l2
     | Atom (FF f) -> I.state_fault state f
+    | Atom (Diverges _) ->
+        Warn.user_error
+          "Predicate 'Diverges' cannot be evaluated from logged final states"
     | Not p -> not (check_prop p state)
     | And ps -> List.for_all (fun p -> check_prop p state) ps
     | Or ps -> List.exists (fun p -> check_prop p state) ps

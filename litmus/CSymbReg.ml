@@ -82,6 +82,7 @@ with type v = A.V.v and type location = A.location and type fault_type = A.Fault
     | LV (loc,v) -> LV (finish_rloc f_reg loc, maybevToV v)
     | LL (l1,l2) -> LL (finish_location f_reg l1,finish_location f_reg l2)
     | FF f -> FF (finish_fault f)
+    | Diverges _ as a -> a
 
    let finish_prop f_reg = ConstrGen.map_prop (finish_atom f_reg)
    let finish_constr f_reg = ConstrGen.map_constr (finish_atom f_reg)
@@ -130,6 +131,7 @@ with type v = A.V.v and type location = A.location and type fault_type = A.Fault
         fun c -> collect_location loc1 (collect_location loc2 c)
     | FF (_,None,_) -> Misc.identity
     | FF (_,Some x,_) -> collect_location (MiscParser.Location_global x)
+    | Diverges _ -> Misc.identity
 
    let collect_constr = ConstrGen.fold_constr collect_atom
 

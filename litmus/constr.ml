@@ -75,6 +75,7 @@ module RLocSet = A.RLocSet and module FaultType = A.FaultType =
       | LV (loc,_) -> LocSet.add (ConstrGen.loc_of_rloc loc) r
       | LL (loc1,loc2) -> LocSet.add loc1 (LocSet.add loc2 r)
       | FF _ -> r
+      | Diverges _ -> r
 
     let locations (c:cond) =
       let locs = fold_constr locations_atom c LocSet.empty in
@@ -90,6 +91,7 @@ module RLocSet = A.RLocSet and module FaultType = A.FaultType =
       | LL (loc1,loc2) ->
           add_loc_as_rloc loc1 (add_loc_as_rloc loc2 r)
       | FF _ -> r
+      | Diverges _ -> r
 
     let rlocations (c:cond) =
       let locs = fold_constr rlocations_atom c RLocSet.empty in
@@ -114,7 +116,7 @@ module RLocSet = A.RLocSet and module FaultType = A.FaultType =
             | Symbolic _|Tag _|Frozen _
               -> assert false in
             f v k
-      | LL _|FF _ -> k
+      | LL _|FF _|Diverges _ -> k
 
     let location_values c =
       let locs =  fold_constr atom_values c Strings.empty in
@@ -132,7 +134,7 @@ module RLocSet = A.RLocSet and module FaultType = A.FaultType =
     module FSet = MySet.Make(F)
 
     let add_fault a k = match a with
-    | LV _|LL _ -> k
+    | LV _|LL _|Diverges _ -> k
     | FF a -> FSet.add a k
 
     let get_faults c =
@@ -143,14 +145,14 @@ module RLocSet = A.RLocSet and module FaultType = A.FaultType =
     let get_instrs c =
       let fold_atom a k = match a with
         | LV (_,Constant.Instruction i) -> V.Instr.Set.add i k
-        | LV _ | LL _ | FF _ -> k in
+        | LV _ | LL _ | FF _ | Diverges _ -> k in
       ConstrGen.fold_constr fold_atom c V.Instr.Set.empty
 
     let get_labels c =
       let fold_atom a k = match a with
         | LV (_,Symbolic (Virtual {name=Symbol.Label(p,l);_}))
             -> Label.Full.Set.add (p, l) k
-        | LV _ | LL _ | FF _ -> k in
+        | LV _ | LL _ | FF _ | Diverges _ -> k in
       ConstrGen.fold_constr fold_atom c Label.Full.Set.empty
 
 

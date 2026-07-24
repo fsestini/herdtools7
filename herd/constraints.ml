@@ -100,6 +100,7 @@ module Make (C:Config) (A : Arch_herd.S) :
               A.location_compare
                 (A.Location_global x)
                 loc = 0
+          | Diverges _ -> false
 
         let rec loc_in_prop loc p = match p with
         | Atom a -> loc_in_atom loc a
@@ -208,6 +209,9 @@ module Make (C:Config) (A : Arch_herd.S) :
                   let* flts = normalize_flts flts in
                   let c = A.check_fatom flts f in
                   test_cond (if sign then c else not c)
+              | Atom (Diverges _) ->
+                  Warn.user_error
+                    "Predicate 'Diverges' cannot be evaluated as final-state predicate"
               | Not p ->
                   do_rec (not sign) p
               | Or ps ->
@@ -403,6 +407,8 @@ module Make (C:Config) (A : Arch_herd.S) :
               mbox m (pp_loc tr m l2)
           | FF f ->
               mbox m (Fault.pp_fatom (fun v -> do_add_asm m (V.pp_v v)) A.I.FaultType.pp f)
+          | Diverges p ->
+              mbox m (sprintf "Diverges(%s)" (Proc.pp p))
 
 (* ascii, parsable dump *)
         let dump_as_kind c = pp_kind (kind_of c)

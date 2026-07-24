@@ -274,6 +274,7 @@ module Make : functor (O:Config) -> functor (C:ArchRun.S) ->
         end
       | LL (loc, value_loc) -> sprintf "%s=%s" (C.A.pp_location_brk loc) (C.A.pp_location_brk value_loc)
       | FF fault -> pp_fatom fault
+      | Diverges p -> sprintf "Diverges(%s)" (Proc.pp p)
 
     let dump_prop = ConstrGen.prop_to_string pp_prop_atom
     let dump_constr = ConstrGen.constraints_to_string pp_prop_atom

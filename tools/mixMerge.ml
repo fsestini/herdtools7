@@ -167,6 +167,7 @@ end =
     | LV (l,v) ->  LV (shift_rloc k l,v)
     | LL (a,b) -> LL (shift_location k a,shift_location k b)
     | FF ((i,lbls),x,ft) -> FF ((i+k,lbls),x,ft)
+    | Diverges i -> Diverges (i+k)
 
     let shift_constr k = ConstrGen.map_constr (shift_atom k)
 
