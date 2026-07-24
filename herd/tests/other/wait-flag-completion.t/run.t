@@ -2,13 +2,13 @@ Check the opt-in lasso-completion path against the complete AArch64 model.
 
   $ herd7 -set-libdir ../libdir/aarch64/ArmARM-M.c -variant infinite,cutoff ./wait-flag.litmus | sed '/^Time/d;/^$/d'
   Warning: File "./wait-flag.litmus": unrolling limit exceeded at L0, legal outcomes may be missing.
-  Test wait-flag Required
+  Test wait-flag Allowed
   States 1
   Loop Ok
   Witnesses
-  Positive: 4 Negative: 0
-  Condition forall (true)
-  Observation wait-flag Always 4 0
+  Positive: 1 Negative: 3
+  Condition exists (Diverges(P1))
+  Observation wait-flag Sometimes 1 3
   Hash=aff2e9e86bbf69b319a40a82069056f4
 
 Check that the final lasso graph annotates Cat [show] relations and a
