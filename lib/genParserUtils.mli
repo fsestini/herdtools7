@@ -14,14 +14,24 @@
 (* "http://www.cecill.info". We also give a copy in LICENSE.txt.            *)
 (****************************************************************************)
 
-(* Wapper (takes care of parsing exceptions *)
+(** Utilities shared by litmus test parsers. *)
 
 val call_parser :
     string -> Lexing.lexbuf -> 'a -> ('a -> Lexing.lexbuf -> 'b) -> 'b
+(** [call_parser name lexbuf lexer parser] invokes [parser lexer lexbuf].
+
+    @raise [Misc.UserError] on lexer and parser errors. *)
 
 val check_regs :
   Proc.t list -> MiscParser.state -> MiscParser.locations ->
   MiscParser.constr -> unit
+(** [check_regs procs init locations condition] validates processor references
+    in [init], [locations], and [condition].
+    Here, "check" means verifying membership in [procs].
+
+    @raise [Misc.Fatal] on unknown processor. *)
 
 val get_visible_locs :
   MiscParser.locations -> MiscParser.constr -> MiscParser.RLocSet.t
+(** [get_visible_locs locations condition] returns the union of the locations
+    extracted from [locations] and [condition]. *)
