@@ -31,6 +31,7 @@ module Make
     =
   struct
     let do_deps = O.variant Variant.Deps
+    let infinite = O.variant Variant.Infinite
     let morello = O.variant Variant.Morello
     let mixed = O.variant Variant.Mixed || morello
     let kvm = O.variant Variant.VMSA
@@ -67,7 +68,9 @@ module Make
       let doshow = S.O.PC.doshow
       let showraw = S.O.PC.showraw
       let symetric = S.O.PC.symetric
-      let show_rt = not (O.variant Variant.ASL_AArch64)
+      (* Disabled on Variant.Infinite, because weighted relations do not yet
+         support transitive reduction. *)
+      let show_rt = not (O.variant Variant.ASL_AArch64 || O.variant Variant.Infinite)
       let variant =
         let variant =
           if optacetrue then
@@ -310,7 +313,7 @@ module Make
     let catdep = opts.ModelOption.catdep
     let run_interpret test kfail =
       let run = I.interpret test kfail in
-      let run_finite ks m vb_pp kont res =
+      fun ks m vb_pp kont res ->
         (*Printf.eprintf "vb_pp = {%s}\n%!" (String.concat "," (List.map fst (Lazy.force vb_pp)));*)
         run ks m vb_pp
           (fun st res ->
@@ -322,17 +325,18 @@ module Make
                 st.I.out_flags res
             else res)
           res
-      in
-      let run_infinite lasso ks m vb_pp kont res =
-        let module Elt = struct
-          type t = E.event
 
-          let compare = E.event_compare
-          let kind = L.kind lasso
-        end in
-        let module WR = WeightedRel.Make (Elt) in
-        let module R = WeightedRel.MakeInnerRel (E.EventSet) (WR) in
-        let module WE = struct
+    let run_interpret_infinite test kfail lasso ks m _vb_pp kont res =
+      let module Elt = struct
+        type t = E.event
+
+        let compare = E.event_compare
+        let kind = L.kind lasso
+      end in
+      let module WR = WeightedRel.Make (Elt) in
+      let module R = WeightedRel.MakeInnerRel (E.EventSet) (WR) in
+      let module WS = struct
+        module E = struct
           type event = E.event
 
           let event_compare = E.event_compare
@@ -344,167 +348,84 @@ module Make
           module EventSet = E.EventSet
           module EventRel = R
           module EventMap = E.EventMap
-        end in
-        let module WS = struct
-          module E = WE
+        end
 
-          type test = S.test
-          type concrete = S.concrete
-          type event = E.event
-          type event_set = E.EventSet.t
-          type event_rel = R.t
-          type rel_pp = (string * event_rel) list
-          type set_pp = event_set StringMap.t
-        end in
-        let project_rel weighted =
-          WR.fold
-            (fun (src, dst, _) rel -> E.EventRel.add (src, dst) rel)
-            weighted E.EventRel.empty
-        in
-        let project_rels rels =
-          List.map (fun (name, rel) -> (name, project_rel rel)) rels
-        in
-        let weighted_edges rel =
-          WR.fold (fun edge edges -> edge :: edges) rel [] |> List.rev
-        in
-        let serialize_rels rels =
-          List.map (fun (name, rel) -> (name, weighted_edges rel)) rels
-        in
-        let module WIConfig = struct
-          include IConfig
-
-          (* Weighted relations do not yet have a transitive-edge reduction
-             semantics. This option only affects displayed relations. *)
-          let show_rt = false
-        end in
-        let module WIUtils = struct
-          let partition_events = IUtils.partition_events
-          let loc2events = IUtils.loc2events
-          let check_through = IUtils.check_through
-
-          let pp_failure test conc msg rels =
-            IUtils.pp_failure test conc msg (project_rels rels)
-
-          let pp test conc msg rels = IUtils.pp test conc msg (project_rels rels)
-
-          let fromto (_ : R.t) (_ : E.EventSet.t) : R.t =
-            raise (WeightedRel.Unsupported "fromto has no weighted semantics")
-
-          let same_value = IUtils.same_value
-          let same_oa = IUtils.same_oa
-          let writable2 = IUtils.writable2
-        end in
-        let module WI = Interpreter.Make (WIConfig) (WS) (WIUtils) in
-        let module LW = Lasso.Weights (E) (WR) in
-        let dump_lasso_failure msg =
-          if O.debug then begin
-            let module PP = Pretty.Make (S) in
-            let dot_file =
-              Filename.concat
-                (Filename.dirname test.Test_herd.name.Name.file)
-                (Test_herd.basename test ^ ".lasso-failure.dot") in
-            let names =
-              StringSet.of_list
-                [ "rf"; "rf-reg"; "po"; "co"; "fr"; "loc"; "pco";
-                  "iico_data"; "iico_ctrl"; "iico_order" ]
-            in
-            let rels =
-              I.get_rels m
-              |> List.filter_map (fun (name, rel) ->
-                  if StringSet.mem name names then Some (name, Lazy.force rel)
-                  else None)
-            in
-            begin match open_out dot_file with
-            | chan ->
-                Fun.protect
-                  ~finally:(fun () -> close_out_noerr chan)
-                  (fun () ->
-                    PP.dump_legend chan (Model.Generic (O.fname, O.m)) test
-                      PrettyConf.ShowAll ks.I.conc rels);
-                Printf.eprintf
-                  "Lasso weighting failure: %s (graph written to %s)\n%!"
-                  msg dot_file
-            | exception Sys_error err ->
-                Printf.eprintf
-                  "Lasso weighting failure: %s (could not write %s: %s)\n%!"
-                  msg dot_file err
-            end
-          end
-        in
-        try
-          let initial_rels =
-            if catdep then
-              (* A Cat dependency model defines these itself; in particular,
-                 a pre-definition [show ctrl] must not demand the built-in
-                 finite dependency relation from the weighted interpreter. *)
-              I.get_rels m
-              |> List.filter (fun (name, _) ->
-                  match name with
-                  | "tst" | "addr" | "data" | "ctrl" -> false
-                  | _ -> true)
-            else I.get_rels m
-          in
-          let weighted_rels = LW.compute_initial_weights lasso initial_rels in
-          let weighted_m =
-            WI.add_rels
-              (WI.add_sets WI.init_env_empty (I.get_sets m))
-              weighted_rels
-          in
-          let po =
-            match List.assoc_opt "po" weighted_rels with
-            | Some po -> Lazy.force po
-            | None -> R.empty
-          in
-          let id = lazy (R.set_to_rln ks.I.evts)
-          and unv = lazy (R.cartesian ks.I.evts ks.I.evts) in
-          let weighted_ks =
-            { WI.id; unv; evts = ks.I.evts; conc = ks.I.conc; po } in
-          let weighted_vb_pp =
-            lazy begin
-              Lazy.force vb_pp
-              |> List.map (fun (name, _) ->
-                  match List.assoc_opt name weighted_rels with
-                  | Some rel -> (name, Lazy.force rel)
-                  | None ->
-                      raise
-                        (WeightedRel.Unsupported
-                           (Printf.sprintf "shown relation `%s` has no weighted binding" name)))
-            end
-          in
-          let run = WI.interpret test kfail in
-          run weighted_ks weighted_m weighted_vb_pp
-            (fun st res ->
-              if
-                not O.strictskip
-                || StringSet.equal st.WI.out_skipped O.skipchecks
-              then
-                let weighted_lasso : E.event Lasso.result =
-                  {
-                    Lasso.lasso_events = Lasso.lasso_events lasso;
-                    Lasso.shown_rels =
-                      lazy (serialize_rels (Lazy.force st.WI.out_show));
-                    Lasso.rels =
-                      lazy (serialize_rels (Lazy.force st.WI.out_all_rels));
-                  }
-                in
-                let conc = ks.I.conc in
-                kont conc conc.S.fs
-                  (st.WI.out_sets,
-                   lazy (project_rels (Lazy.force st.WI.out_show)))
-                  (Some weighted_lasso) st.WI.out_flags res
-              else res)
-            res
-        with
-        | WeightedRel.Unsupported msg | Lasso.Unsupported msg ->
-            dump_lasso_failure msg;
-            Warn.user_error "infinite execution unsupported: %s" msg
+        type test = S.test
+        type concrete = S.concrete
+        type event = E.event
+        type event_set = E.EventSet.t
+        type event_rel = R.t
+        type rel_pp = (string * event_rel) list
+        type set_pp = event_set StringMap.t
+      end in
+      let weighted_edges rel =
+        WR.fold (fun edge edges -> edge :: edges) rel [] |> List.rev
       in
-      fun ks m vb_pp kont res ->
-        if not (O.variant Variant.Infinite) then run_finite ks m vb_pp kont res
-        else
-          match L.find_lasso ks.I.conc.S.str with
-          | `Finite | `Unsupported _ -> run_finite ks m vb_pp kont res
-          | `Infinite lasso -> run_infinite lasso ks m vb_pp kont res
+      let serialize_rels rels =
+        List.map (fun (name, rel) -> (name, weighted_edges rel)) rels
+      in
+      let project_rel weighted =
+        WR.to_list weighted |> List.map (fun (x, y, _) -> (x, y)) |> E.EventRel.of_list
+      in
+      let project_rels rels =
+        List.map (fun (name, rel) -> (name, project_rel rel)) rels
+      in
+
+      let module WIUtils = struct
+        let partition_events = IUtils.partition_events
+        let loc2events = IUtils.loc2events
+        let check_through = IUtils.check_through
+
+        let pp_failure test conc msg rels =
+          IUtils.pp_failure test conc msg (project_rels rels)
+
+        let pp test conc msg rels = IUtils.pp test conc msg (project_rels rels)
+
+        let same_value = IUtils.same_value
+        let fromto _ _ = raise (WeightedRel.Unsupported "fromto")
+        let same_oa _ _ = raise (WeightedRel.Unsupported "same_oa")
+        let writable2 _ _ = raise (WeightedRel.Unsupported "writable2")
+      end in
+
+      let module WI = Interpreter.Make (IConfig) (WS) (WIUtils) in
+      let module LW = Lasso.Weights (E) (WR) in
+      try
+        let initial_rels = I.get_rels m in
+        let weighted_rels = LW.compute_initial_weights lasso initial_rels in
+        let weighted_m = WI.add_sets WI.init_env_empty (I.get_sets m) in
+        let weighted_m = WI.add_rels weighted_m weighted_rels in
+        let po = List.assoc "po" weighted_rels |> Lazy.force in (* FIXME: fixme *)
+        let id = lazy (R.set_to_rln ks.I.evts)
+        and unv = lazy (R.cartesian ks.I.evts ks.I.evts) in
+        let weighted_ks =
+          { WI.id; unv; evts = ks.I.evts; conc = ks.I.conc; po } in
+        let weighted_vb_pp = lazy [] in
+        let run = WI.interpret test kfail in
+        run weighted_ks weighted_m weighted_vb_pp
+          (fun st res ->
+            if
+              not O.strictskip
+              || StringSet.equal st.WI.out_skipped O.skipchecks
+            then
+              let weighted_lasso : E.event Lasso.result =
+                {
+                  Lasso.lasso_events = Lasso.lasso_events lasso;
+                  Lasso.shown_rels =
+                    lazy (serialize_rels (Lazy.force st.WI.out_show));
+                  Lasso.rels =
+                    lazy (serialize_rels (Lazy.force st.WI.out_all_rels));
+                }
+              in
+              let conc = ks.I.conc in
+              kont conc conc.S.fs
+                (st.WI.out_sets,
+                 lazy (project_rels (Lazy.force st.WI.out_show)))
+                (Some weighted_lasso) st.WI.out_flags res
+            else res)
+          res
+      with
+      | WeightedRel.Unsupported msg | Lasso.Unsupported msg ->
+          Warn.user_error "infinite execution unsupported: %s" msg
 
     let choose_spec f1 f2 x = if do_deps then f1 x else f2 x
 (* Enter here *)
@@ -593,7 +514,7 @@ module Make
                 E.EventRel.of_pred all_evts all_evts E.po_eq
               end)::k
           else Misc.identity)
-             (((if do_deps then Misc.identity
+             (((if do_deps || infinite then Misc.identity
              else fun k ->
                ("tst", lazy (Lazy.force pr).S.tst)::
                ("addr", lazy (Lazy.force pr).S.addr)::
@@ -898,5 +819,12 @@ module Make
         let kont x y z t u =
           if O.debug then prerr_endline "Cat over" ;
           kont x y z t u in
-        run_interpret test kfail ks m vb_pp kont res
+        if not infinite then
+          run_interpret test kfail ks m vb_pp kont res
+        else
+          match L.find_lasso ks.I.conc.S.str with
+          | `Finite  -> run_interpret test kfail ks m vb_pp kont res
+          | `Unsupported msg -> raise (Misc.Fatal msg)
+          | `Infinite lasso ->
+            run_interpret_infinite test kfail lasso ks m vb_pp kont res
   end

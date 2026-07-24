@@ -905,7 +905,7 @@ module Make (S:SemExtra.S) : S with module S = S  = struct
       | None -> tag
       | Some weight ->
           let tag = if PC.relabel then relabel tag else tag in
-          Format.asprintf "%s@%a" tag Weight.pp weight
+          Format.asprintf "%s %a" tag Weight.pp weight
     in
     let pl = fprintf chan "%s\n"
     and pf fmt = fprintf chan fmt in

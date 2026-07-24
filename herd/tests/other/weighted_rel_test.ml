@@ -83,6 +83,9 @@ let () =
 let () =
   print_of_list [ (1, 2, W.empty) ];
   print_of_list [ (2, 3, finite [ 0 ]); (2, 3, finite [ 1 ]) ];
+  let r = rel [ (2, 3, finite [ 1 ]); (1, 2, finite [ 0 ]) ] in
+  Format.printf "to_list roundtrip = %b@."
+    (WR.equal r (WR.of_list (WR.to_list r)));
   print_binary_rel "union" WR.union
     (rel [ (1, 2, finite [ 0 ]) ])
     (rel [ (2, 3, finite [ 1 ]) ]);

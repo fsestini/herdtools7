@@ -14,9 +14,9 @@ Check the opt-in lasso-completion path against the complete AArch64 model.
 Check that the final lasso graph annotates Cat [show] relations and a
 relation added by [-doshow] with their exact weights.
 
-  $ herd7 -set-libdir ../libdir/aarch64/ArmARM-M.c -variant infinite,cutoff -show all -doshow loc -o - ./wait-flag.litmus 2>/dev/null | awk '/digraph G \{/ {block=""} {block = block $0 "\n"} END {printf "%s", block}' | grep -E 'label="(rf@\[1,\+inf\)|loc@Z|ctrl@\{0\}|ca@\(-inf,-1\])"'
-  eiid4 -> eiid3 [label="rf@[1,+inf)", color="red", fontcolor="red"];
-  eiid3 -> eiid3 [label="loc@Z", color="brown", fontcolor="brown"];
-  eiid1 -> eiid2 [label="ctrl@{0}", color="indigo", fontcolor="indigo"];
-  eiid1 -> eiid15 [label="ctrl@{0}", color="indigo", fontcolor="indigo"];
-  eiid3 -> eiid0 [label="ca@(-inf,-1]", color="blue", fontcolor="blue"];
+  $ herd7 -set-libdir ../libdir/aarch64/ArmARM-M.c -variant infinite,cutoff -show all -doshow loc -o - ./wait-flag.litmus 2>/dev/null | awk '/digraph G \{/ {block=""} {block = block $0 "\n"} END {printf "%s", block}' | grep -E 'label="(rf \[1,\+inf\)|loc Z|ctrl \{0\}|ca \(-inf,-1\])"'
+  eiid4 -> eiid3 [label="rf [1,+inf)", color="red", fontcolor="red"];
+  eiid3 -> eiid3 [label="loc Z", color="brown", fontcolor="brown"];
+  eiid1 -> eiid2 [label="ctrl {0}", color="indigo", fontcolor="indigo"];
+  eiid1 -> eiid15 [label="ctrl {0}", color="indigo", fontcolor="indigo"];
+  eiid3 -> eiid0 [label="ca (-inf,-1]", color="blue", fontcolor="blue"];

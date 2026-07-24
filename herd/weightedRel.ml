@@ -14,6 +14,7 @@ module type S = sig
 
   val empty : t
   val of_list : (elt * elt * weight) list -> t
+  val to_list : t -> (elt * elt * weight) list
   val add : elt * elt * weight -> t -> t
   val fold : (elt * elt * weight -> 'a -> 'a) -> t -> 'a -> 'a
   val cartesian : elt list -> elt list -> weight -> t
@@ -321,6 +322,9 @@ module Make
       (fun src dsts acc ->
         EltMap.fold (fun dst w acc -> f (src, dst, w) acc) dsts acc)
       rel acc
+
+  let to_list rel =
+    fold (fun edge edges -> edge :: edges) rel [] |> List.rev
 
   let cartesian srcs dsts w =
     if W.is_empty w then EltMap.empty
