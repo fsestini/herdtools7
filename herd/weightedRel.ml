@@ -201,6 +201,9 @@ module MakeInnerRel
 
   let is_cyclic rel = not (is_acyclic rel)
 
+  let infinite_predecessors =
+    WR.filter (fun _ _ w -> Weight.is_negative_unbounded w)
+
   let order_to_succ (_ : elt0 list) : t = unsupported "order_to_succ"
   let order_to_rel (_ : elt0 list) : t = unsupported "order_to_rel"
   let cycle_to_rel (_ : elt0 list) : t = unsupported "cycle_to_rel"
