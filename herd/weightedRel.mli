@@ -45,6 +45,7 @@ module WeightedElt : sig
   val make : 'elt -> kind -> 'elt t
   val make_finite : 'elt -> 'elt t
   val make_infinite : 'elt -> 'elt t
+  val is_finite : 'elt t -> bool
 end
 
 type 'elt weighted_elt = 'elt WeightedElt.t

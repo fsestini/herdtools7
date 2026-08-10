@@ -44,6 +44,7 @@ module WeightedElt = struct
   let make elt kind = { elt; kind }
   let make_finite elt = { elt; kind = `Finite }
   let make_infinite elt = { elt; kind = `Infinite }
+  let is_finite = function { kind = `Finite; _ } -> true | _ -> false
 end
 
 type 'elt weighted_elt = 'elt WeightedElt.t
@@ -98,9 +99,15 @@ module MakeInnerRel
         WR.add (src, dst, zero) weighted_rel)
       plain_rel WR.empty
 
+  (** [to_plain_elts elts] returns plain endpoints corresponding to [elts],
+      provided all [elts] are finite.
+
+      @raise Invalid_argument if [elts] contains infinite endpoints. *)
   let to_plain_elts elts =
     Elts.elements elts
-    |> List.map WeightedElt.elt
+    |> List.map (fun x ->
+        if WeightedElt.is_finite x then WeightedElt.elt x
+        else invalid_arg "to_plain_elts")
     |> PlainRel.Elts.of_list
 
   let has_zero weight =
@@ -268,13 +275,12 @@ module MakeInnerRel
   let all_topos_kont _ _ _ _ = unsupported "all_topos_kont"
 
   let all_topos_kont_rel events rel kfail kont init =
-    let plain_rel =
-      try to_plain_rel rel
+    let plain_rel, plain_events =
+      try to_plain_rel rel, to_plain_elts events
       with Invalid_argument _ ->
         let msg = "all_topos_kont_rel requires every requested node to be finite" in
         unsupported msg
     in
-    let plain_events = to_plain_elts events in
     PlainRel.all_topos_kont_rel plain_events plain_rel
       (fun plain_rel -> kfail (to_weighted_rel plain_rel))
       (fun plain_rel acc -> kont (to_weighted_rel plain_rel) acc)
