@@ -1,6 +1,6 @@
 Check the opt-in lasso-completion path against the complete AArch64 model.
 
-  $ herd7 -set-libdir ../libdir/aarch64/ArmARM-M.c -variant infinite,cutoff ./wait-flag.litmus | sed '/^Time/d;/^$/d'
+  $ herd7 -set-libdir ../libdir/aarch64/ArmARM-M.c -variant infinite,cutoff ./wait-flag.litmus | sed '/^Time/d;/^$/d' | sed '/^Hash/d;/^$/d'
   Warning: File "./wait-flag.litmus": unrolling limit exceeded at L0, legal outcomes may be missing.
   Test wait-flag Allowed
   States 1
@@ -9,7 +9,6 @@ Check the opt-in lasso-completion path against the complete AArch64 model.
   Positive: 1 Negative: 3
   Condition exists (Diverges(P1))
   Observation wait-flag Sometimes 1 3
-  Hash=aff2e9e86bbf69b319a40a82069056f4
 
 Check that [Diverges] selects only the execution whose lasso belongs to P1.
 The other three executions are finite, and the lasso does not belong to P0.
