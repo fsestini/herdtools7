@@ -11,6 +11,19 @@ Check the opt-in lasso-completion path against the complete AArch64 model.
   Observation wait-flag Sometimes 1 3
   Hash=aff2e9e86bbf69b319a40a82069056f4
 
+Check that [Diverges] selects only the execution whose lasso belongs to P1.
+The other three executions are finite, and the lasso does not belong to P0.
+
+  $ herd7 -set-libdir ../libdir/aarch64/ArmARM-M.c -variant infinite,cutoff -conds ./diverges-p1.cond ./wait-flag.litmus 2>/dev/null | grep -E '^(Positive|Condition|Observation)'
+  Positive: 1 Negative: 3
+  Condition exists (Diverges(P1))
+  Observation wait-flag Sometimes 1 3
+
+  $ herd7 -set-libdir ../libdir/aarch64/ArmARM-M.c -variant infinite,cutoff -conds ./diverges-p0.cond ./wait-flag.litmus 2>/dev/null | grep -E '^(Positive|Condition|Observation)'
+  Positive: 0 Negative: 4
+  Condition exists (Diverges(P0))
+  Observation wait-flag Never 0 4
+
 Check that the final lasso graph annotates Cat [show] relations and a
 relation added by [-doshow] with their exact weights.
 

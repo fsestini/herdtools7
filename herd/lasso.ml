@@ -250,6 +250,17 @@ struct
       assign_zero_weight r
     else unsupported "si/sm"
 
+  let check_assign_finite_rel lasso r =
+    try
+      let wr = E.EventRel.fold
+        (fun (ev1, ev2) acc ->
+          match (is_lasso_event lasso ev1, is_lasso_event lasso ev2) with
+          | false, false -> WR.add (ev1, ev2, W.singleton 0) acc
+          | _, _ -> raise Exit)
+        r WR.empty
+      in Some wr
+    with Exit -> None
+
   let compute_initial_weights lasso (init_env : E.event_rel lazy_env) :
       WR.t lazy_env =
     let with_lazy_rel f r = lazy (f (Lazy.force r)) in
@@ -264,15 +275,18 @@ struct
         | "id" | "iico_data" | "iico_ctrl" | "iico_order" | "same-instance" ->
             (name, with_lazy_rel assign_zero_weight rel)
         | "si" | "sm" -> (name, with_lazy_rel check_assign_si_sm rel)
+        | "inv-domain" -> (name, with_lazy_rel assign_max_weights rel)
+        | "same-low-order-bits" -> (name, with_lazy_rel assign_max_weights rel)
         | _ ->
             (name,
              lazy begin
                let raw = Lazy.force rel in
-               if E.EventRel.is_empty raw then WR.empty
-               else
-                 unsupported
-                   (Printf.sprintf
-                      "unhandled non-empty initial relation `%s`" name)
+               match check_assign_finite_rel lasso raw with
+               | Some wr -> wr
+               | None ->
+                  unsupported
+                    (Printf.sprintf
+                       "unhandled non-empty initial relation `%s`" name)
              end))
 
 end

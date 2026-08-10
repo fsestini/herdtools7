@@ -16,6 +16,7 @@ module type S = sig
   val of_list : (elt * elt * weight) list -> t
   val to_list : t -> (elt * elt * weight) list
   val add : elt * elt * weight -> t -> t
+  val succs : t -> elt -> (elt * weight) list
   val fold : (elt * elt * weight -> 'a -> 'a) -> t -> 'a -> 'a
   val cartesian : elt list -> elt list -> weight -> t
   val union : t -> t -> t
@@ -106,7 +107,18 @@ module MakeInnerRel
   let split3 (_ : t) : t * (elt1 * elt2) * t = unsupported "split3"
   let exists_succ (_ : t) (_ : elt1) : bool = unsupported "exists_succ"
   let exists_pred (_ : t) (_ : elt2) : bool = unsupported "exists_pred"
-  let succs (_ : t) (_ : elt1) : Elts.t = unsupported "succs"
+
+  let succs (t : t) (x : elt1) : Elts.t =
+    let raise_err () =
+      unsupported "succs requires every relation endpoint to be finite"
+    in
+    if not (is_finite x) then raise_err ()
+    else
+      WR.succs t x
+      |> List.map (fun (y, _) ->
+          if not (is_finite x) then raise_err () else y)
+      |> Elts.of_list
+
   let preds (_ : t) (_ : elt2) : Elts.t = unsupported "preds"
 
   let cartesian xs ys = WR.cartesian (Elts.elements xs) (Elts.elements ys) W.top
@@ -312,6 +324,11 @@ module Make
                    (function None -> Some w | Some w' -> Some (W.union w w'))
                    dsts))
         rel
+
+  let succs (rel : t) src =
+    match EltMap.find_opt src rel with
+    | Some r -> EltMap.to_list r
+    | None -> []
 
   let of_list edges =
     List.fold_left (fun rel edge -> add edge rel) EltMap.empty edges

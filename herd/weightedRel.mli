@@ -17,6 +17,7 @@ module type S = sig
   val of_list : (elt * elt * weight) list -> t
   val to_list : t -> (elt * elt * weight) list
   val add : elt * elt * weight -> t -> t
+  val succs : t -> elt -> (elt * weight) list
   val fold : (elt * elt * weight -> 'a -> 'a) -> t -> 'a -> 'a
   val cartesian : elt list -> elt list -> weight -> t
   val union : t -> t -> t
@@ -40,21 +41,12 @@ module Make
     end) :
   S with type elt = Elt.t
 
-(** View a weighted relation as an [InnerRel.S] relation.
+(** View a weighted relation as an [InnerRel.S] relation, so that it can be used
+    in contexts that expect [InnerRel.S] structures (such as [Interpreter]).
+    Not all [InnerRel.S] operations are supported, and some of them are not even
+    well-defined in a weighted context.
 
-    Every relation satisfying [S] contains only non-empty weights permitted by
-    its endpoint kinds: finite-to-finite edges have weight [{0}], edges from a
-    finite to an infinite endpoint have a strictly positive weight, edges in
-    the reverse direction have a strictly negative weight, and
-    infinite-to-infinite edges may have any weight.
-
-    Only weighted algebra, Cartesian construction, orbit-saturated endpoint
-    restrictions, zero-offset identity and zero-offset cycle checks are
-    defined. Comparison is structural and works for all weighted relations;
-    [all_topos_kont_rel] is available when all requested nodes and all relation
-    endpoints are finite, by delegating to [InnerRel]. Legacy pair-set
-    operations, such as membership, traversal and projection to event sets,
-    raise [Unsupported] until their lasso semantics is defined. *)
+    @raise [Unsupported] on unsupported operations. *)
 module MakeInnerRel
     (Elts : MySet.S)
     (WR : S with type elt = Elts.elt) :
