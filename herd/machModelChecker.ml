@@ -181,7 +181,78 @@ module Make
     module I = Interpreter.Make(IConfig)(S)(IUtils)
     module Equiv = EquivSpec.Make(S)
     module E = S.E
+
+    (* Interpreter for infinite executions. *)
+    module WElt = WeightedRel.WeightedElt
     module L = Lasso.Builder (E)
+    module WE = struct
+      type t = E.event WElt.t
+      let compare t1 t2 = E.event_compare t1.WElt.elt t2.WElt.elt
+      let kind t = t.WElt.kind
+    end
+    module WR = WeightedRel.Make (WE)
+
+    let project_rel weighted =
+      WR.to_list weighted
+      |> List.map (fun (x, y, _) -> WElt.(x.elt, y.elt))
+      |> E.EventRel.of_list
+
+    let project_rels rels =
+      List.map (fun (name, rel) -> (name, project_rel rel)) rels
+
+    module WS = struct
+      module E = struct
+        open WeightedRel
+
+        type event = WE.t
+
+        let event_compare = WE.compare
+        let pp_eiid e = E.pp_eiid (WElt.elt e)
+        let pp_instance _ = raise (Unsupported "pp_instance")
+        let is_store e = E.is_store (WElt.elt e)
+        let is_pt e = E.is_pt (WElt.elt e)
+
+        module EventSet = MySet.Make(WE)
+        module EventRel = WeightedRel.MakeInnerRel (E.OrderedEvent) (WR)
+        module EventMap = MyMap.Make(WE)
+      end
+
+      type test = S.test
+      type concrete = S.concrete
+      type event = E.event
+      type event_set = E.EventSet.t
+      type event_rel = E.EventRel.t
+      type rel_pp = (string * event_rel) list
+      type set_pp = event_set StringMap.t
+    end
+    module WIUtils = struct
+      let partition_events = IUtils.partition_events
+      let loc2events = IUtils.loc2events
+      let check_through = IUtils.check_through
+
+      let pp_failure test conc msg rels =
+        IUtils.pp_failure test conc msg (project_rels rels)
+
+      let pp test conc msg rels = IUtils.pp test conc msg (project_rels rels)
+
+      let same_value = IUtils.same_value
+      let fromto _ _ = raise (WeightedRel.Unsupported "fromto")
+      let same_oa _ _ = raise (WeightedRel.Unsupported "same_oa")
+      let writable2 _ _ = raise (WeightedRel.Unsupported "writable2")
+    end
+    module WI = Interpreter.Make (IConfig) (WS) (WIUtils)
+    module LW = Lasso.Weights (E) (WR)
+
+    let weight_event_set lasso (set : S.event_set) : WS.event_set =
+      E.EventSet.elements set
+      |> List.map (L.assign_kind lasso)
+      |> WS.E.EventSet.of_list
+
+    let serialize_rels rels =
+      let weighted_edges rel =
+        WR.fold (fun edge edges -> edge :: edges) rel [] |> List.rev
+      in
+      List.map (fun (name, rel) -> (name, weighted_edges rel)) rels
 
     (* Fast "loc" relation computation *)
 
@@ -327,78 +398,72 @@ module Make
           res
 
     let run_interpret_infinite test kfail lasso ks m _vb_pp kont res =
-      let module Elt = struct
-        type t = E.event
-
-        let compare = E.event_compare
-        let kind = L.kind lasso
-      end in
-      let module WR = WeightedRel.Make (Elt) in
-      let module R = WeightedRel.MakeInnerRel (E.EventSet) (WR) in
-      let module WS = struct
-        module E = struct
-          type event = E.event
-
-          let event_compare = E.event_compare
-          let pp_eiid = E.pp_eiid
-          let pp_instance = E.pp_instance
-          let is_store = E.is_store
-          let is_pt = E.is_pt
-
-          module EventSet = E.EventSet
-          module EventRel = R
-          module EventMap = E.EventMap
-        end
-
-        type test = S.test
-        type concrete = S.concrete
-        type event = E.event
-        type event_set = E.EventSet.t
-        type event_rel = R.t
-        type rel_pp = (string * event_rel) list
-        type set_pp = event_set StringMap.t
-      end in
-      let weighted_edges rel =
-        WR.fold (fun edge edges -> edge :: edges) rel [] |> List.rev
-      in
-      let serialize_rels rels =
-        List.map (fun (name, rel) -> (name, weighted_edges rel)) rels
-      in
-      let project_rel weighted =
-        WR.to_list weighted |> List.map (fun (x, y, _) -> (x, y)) |> E.EventRel.of_list
-      in
-      let project_rels rels =
-        List.map (fun (name, rel) -> (name, project_rel rel)) rels
-      in
-
-      let module WIUtils = struct
-        let partition_events = IUtils.partition_events
-        let loc2events = IUtils.loc2events
-        let check_through = IUtils.check_through
-
-        let pp_failure test conc msg rels =
-          IUtils.pp_failure test conc msg (project_rels rels)
-
-        let pp test conc msg rels = IUtils.pp test conc msg (project_rels rels)
-
-        let same_value = IUtils.same_value
-        let fromto _ _ = raise (WeightedRel.Unsupported "fromto")
-        let same_oa _ _ = raise (WeightedRel.Unsupported "same_oa")
-        let writable2 _ _ = raise (WeightedRel.Unsupported "writable2")
-      end in
-
-      let module WI = Interpreter.Make (IConfig) (WS) (WIUtils) in
-      let module LW = Lasso.Weights (E) (WR) in
+      (* let module Elt = struct *)
+      (*   type t = E.event *)
+      (*   let compare = E.event_compare *)
+      (*   let kind = L.kind lasso *)
+      (* end in *)
+      (* let module WR = WeightedRel.Make (Elt) in *)
+      (* let module R = WeightedRel.MakeInnerRel (E.EventSet) (WR) in *)
+      (* let module WS = struct *)
+      (*   module E = struct *)
+      (*     type event = E.event *)
+      (*     let event_compare = E.event_compare *)
+      (*     let pp_eiid = E.pp_eiid *)
+      (*     let pp_instance = E.pp_instance *)
+      (*     let is_store = E.is_store *)
+      (*     let is_pt = E.is_pt *)
+      (*     module EventSet = E.EventSet *)
+      (*     module EventRel = R *)
+      (*     module EventMap = E.EventMap *)
+      (*   end *)
+      (*   type test = S.test *)
+      (*   type concrete = S.concrete *)
+      (*   type event = E.event *)
+      (*   type event_set = E.EventSet.t *)
+      (*   type event_rel = R.t *)
+      (*   type rel_pp = (string * event_rel) list *)
+      (*   type set_pp = event_set StringMap.t *)
+      (* end in *)
+      (* let weighted_edges rel = *)
+      (*   WR.fold (fun edge edges -> edge :: edges) rel [] |> List.rev *)
+      (* in *)
+      (* let serialize_rels rels = *)
+      (*   List.map (fun (name, rel) -> (name, weighted_edges rel)) rels *)
+      (* in *)
+      (* let project_rel weighted = *)
+      (*   WR.to_list weighted |> List.map (fun (x, y, _) -> (x, y)) |> E.EventRel.of_list *)
+      (* in *)
+      (* let project_rels rels = *)
+      (*   List.map (fun (name, rel) -> (name, project_rel rel)) rels *)
+      (* in *)
+      (* let module WIUtils = struct *)
+      (*   let partition_events = IUtils.partition_events *)
+      (*   let loc2events = IUtils.loc2events *)
+      (*   let check_through = IUtils.check_through *)
+      (*   let pp_failure test conc msg rels = *)
+      (*     IUtils.pp_failure test conc msg (project_rels rels) *)
+      (*   let pp test conc msg rels = IUtils.pp test conc msg (project_rels rels) *)
+      (*   let same_value = IUtils.same_value *)
+      (*   let fromto _ _ = raise (WeightedRel.Unsupported "fromto") *)
+      (*   let same_oa _ _ = raise (WeightedRel.Unsupported "same_oa") *)
+      (*   let writable2 _ _ = raise (WeightedRel.Unsupported "writable2") *)
+      (* end in *)
+      (* let module WI = Interpreter.Make (IConfig) (WS) (WIUtils) in *)
+      (* let module LW = Lasso.Weights (E) (WR) in *)
       try
         let initial_rels = I.get_rels m in
         let weighted_rels = LW.compute_initial_weights lasso initial_rels in
-        let weighted_m = WI.add_sets WI.init_env_empty (I.get_sets m) in
+        let weighted_m =
+          WI.add_sets WI.init_env_empty
+           (Misc.Simple.map (Lazy.map (weight_event_set lasso)) (I.get_sets m)) in
         let weighted_m = WI.add_rels weighted_m weighted_rels in
         let po = List.assoc "po" weighted_rels |> Lazy.force in (* FIXME: fixme *)
-        let id = lazy (R.set_to_rln ks.I.evts)
-        and unv = lazy (R.cartesian ks.I.evts ks.I.evts) in
+        let w_evts = weight_event_set lasso ks.I.evts in
+        let id = lazy (WS.E.EventRel.set_to_rln w_evts)
+        and unv = lazy (WS.E.EventRel.cartesian w_evts w_evts) in
         let weighted_ks =
-          { WI.id; unv; evts = ks.I.evts; conc = ks.I.conc; po } in
+          { WI.id; unv; evts = w_evts; conc = ks.I.conc; po } in
         let weighted_vb_pp = lazy [] in
         let run = WI.interpret test kfail in
         run weighted_ks weighted_m weighted_vb_pp

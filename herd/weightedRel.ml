@@ -2,12 +2,16 @@ exception Unsupported of string
 
 type kind = [ `Finite | `Infinite ]
 
+let equal_kind k1 k2 =
+  match (k1, k2) with
+  | `Finite, `Finite -> true
+  | `Infinite, `Infinite -> true
+  | (`Finite | `Infinite), _ -> false
+
 module type S = sig
   type elt
   type weight = Weight.t
   type t
-
-  val kind : elt -> kind
 
   val equal : t -> t -> bool
   val compare : t -> t -> int
@@ -32,49 +36,72 @@ end
 
 module W = Weight
 
+module WeightedElt = struct
+  type 'elt t = { elt : 'elt; kind : kind }
+
+  let elt t = t.elt
+  let kind t = t.kind
+  let make elt kind = { elt; kind }
+  let make_finite elt = { elt; kind = `Finite }
+  let make_infinite elt = { elt; kind = `Infinite }
+end
+
+type 'elt weighted_elt = 'elt WeightedElt.t
+
 module MakeInnerRel
-    (E : MySet.S)
-    (WR : S with type elt = E.elt) = struct
-  type elt0 = E.elt
+    (O : MySet.OrderedType)
+    (WR : S with type elt = O.t WeightedElt.t) = struct
+  type elt0 = WR.elt
   type elt1 = elt0
   type elt2 = elt0
 
-  module Elts = E
+  module Elts = MySet.Make(struct
+    type t = WR.elt
+    let compare t1 t2 = O.compare t1.WeightedElt.elt t2.WeightedElt.elt
+  end)
   module Elts1 = Elts
   module Elts2 = Elts
+
+  module PlainRel = InnerRel.Make (O)
 
   type t = WR.t
 
   let unsupported operation =
     raise (Unsupported (Printf.sprintf "weighted relation operation `%s`" operation))
 
-  (* [MySet.S] exposes comparison on sets, rather than directly on elements.
-     Singleton sets retain the underlying element ordering. *)
-  let equal_elt x y = Elts.mem x (Elts.singleton y)
-
-  module Ord = struct
-    type t = E.elt
-
-    let compare x y = Elts.compare (Elts.singleton x) (Elts.singleton y)
-  end
-
-  module PlainRel = InnerRel.Make (Ord)
+  let equal_elt x y =
+    let eq : O.t -> O.t -> bool = fun x y -> O.compare x y = 0 in
+    WeightedElt.(eq x.elt y.elt && equal_kind x.kind y.kind)
 
   let zero = W.singleton 0
 
-  let is_finite elt = match WR.kind elt with `Finite -> true | `Infinite -> false
+  let is_finite elt =
+    match WeightedElt.kind elt with | `Finite -> true | `Infinite -> false
 
-  let plain_rel_of_finite_endpoints operation rel =
+  (** [to_plain_rel rel] returns a [PlainRel.t] with the same endpoints and
+      edges of [rel], provided [rel] only relates finite endpoints.
+
+      @raise Invalid_argument if [rel] contains infinite endpoints. *)
+  let to_plain_rel rel =
     WR.fold
       (fun (src, dst, _) plain_rel ->
         if is_finite src && is_finite dst then
-          PlainRel.add (src, dst) plain_rel
-        else
-          unsupported
-            (Printf.sprintf
-               "%s requires every relation endpoint to be finite"
-               operation))
+          PlainRel.add WeightedElt.(src.elt, dst.elt) plain_rel
+        else invalid_arg "to_plain_rel")
       rel PlainRel.empty
+
+  let to_weighted_rel plain_rel =
+    PlainRel.fold
+      (fun (src, dst) weighted_rel ->
+        let src = WeightedElt.make_finite src in
+        let dst = WeightedElt.make_finite dst in
+        WR.add (src, dst, zero) weighted_rel)
+      plain_rel WR.empty
+
+  let to_plain_elts elts =
+    Elts.elements elts
+    |> List.map WeightedElt.elt
+    |> PlainRel.Elts.of_list
 
   let has_zero weight =
     not (W.is_empty (W.intersection weight zero))
@@ -147,11 +174,11 @@ module MakeInnerRel
   let restrict_domains_to_sets srcs dsts =
     WR.filter (fun src dst _ -> Elts.mem src srcs && Elts.mem dst dsts)
 
-  let restrict_rel (_ : elt1 -> elt2 -> bool) (_ : t) : t =
-    unsupported "restrict_rel"
+  let restrict_rel _ _ = unsupported "restrict_rel"
 
-  let subrel (_ : t) (_ : t) : bool = unsupported "subrel"
-  let subset (_ : t) (_ : t) : bool = unsupported "subset"
+  let subrel _ _ = unsupported "subrel"
+  let subset _ _ = unsupported "subset"
+
   let union = WR.union
   let union3 rel1 rel2 rel3 = union rel1 (union rel2 rel3)
   let union4 rel1 rel2 rel3 rel4 = union (union rel1 rel2) (union rel3 rel4)
@@ -199,6 +226,7 @@ module MakeInnerRel
     match WR.transitive_closure rel with
     | Some closure -> not (is_reflexive closure)
     | None ->
+        (* FIXME: what? *)
         (* A non-convergent closure is not, by itself, a zero-offset cycle:
            a strictly positive or negative self-loop is the simple case.  Do
            not accept any broader graph without a weighted closure, because
@@ -226,13 +254,13 @@ module MakeInnerRel
   let exists_path _ _ = unsupported "exists_path"
   let reachable _ _ = unsupported "reachable"
   let reachable_from_set _ _ = unsupported "reachable_from_set"
-  let path (_ : elt0) (_ : elt0) (_ : t) : elt0 list = unsupported "path"
-  let leaves (_ : t) : Elts.t = unsupported "leaves"
-  let leaves_from (_ : elt0) (_ : t) : Elts.t = unsupported "leaves_from"
-  let roots (_ : t) : Elts.t = unsupported "roots"
-  let up (_ : elt0) (_ : t) : Elts.t = unsupported "up"
-  let up_from_set (_ : Elts.t) (_ : t) : Elts.t = unsupported "up_from_set"
-  let get_cycle (_ : t) : elt0 list option = unsupported "get_cycle"
+  let path _ _ _ = unsupported "path"
+  let leaves _ = unsupported "leaves"
+  let leaves_from _ _ = unsupported "leaves_from"
+  let roots _ = unsupported "roots"
+  let up _ _ = unsupported "up"
+  let up_from_set _ _ = unsupported "up_from_set"
+  let get_cycle _ = unsupported "get_cycle"
 
   let topo_kont _ _ _ _ = unsupported "topo_kont"
   let topo _ _ = unsupported "topo"
@@ -240,37 +268,25 @@ module MakeInnerRel
   let all_topos_kont _ _ _ _ = unsupported "all_topos_kont"
 
   let all_topos_kont_rel events rel kfail kont init =
-    let operation = "all_topos_kont_rel" in
-    if not (Elts.for_all is_finite events) then
-      unsupported
-        (Printf.sprintf "%s requires every requested node to be finite" operation);
-    let plain_rel = plain_rel_of_finite_endpoints operation rel in
-    let plain_events = PlainRel.Elts.of_list (Elts.elements events) in
-    let weighted_rel plain_rel =
-      PlainRel.fold
-        (fun (src, dst) weighted_rel -> WR.add (src, dst, zero) weighted_rel)
-        plain_rel WR.empty
+    let plain_rel =
+      try to_plain_rel rel
+      with Invalid_argument _ ->
+        let msg = "all_topos_kont_rel requires every requested node to be finite" in
+        unsupported msg
     in
+    let plain_events = to_plain_elts events in
     PlainRel.all_topos_kont_rel plain_events plain_rel
-      (fun plain_rel -> kfail (weighted_rel plain_rel))
-      (fun plain_rel acc -> kont (weighted_rel plain_rel) acc)
+      (fun plain_rel -> kfail (to_weighted_rel plain_rel))
+      (fun plain_rel acc -> kont (to_weighted_rel plain_rel) acc)
       init
 
-  let all_topos (_ : bool) (_ : Elts.t) (_ : t) : elt0 list list =
-    unsupported "all_topos"
-
-  let scc_kont
-      (_ : elt0 list -> 'a -> 'a)
-      (_ : 'a)
-      (_ : elt0 list)
-      (_ : t) : 'a =
-    unsupported "scc_kont"
-
-  let is_hierarchy (_ : Elts.t) (_ : t) : bool = unsupported "is_hierarchy"
-  let remove_transitive_edges (_ : t) : t = unsupported "remove_transitive_edges"
-  let classes (_ : t) : Elts.t list = unsupported "classes"
-  let strata (_ : Elts.t) (_ : t) : Elts.t list = unsupported "strata"
-  let bisimulation (_ : t) (_ : t) : t = unsupported "bisimulation"
+  let all_topos _ _ _ = unsupported "all_topos"
+  let scc_kont _ _ _ _ = unsupported "scc_kont"
+  let is_hierarchy _ _ = unsupported "is_hierarchy"
+  let remove_transitive_edges _ = unsupported "remove_transitive_edges"
+  let classes _ = unsupported "classes"
+  let strata _ _ = unsupported "strata"
+  let bisimulation _ _ = unsupported "bisimulation"
 
   let sequence = WR.sequence
   let transitive3 rel = sequence rel (sequence rel rel)
@@ -296,8 +312,6 @@ module Make
   module EltMap = MyMap.Make (Elt)
 
   type t = weight EltMap.t EltMap.t
-
-  let kind = Elt.kind
 
   let empty = EltMap.empty
 

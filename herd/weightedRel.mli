@@ -7,9 +7,6 @@ module type S = sig
   type weight = Weight.t
   type t
 
-  (** The copy semantics of an endpoint. *)
-  val kind : elt -> kind
-
   val equal : t -> t -> bool
   val compare : t -> t -> int
 
@@ -41,16 +38,22 @@ module Make
     end) :
   S with type elt = Elt.t
 
+module WeightedElt : sig
+  type 'elt t = { elt : 'elt; kind : kind }
+  val elt : 'elt t -> 'elt
+  val kind : 'elt t -> kind
+  val make : 'elt -> kind -> 'elt t
+  val make_finite : 'elt -> 'elt t
+  val make_infinite : 'elt -> 'elt t
+end
+
+type 'elt weighted_elt = 'elt WeightedElt.t
+
 (** View a weighted relation as an [InnerRel.S] relation, so that it can be used
     in contexts that expect [InnerRel.S] structures (such as [Interpreter]).
     Not all [InnerRel.S] operations are supported, and some of them are not even
-    well-defined in a weighted context.
-
-    @raise [Unsupported] on unsupported operations. *)
+    well-defined in a weighted context. Unsupported operations raise [Unsupported]. *)
 module MakeInnerRel
-    (Elts : MySet.S)
-    (WR : S with type elt = Elts.elt) :
-  InnerRel.S with
-    type elt0 = Elts.elt
-    and module Elts = Elts
-    and type t = WR.t
+    (O : MySet.OrderedType)
+    (WR : S with type elt = O.t weighted_elt) :
+  InnerRel.S with type elt0 = WR.elt and type t = WR.t

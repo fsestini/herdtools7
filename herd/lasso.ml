@@ -8,6 +8,11 @@ type 'ev lasso = {
   iteration : 'ev iteration;
 }
 
+type 'ev event = {
+  event : 'ev;
+  kind : WeightedRel.kind
+}
+
 let lasso_events lasso = lasso.iteration.events
 
 type 'rel lazy_env = (string * 'rel Lazy.t) list
@@ -37,6 +42,13 @@ module Builder (E : Event.S) = struct
     if List.exists (fun lasso_ev -> E.event_equal ev lasso_ev) (lasso_events lasso)
     then `Infinite
     else `Finite
+
+  let assign_kind lasso e = WeightedRel.WeightedElt.make e (kind lasso e)
+
+  let classify_events lasso =
+    List.map (fun event ->
+        let kind = kind lasso event in
+        { event; kind })
 
   (***********************************************************)
   (*     Detecting lassos                                    *)
@@ -150,7 +162,11 @@ module Builder (E : Event.S) = struct
         `Unsupported msg
 end
 
-module Weights (E : Event.S) (WR : WeightedRel.S with type elt = E.event) =
+module WElt = WeightedRel.WeightedElt
+
+module Weights
+  (E : Event.S)
+  (WR : WeightedRel.S with type elt = E.event WeightedRel.weighted_elt) =
 struct
   (***********************************************************)
   (*     Computing lasso weights                             *)
@@ -158,17 +174,22 @@ struct
 
   module B = Builder (E)
 
-  let assign_weights (w : E.event -> E.event -> Weight.t) (r : E.event_rel) : WR.t
-      =
+  let is_lasso_event lasso ev =
+    match B.kind lasso ev with `Finite -> false | `Infinite -> true
+
+  let assign_weights ~lasso
+    (w : E.event -> E.event -> Weight.t)
+    (r : E.event_rel) : WR.t =
     E.EventRel.fold
-      (fun (src, dst) acc -> WR.add (src, dst, w src dst) acc)
+      (fun (src, dst) acc ->
+        let weight = w src dst in
+        let src = B.assign_kind lasso src in
+        let dst = B.assign_kind lasso dst in
+        WR.add (src, dst, weight) acc)
       r WR.empty
 
   let assign_zero_weight = assign_weights (fun _ _ -> Weight.singleton 0)
   let assign_max_weights = assign_weights (fun _ _ -> W.top)
-
-  let is_lasso_event lasso ev =
-    match B.kind lasso ev with `Finite -> false | `Infinite -> true
 
   (* let find_init_rel name (init_env : E.event_rel lazy_env) = *)
   (*   match List.assoc_opt name init_env with *)
@@ -176,7 +197,7 @@ struct
   (*   | None -> *)
   (*       unsupported (Printf.sprintf "expected relation in initial env: %s" name) *)
 
-  let check_assign_rf_reg lasso rf_reg =
+  let check_assign_rf_reg ~lasso rf_reg =
     let is_lasso_evt = is_lasso_event lasso in
     (* Check that there are no cross-iteration rf-reg edges. *)
     let () =
@@ -187,9 +208,9 @@ struct
       |> fun cross_iter ->
       if cross_iter then unsupported "cross-iteration rf-reg"
     in
-    assign_zero_weight rf_reg
+    assign_zero_weight ~lasso rf_reg
 
-  let check_assign_rf lasso rf =
+  let check_assign_rf ~lasso rf =
     (* Check uniqueness of rf edges and assign weights *)
       E.EventRel.fold
         (fun (ev1, ev2) acc ->
@@ -204,13 +225,16 @@ struct
           if is_not_uniquely_determined then
             unsupported "rf is not uniquely determined"
           else
-            match (is_lasso_event lasso ev1, is_lasso_event lasso ev2) with
-            | false, true -> WR.add (ev1, ev2, W.at_least 1) acc
-            | true, false | true, true -> unsupported "unexpected lasso write"
-            | false, false -> WR.add (ev1, ev2, W.singleton 0) acc)
+            let ev1 = B.assign_kind lasso ev1 in
+            let ev2 = B.assign_kind lasso ev2 in
+            match (ev1.WElt.kind, ev2.WElt.kind) with
+            | `Finite, `Infinite -> WR.add (ev1, ev2, W.at_least 1) acc
+            | `Infinite, `Finite | `Infinite, `Infinite ->
+              unsupported "unexpected lasso write"
+            | `Finite, `Finite -> WR.add (ev1, ev2, W.singleton 0) acc)
         rf WR.empty
 
-  let assign_po lasso po =
+  let assign_po ~lasso po =
     let po =
       E.EventRel.restrict_codomain (fun ev -> not (E.is_cutoff ev)) po
     in
@@ -219,17 +243,19 @@ struct
     let po =
       E.EventRel.fold
         (fun (ev1, ev2) acc ->
-          match (is_lasso_event lasso ev1, is_lasso_event lasso ev2) with
-          | false, true -> WR.add (ev1, ev2, W.at_least 1) acc
-          | true, false -> unsupported "po edge going outside the lasso"
-          | true, true -> WR.add (ev1, ev2, W.singleton 0) acc
-          | false, false -> WR.add (ev1, ev2, W.singleton 0) acc)
+          let ev1 = B.assign_kind lasso ev1 in
+          let ev2 = B.assign_kind lasso ev2 in
+          match (ev1.WElt.kind, ev2.WElt.kind) with
+          | `Finite, `Infinite -> WR.add (ev1, ev2, W.at_least 1) acc
+          | `Infinite, `Finite -> unsupported "po edge going outside the lasso"
+          | `Infinite, `Infinite -> WR.add (ev1, ev2, W.singleton 0) acc
+          | `Finite, `Finite -> WR.add (ev1, ev2, W.singleton 0) acc)
         po WR.empty
     in
     (* Add po edges to the next iteration *)
     let po =
       let branch_before_lasso = lasso.predecessor.branch_event in
-      let lasso_branch = lasso.iteration.branch_event in
+      let lasso_branch = lasso.iteration.branch_event |> B.assign_kind lasso in
       let back_po_targets =
         E.EventRel.fold
           (fun (ev1, ev2) l ->
@@ -237,7 +263,9 @@ struct
           finite_po []
       in
       List.fold_right
-        (fun ev2 -> WR.add (lasso_branch, ev2, W.at_least 1))
+        (fun ev2 ->
+          let ev2 = B.assign_kind lasso ev2 in
+          WR.add (lasso_branch, ev2, W.at_least 1))
         back_po_targets po
     in
     (* Compute transitive closure *)
@@ -245,17 +273,19 @@ struct
     | Some po -> po
     | None -> unsupported "could not compute transitive closure of po"
 
-  let check_assign_si_sm r =
+  let check_assign_si_sm ~lasso r =
     if E.EventRel.for_all (fun (ev1, ev2) -> E.event_equal ev1 ev2) r then
-      assign_zero_weight r
+      assign_zero_weight ~lasso r
     else unsupported "si/sm"
 
   let check_assign_finite_rel lasso r =
     try
       let wr = E.EventRel.fold
         (fun (ev1, ev2) acc ->
-          match (is_lasso_event lasso ev1, is_lasso_event lasso ev2) with
-          | false, false -> WR.add (ev1, ev2, W.singleton 0) acc
+          let ev1 = B.assign_kind lasso ev1 in
+          let ev2 = B.assign_kind lasso ev2 in
+          match (ev1.WElt.kind, ev2.WElt.kind) with
+          | `Finite, `Finite -> WR.add (ev1, ev2, W.singleton 0) acc
           | _, _ -> raise Exit)
         r WR.empty
       in Some wr
@@ -263,13 +293,13 @@ struct
 
   let compute_initial_weights lasso (init_env : E.event_rel lazy_env) :
       WR.t lazy_env =
-    let with_lazy_rel f r = lazy (f (Lazy.force r)) in
+    let with_lazy_rel f r = lazy (f ~lasso (Lazy.force r)) in
     init_env
     |> List.map (fun (name, rel) ->
         match name with
-        | "rf-reg" -> (name, with_lazy_rel (check_assign_rf_reg lasso) rel)
-        | "rf" -> (name, with_lazy_rel (check_assign_rf lasso) rel)
-        | "po" -> (name, with_lazy_rel (assign_po lasso) rel)
+        | "rf-reg" -> (name, with_lazy_rel check_assign_rf_reg rel)
+        | "rf" -> (name, with_lazy_rel check_assign_rf rel)
+        | "po" -> (name, with_lazy_rel assign_po rel)
         | "int" | "ext" | "loc" ->
             (name, with_lazy_rel assign_max_weights rel)
         | "id" | "iico_data" | "iico_ctrl" | "iico_order" | "same-instance" ->
