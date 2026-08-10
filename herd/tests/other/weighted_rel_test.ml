@@ -9,16 +9,34 @@ end
 
 module WR = WeightedRel.Make (UnrestrictedInt)
 
+module WElt = WeightedRel.WeightedElt
+
 module LassoInt = struct
-  include Int
+  type t = int WElt.t
 
   let is_lasso x = Int.equal (x mod 2) 1
-  let kind x = if is_lasso x then `Infinite else `Finite
+  let make x = WElt.make x (if is_lasso x then `Infinite else `Finite)
+  let compare x y = Int.compare (WElt.elt x) (WElt.elt y)
+  let kind = WElt.kind
 end
 
 module LassoWR = WeightedRel.Make (LassoInt)
-module IntSet = MySet.Make (Int)
-module LassoRel = WeightedRel.MakeInnerRel (IntSet) (LassoWR)
+module LassoRel = WeightedRel.MakeInnerRel (Int) (LassoWR)
+module IntSet = LassoRel.Elts
+
+let lasso_ints xs = List.map LassoInt.make xs
+
+let lasso_set xs =
+  lasso_ints xs |> IntSet.of_list
+
+let lasso_rel edges =
+  List.map
+    (fun (src, dst, weight) ->
+      (LassoInt.make src, LassoInt.make dst, weight))
+    edges
+  |> LassoWR.of_list
+
+let is_int expected weighted = Int.equal expected (WElt.elt weighted)
 
 let finite xs =
   List.fold_left (fun acc x -> W.union acc (W.singleton x)) W.empty xs
@@ -60,7 +78,8 @@ let print_binary_rel name op r1 r2 =
   Format.printf "%a %s %a = %a@." pp_rel r1 name pp_rel r2 pp_rel (op r1 r2)
 
 let print_lasso_rel name r =
-  Format.printf "%s = %a@." name (LassoWR.pp pp_int) r
+  let pp_lasso_int fmt weighted = pp_int fmt (WElt.elt weighted) in
+  Format.printf "%s = %a@." name (LassoWR.pp pp_lasso_int) r
 
 let () =
   print_binary_weight "union" W.union (finite [ 1; 3 ]) (finite [ 2; 3 ]);
@@ -134,7 +153,7 @@ let () =
     (rel [ (1, 2, finite [ 1 ]); (2, 1, finite [ 1 ]); (3, 4, finite [ 1 ]) ])
 
 let () =
-  let rel edges = LassoWR.of_list edges in
+  let rel = lasso_rel in
   print_lasso_rel "restricted of_list"
     (rel
        [
@@ -145,7 +164,7 @@ let () =
        ]);
   print_lasso_rel "impossible edge" (rel [ (0, 2, finite [ 1 ]) ]);
   print_lasso_rel "restricted cartesian"
-    (LassoWR.cartesian [ 0; 1 ] [ 2; 3 ] W.top);
+    (LassoWR.cartesian (lasso_ints [ 0; 1 ]) (lasso_ints [ 2; 3 ]) W.top);
   print_lasso_rel "restricted sequence"
     (LassoWR.sequence
        (rel [ (0, 1, W.at_least 1) ])
@@ -158,10 +177,10 @@ let () =
   | None -> Format.printf "restricted transitive_closure = None@."
 
 let () =
-  let positive_self = LassoWR.of_list [ (1, 1, W.singleton 1) ] in
-  let zero_self = LassoWR.of_list [ (0, 0, W.singleton 0) ] in
+  let positive_self = lasso_rel [ (1, 1, W.singleton 1) ] in
+  let zero_self = lasso_rel [ (0, 0, W.singleton 0) ] in
   let zero_cycle =
-    LassoWR.of_list
+    lasso_rel
       [ (0, 1, W.at_least 1); (1, 0, W.at_most (-1)) ]
   in
   Format.printf "adapter positive self acyclic = %b@."
@@ -179,17 +198,17 @@ let () =
 
 let () =
   let rel =
-    LassoWR.of_list [ (0, 1, W.top); (0, 3, W.top); (2, 1, W.top) ]
+    lasso_rel [ (0, 1, W.top); (0, 3, W.top); (2, 1, W.top) ]
   in
   let restricted =
-    LassoRel.restrict_domains (Int.equal 0) (Int.equal 1) rel
-  and restricted_domain = LassoRel.restrict_domain (Int.equal 0) rel
-  and restricted_codomain = LassoRel.restrict_codomain (Int.equal 1) rel
+    LassoRel.restrict_domains (is_int 0) (is_int 1) rel
+  and restricted_domain = LassoRel.restrict_domain (is_int 0) rel
+  and restricted_codomain = LassoRel.restrict_codomain (is_int 1) rel
   and restricted_codomain_to_set =
-    LassoRel.restrict_codomain_to_set (IntSet.singleton 1) rel
+    LassoRel.restrict_codomain_to_set (lasso_set [ 1 ]) rel
   and restricted_to_sets =
     LassoRel.restrict_domains_to_sets
-      (IntSet.singleton 0) (IntSet.singleton 1) rel
+      (lasso_set [ 0 ]) (lasso_set [ 1 ]) rel
   in
   print_lasso_rel "adapter restrict_domain" restricted_domain;
   print_lasso_rel "adapter restrict_codomain" restricted_codomain;
@@ -198,9 +217,9 @@ let () =
   print_lasso_rel "adapter restrict_domains_to_sets" restricted_to_sets
 
 let () =
-  let events = IntSet.of_list [ 0; 2 ]
-  and rel = LassoWR.of_list [ (0, 2, W.singleton 0) ] in
-  let expected = LassoWR.of_list [ (0, 2, W.singleton 0) ] in
+  let events = lasso_set [ 0; 2 ]
+  and rel = lasso_rel [ (0, 2, W.singleton 0) ] in
+  let expected = lasso_rel [ (0, 2, W.singleton 0) ] in
   let zero_orders =
     LassoRel.all_topos_kont_rel events rel
       (fun _ -> false)
@@ -211,8 +230,8 @@ let () =
     try
       ignore
         (LassoRel.all_topos_kont_rel
-           (IntSet.of_list [ 1; 3 ])
-           (LassoWR.of_list [ (1, 3, W.singleton 0) ])
+           (lasso_set [ 1; 3 ])
+           (lasso_rel [ (1, 3, W.singleton 0) ])
            (fun _ -> ())
            (fun _ () -> ())
            ());
@@ -223,7 +242,7 @@ let () =
     try
       ignore
         (LassoRel.all_topos_kont_rel
-           (IntSet.singleton 1) LassoRel.empty
+           (lasso_set [ 1 ]) LassoRel.empty
            (fun _ -> ())
            (fun _ () -> ())
            ());
@@ -235,7 +254,7 @@ let () =
       ignore
         (LassoRel.all_topos_kont_rel
            events
-           (LassoWR.of_list [ (1, 3, W.singleton 0) ])
+           (lasso_rel [ (1, 3, W.singleton 0) ])
            (fun _ -> ())
            (fun _ () -> ())
            ());
@@ -243,7 +262,7 @@ let () =
     with WeightedRel.Unsupported _ -> true
   in
   let zero_compare = LassoRel.compare rel expected in
-  let nonzero_lasso_rel = LassoWR.of_list [ (1, 3, W.top) ] in
+  let nonzero_lasso_rel = lasso_rel [ (1, 3, W.top) ] in
   let nonzero_compare =
     Int.equal (LassoRel.compare nonzero_lasso_rel nonzero_lasso_rel) 0
     && LassoRel.compare rel nonzero_lasso_rel <> 0
@@ -260,7 +279,7 @@ let () =
 
 let () =
   let rel =
-    LassoWR.of_list [ (0, 2, W.singleton 0); (2, 4, W.singleton 0) ]
+    lasso_rel [ (0, 2, W.singleton 0); (2, 4, W.singleton 0) ]
   in
   print_lasso_rel "adapter restrict_domain_transitive_closure"
-    (LassoRel.restrict_domain_transitive_closure (IntSet.singleton 0) rel)
+    (LassoRel.restrict_domain_transitive_closure (lasso_set [ 0 ]) rel)
