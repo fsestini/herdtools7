@@ -212,8 +212,8 @@ module Make
         let is_store e = E.is_store (WElt.elt e)
         let is_pt e = E.is_pt (WElt.elt e)
 
-        module EventSet = MySet.Make(WE)
         module EventRel = WeightedRel.MakeInnerRel (E.OrderedEvent) (WR)
+        module EventSet = EventRel.Elts
         module EventMap = MyMap.Make(WE)
       end
 
@@ -226,8 +226,30 @@ module Make
       type set_pp = event_set StringMap.t
     end
     module WIUtils = struct
-      let partition_events = IUtils.partition_events
-      let loc2events = IUtils.loc2events
+      let partition_events (events : WS.event_set) : WS.event_set list =
+        let by_location =
+          WS.E.EventSet.fold
+            (fun event groups ->
+              match E.location_of (WElt.elt event) with
+              | Some location -> U.LocEnv.accumulate location event groups
+              | None -> groups)
+            events U.LocEnv.empty
+        in
+        U.LocEnv.fold
+          (fun _ events partitions ->
+            WS.E.EventSet.of_list events :: partitions)
+          by_location []
+
+      let loc2events name (events : WS.event_set) : WS.event_set =
+        let name = S.A.V.nameToV name in
+        WS.E.EventSet.filter
+          (fun event ->
+            match E.location_of (WElt.elt event) with
+            | Some (S.A.Location_global location) ->
+                S.A.V.compare location name = 0
+            | None | Some _ -> false)
+          events
+
       let check_through = IUtils.check_through
 
       let pp_failure test conc msg rels =
@@ -235,7 +257,7 @@ module Make
 
       let pp test conc msg rels = IUtils.pp test conc msg (project_rels rels)
 
-      let same_value = IUtils.same_value
+      let same_value x y = WElt.(IUtils.same_value x.elt y.elt)
       let fromto _ _ = raise (WeightedRel.Unsupported "fromto")
       let same_oa _ _ = raise (WeightedRel.Unsupported "same_oa")
       let writable2 _ _ = raise (WeightedRel.Unsupported "writable2")
@@ -248,9 +270,15 @@ module Make
       |> List.map (L.assign_kind lasso)
       |> WS.E.EventSet.of_list
 
+    let project_set_pp : WS.set_pp -> S.set_pp =
+      StringMap.map (fun set ->
+        WS.E.EventSet.elements set
+        |> List.map (WElt.elt)
+        |> E.EventSet.of_list)
+
     let serialize_rels rels =
       let weighted_edges rel =
-        WR.fold (fun edge edges -> edge :: edges) rel [] |> List.rev
+        WR.fold (fun (e1, e2, w) edges -> WElt.(e1.elt, e2.elt, w) :: edges) rel [] |> List.rev
       in
       List.map (fun (name, rel) -> (name, weighted_edges rel)) rels
 
@@ -483,7 +511,7 @@ module Make
               in
               let conc = ks.I.conc in
               kont conc conc.S.fs
-                (st.WI.out_sets,
+                (Lazy.map project_set_pp st.WI.out_sets,
                  lazy (project_rels (Lazy.force st.WI.out_show)))
                 (Some weighted_lasso) st.WI.out_flags res
             else res)
