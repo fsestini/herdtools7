@@ -100,7 +100,11 @@ let view_option =
 let o_option =
   ("-o", Arg.String
      (fun s -> match s with
-     | "-" -> outputdir := PrettyConf.StdoutOutput
+     | "-" ->
+        begin
+          prerr_endline "Output to stdout is not supported. Use `./-` for the literal directory.";
+          exit 2
+        end
      | _ -> outputdir := PrettyConf.Outputdir s),
    " select the <dir> in which output files are saved. If not set, then files are not generated.") 
 let hexa_option =

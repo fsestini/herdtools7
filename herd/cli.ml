@@ -49,13 +49,6 @@ end) = struct
           end
          | None -> None
        end
-    | PrettyConf.StdoutOutput ->
-       let fname = Test_herd.basename test in
-       Printf.fprintf stdout "\nDOTBEGIN %s\n" fname;
-       Printf.fprintf stdout "DOTCOM %s\n"
-         (let module G = Show.Generator(PC) in
-         G.generator) ;
-       Some (stdout, fname)
     | PrettyConf.Outputdir d ->
         let base = Test_herd.basename test in
         let base = base ^ O.suffix in
@@ -72,8 +65,6 @@ end) = struct
        | PrettyConf.NoOutputdir | PrettyConf.Outputdir _ ->
           if O.PC.debug then Printf.eprintf "close %s\n%!" fname ;
           close_out chan
-       | PrettyConf.StdoutOutput ->
-          Printf.fprintf stdout "\nDOTEND %s\n" fname
 
   let my_remove name =
     try Sys.remove name
@@ -83,7 +74,7 @@ end) = struct
   let erase_dot = match O.PC.debug, O.outputdir with
   | false,PrettyConf.NoOutputdir -> (* Erase temp file *)
       (function Some (_,f) -> my_remove f | None -> ())
-  | (_,PrettyConf.Outputdir _)|(_,PrettyConf.StdoutOutput)|(true,PrettyConf.NoOutputdir) -> (function _ -> ())
+  | (_,PrettyConf.Outputdir _)|(true,PrettyConf.NoOutputdir) -> (function _ -> ())
 
   let dump_results ~start_time (module R : RunTest.Outcome) =
     let open R in
@@ -173,8 +164,8 @@ end) = struct
         end
 
   let collect_graph_data = match O.outputdir with
-    | PrettyConf.StdoutOutput | PrettyConf.Outputdir _ -> true
-    | _ -> false
+    | PrettyConf.Outputdir _ -> true
+    | PrettyConf.NoOutputdir -> false
 
   let from_file f env =
     let module T = ParseTest.Top (struct
