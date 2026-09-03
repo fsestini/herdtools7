@@ -32,11 +32,9 @@ end
 
 module Make(O:PrettyConf.S) = struct
 
-  module W = Warn.Make(O)
-
   let my_remove name =
     try Sys.remove name
-    with e -> W.warn "remove failed: %s" (Printexc.to_string e)
+    with Sys_error msg -> Warn.warn_always "remove failed: %s" msg
 
   let extfile name_dot ext = (Filename.remove_extension name_dot) ^ "." ^ ext
 
