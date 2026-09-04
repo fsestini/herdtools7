@@ -15,15 +15,9 @@
 (****************************************************************************)
 
 (** Show dot files as Postscript, controlled by '-view viewer' option *)
-module Generator : functor (O:PrettyConf.S) -> sig
-  val generator : string
-end
 
-module Make : functor (O:PrettyConf.S)  -> sig
 (* Fork a gv window to show that file *)
-val show_file : string -> unit
+val show_file : PrettyConf.dotcom -> string -> unit
 
 (* Idem, but show the graph produced by the argument function *)
-val show : (out_channel -> unit) -> unit
-
-end
+val show : PrettyConf.dotcom -> (out_channel -> unit) -> unit

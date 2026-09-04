@@ -107,7 +107,6 @@ let parse_showevents = function
 
 
 module type S = sig
-  val debug : bool
   val verbose : int
   val dotcom : dotcom option
   val view : View.t option
