@@ -161,7 +161,11 @@ module MakeInnerRel
     unsupported "of_pred"
 
   let domain rel : Elts.t =
-    if is_empty rel then Elts.empty else unsupported "domain"
+    WR.fold (fun (x,_,_) acc ->
+      if WeightedElt.is_finite x then
+        Elts.add x acc
+      else unsupported "domain")
+        rel Elts.empty
 
   let codomain rel : Elts.t =
     if is_empty rel then Elts.empty else unsupported "codomain"
