@@ -74,7 +74,7 @@ let enumerate-ordered-pairs (unordered-pairs,rel) =
     add_both_choices ({no-choice},need-choosing)
 
 let TLBI-Imp_TTD_R-pairs = inv-scope &
-  ((C_TLBI * (Imp & TTD & R)) \
+  ((TLBI * (Imp & TTD & R)) \
    (TLBInXS * PTEXS) \
    ((~TLBIIS) * (Imp & TTD & R)) & ext)
 
