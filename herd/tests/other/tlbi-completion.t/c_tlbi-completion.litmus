@@ -1,0 +1,14 @@
+AArch64 C_TLBI-completion
+variant=vmsa
+{
+ pteval_t 0:X1=(valid:0); 0:X0=PTE(x); 0:X2=x;
+ 1:X0=x;
+}
+ P0              | P1          | P1.F      ;
+ STR X1,[X0]     | L0:         | MOV W2,#1 ;
+ DSB ISHST       | LDR W1,[X0] |           ;
+ LSR X9,X2,#12   | CBZ W1,L0   |           ;
+ TLBI VAAE1IS,X9 |             |           ;
+ DSB ISH         |             |           ;
+
+exists (diverges(P1))
