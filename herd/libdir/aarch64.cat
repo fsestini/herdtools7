@@ -190,8 +190,18 @@ let CMODX-unordered-conflicts =
 
 flag ~empty CMODX-unordered-conflicts as violates-CMODX-requirements
 
-let inf-ca-preds = infinite-predecessors([Exp & R]; ca; [Exp & W])
+(*** Completion of Explicit Memory Write Effects ***)
 
-empty inf-ca-preds as finite-time-completion
+let inf-ca-preds = infinite-predecessors([Exp & R]; ca; [Exp & W])
+empty inf-ca-preds as exp-w-completion
 
 show inf-ca-preds
+
+(*** Completion of TLBI-after ***)
+
+let C_TLBI-after = [Imp & TTD & R]; TLBI-after; [C_TLBI]
+
+let inf-tlbi-after-preds = infinite-predecessors(C_TLBI-after)
+empty inf-tlbi-after-preds as c_tlbi-completion
+
+show inf-tlbi-after-preds
